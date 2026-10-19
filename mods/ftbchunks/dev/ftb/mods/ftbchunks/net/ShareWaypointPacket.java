@@ -1,0 +1,105 @@
+package dev.ftb.mods.ftbchunks.net;
+
+import dev.architectury.networking.NetworkManager.PacketContext;
+import dev.ftb.mods.ftbchunks.api.FTBChunksAPI;
+import dev.ftb.mods.ftblibrary.util.NetworkHelper;
+import dev.ftb.mods.ftbteams.api.FTBTeamsAPI;
+import dev.ftb.mods.ftbteams.api.Team;
+import java.util.Collection;
+import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.GlobalPos;
+import net.minecraft.core.UUIDUtil;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.ChatType;
+import net.minecraft.network.chat.ClickEvent;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.HoverEvent;
+import net.minecraft.network.chat.OutgoingChatMessage;
+import net.minecraft.network.chat.PlayerChatMessage;
+import net.minecraft.network.chat.ChatType.Bound;
+import net.minecraft.network.chat.HoverEvent.Action;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload.Type;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.players.PlayerList;
+
+public record ShareWaypointPacket(String name, GlobalPos position, ShareWaypointPacket.ShareType shareType, List<UUID> targets) implements CustomPacketPayload {
+   public static final Type<ShareWaypointPacket> TYPE = new Type(FTBChunksAPI.rl("share_waypoint_packet"));
+   public static final StreamCodec<FriendlyByteBuf, ShareWaypointPacket> STREAM_CODEC = StreamCodec.composite(
+      ByteBufCodecs.STRING_UTF8,
+      ShareWaypointPacket::name,
+      GlobalPos.STREAM_CODEC,
+      ShareWaypointPacket::position,
+      ShareWaypointPacket.ShareType.STREAM_CODEC,
+      ShareWaypointPacket::shareType,
+      UUIDUtil.STREAM_CODEC.apply(ByteBufCodecs.list()),
+      ShareWaypointPacket::targets,
+      ShareWaypointPacket::new
+   );
+
+   public Type<ShareWaypointPacket> type() {
+      return TYPE;
+   }
+
+   public static void handle(ShareWaypointPacket message, PacketContext context) {
+      context.queue(
+         () -> {
+            ServerPlayer serverPlayer = (ServerPlayer)context.getPlayer();
+            PlayerList playerList = serverPlayer.getServer().getPlayerList();
+
+            Collection<ServerPlayer> playersToSend = switch (message.shareType) {
+               case SERVER -> playerList.getPlayers();
+               case PARTY -> (Collection)FTBTeamsAPI.api()
+                  .getManager()
+                  .getTeamForPlayer(serverPlayer)
+                  .map(Team::getOnlineMembers)
+                  .orElse(List.of(serverPlayer));
+               case PLAYER -> message.targets.stream().<ServerPlayer>map(playerList::getPlayer).filter(Objects::nonNull).toList();
+            };
+            Bound chatBound = ChatType.bind(ChatType.CHAT, serverPlayer).withTargetName(serverPlayer.getDisplayName());
+
+            for (ServerPlayer playerListPlayer : playersToSend) {
+               String cords = message.position.pos().getX() + " " + message.position.pos().getY() + " " + message.position.pos().getZ();
+               String dim = message.position.dimension().location().toString();
+               Component waypointText = Component.translatable(message.name)
+                  .withStyle(
+                     style -> style.withColor(ChatFormatting.AQUA).withHoverEvent(new HoverEvent(Action.SHOW_TEXT, Component.literal(dim + " " + cords)))
+                  );
+               playerListPlayer.sendChatMessage(
+                  OutgoingChatMessage.create(
+                     PlayerChatMessage.system("")
+                        .withUnsignedContent(
+                           Component.translatable("ftbchunks.waypoint.shared", new Object[]{waypointText})
+                              .withStyle(
+                                 style -> style.withClickEvent(
+                                    new ClickEvent(
+                                       net.minecraft.network.chat.ClickEvent.Action.RUN_COMMAND,
+                                       "/ftbchunks waypoint add \"" + message.name + "\" " + cords + " " + dim + " white true"
+                                    )
+                                 )
+                              )
+                        )
+                  ),
+                  false,
+                  chatBound
+               );
+            }
+         }
+      );
+   }
+
+   public enum ShareType {
+      SERVER,
+      PARTY,
+      PLAYER;
+
+      public static final StreamCodec<FriendlyByteBuf, ShareWaypointPacket.ShareType> STREAM_CODEC = NetworkHelper.enumStreamCodec(
+         ShareWaypointPacket.ShareType.class
+      );
+   }
+}

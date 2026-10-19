@@ -1,0 +1,396 @@
+package cn.leolezury.eternalstarlight.common.mixin;
+
+import cn.leolezury.eternalstarlight.common.data.ESDamageTypes;
+import cn.leolezury.eternalstarlight.common.entity.living.monster.Stranghoul;
+import cn.leolezury.eternalstarlight.common.network.ParticlePacket;
+import cn.leolezury.eternalstarlight.common.particle.ExplosionShockParticleOptions;
+import cn.leolezury.eternalstarlight.common.platform.ESPlatform;
+import cn.leolezury.eternalstarlight.common.registry.ESAttributes;
+import cn.leolezury.eternalstarlight.common.registry.ESCriteriaTriggers;
+import cn.leolezury.eternalstarlight.common.registry.ESDataAttachments;
+import cn.leolezury.eternalstarlight.common.registry.ESItems;
+import cn.leolezury.eternalstarlight.common.registry.ESMobEffects;
+import cn.leolezury.eternalstarlight.common.registry.ESParticles;
+import cn.leolezury.eternalstarlight.common.util.ESAccessoryUtil;
+import cn.leolezury.eternalstarlight.common.util.ESEntityUtil;
+import cn.leolezury.eternalstarlight.common.util.ESTags;
+import cn.leolezury.eternalstarlight.common.vfx.ScreenShakeVfx;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import com.llamalad7.mixinextras.sugar.Local;
+import com.llamalad7.mixinextras.sugar.ref.LocalRef;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
+import net.minecraft.advancements.critereon.PlayerTrigger;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.core.BlockPos.MutableBlockPos;
+import net.minecraft.core.particles.ParticleOptions;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.AttributeMap;
+import net.minecraft.world.entity.ai.attributes.AttributeSupplier.Builder;
+import net.minecraft.world.entity.ai.targeting.TargetingConditions;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.AbstractArrow;
+import net.minecraft.world.food.FoodProperties;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.UseAnim;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.At.Shift;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+@Mixin(LivingEntity.class)
+public abstract class LivingEntityMixin {
+   @Shadow
+   @Nullable
+   protected ItemStack autoSpinAttackItemStack;
+   @Shadow
+   private Optional<BlockPos> lastClimbablePos;
+
+   @Shadow
+   public abstract ItemStack getItemInHand(InteractionHand var1);
+
+   @Shadow
+   public abstract boolean isUsingItem();
+
+   @Shadow
+   public abstract ItemStack getUseItem();
+
+   @Shadow
+   public abstract Collection<MobEffectInstance> getActiveEffects();
+
+   @Shadow
+   public abstract boolean hasEffect(Holder<MobEffect> var1);
+
+   @Shadow
+   public abstract boolean removeEffect(Holder<MobEffect> var1);
+
+   @Shadow
+   @NotNull
+   public abstract ItemStack getWeaponItem();
+
+   @Shadow
+   public abstract ItemStack getItemBySlot(EquipmentSlot var1);
+
+   @Shadow
+   public abstract AttributeMap getAttributes();
+
+   @Shadow
+   @Nullable
+   public abstract LivingEntity getKillCredit();
+
+   @Inject(method = "isBlocking()Z", at = @At("RETURN"), cancellable = true)
+   private void isBlocking(CallbackInfoReturnable<Boolean> cir) {
+      if (this.isUsingItem() && this.getUseItem().is(ESTags.Items.GREATSWORDS)) {
+         cir.setReturnValue(true);
+      }
+   }
+
+   @Inject(
+      method = "getKnockback(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/damagesource/DamageSource;)F",
+      at = @At("RETURN"),
+      cancellable = true
+   )
+   private void getKnockback(Entity target, DamageSource damageSource, CallbackInfoReturnable<Float> cir) {
+      if (this.getWeaponItem().is(ESTags.Items.HAMMERS)) {
+         cir.setReturnValue((Float)cir.getReturnValue() + 1.0F);
+      }
+   }
+
+   @Inject(method = "createLivingAttributes()Lnet/minecraft/world/entity/ai/attributes/AttributeSupplier$Builder;", at = @At("RETURN"))
+   private static void createLivingAttributes(CallbackInfoReturnable<Builder> cir) {
+      ((Builder)cir.getReturnValue())
+         .add(ESAttributes.THROWN_POTION_DISTANCE.asHolder())
+         .add(ESAttributes.ETHER_RESISTANCE.asHolder())
+         .add(ESAttributes.FIRE_RESISTANCE.asHolder())
+         .add(ESAttributes.METEOR_COUNTERATTACK_CHANCE.asHolder())
+         .add(ESAttributes.HEAL_MULTIPLIER.asHolder())
+         .add(ESAttributes.ENEMY_FOLLOW_RANGE_MULTIPLIER.asHolder());
+   }
+
+   @Inject(
+      method = "checkAutoSpinAttack(Lnet/minecraft/world/phys/AABB;Lnet/minecraft/world/phys/AABB;)V",
+      at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;setDeltaMovement(Lnet/minecraft/world/phys/Vec3;)V", shift = Shift.AFTER)
+   )
+   private void checkAutoSpinAttack(CallbackInfo ci) {
+      this.doCrescentSpearDamage();
+   }
+
+   @Inject(method = "checkAutoSpinAttack(Lnet/minecraft/world/phys/AABB;Lnet/minecraft/world/phys/AABB;)V", at = @At("HEAD"))
+   private void checkAutoSpinAttackTail(CallbackInfo ci) {
+      LivingEntity entity = (LivingEntity)this;
+      if (entity.horizontalCollision) {
+         this.doCrescentSpearDamage();
+      }
+   }
+
+   @Unique
+   private void doCrescentSpearDamage() {
+      LivingEntity entity = (LivingEntity)this;
+      if (this.autoSpinAttackItemStack != null && this.autoSpinAttackItemStack.is(ESItems.CRESCENT_SPEAR.get())) {
+         if (!entity.level().isClientSide) {
+            for (LivingEntity living : entity.level()
+               .getNearbyEntities(LivingEntity.class, TargetingConditions.DEFAULT, entity, entity.getBoundingBox().inflate(3.0))) {
+               if (ESEntityUtil.shouldHarm(entity, living) && entity instanceof Player player) {
+                  player.attackStrengthTicker = Mth.ceil(player.getCurrentItemAttackStrengthDelay());
+                  player.attack(living);
+                  if (entity.level() instanceof ServerLevel serverLevel) {
+                     Vec3 targetPos = living.position()
+                        .add(
+                           (entity.getRandom().nextDouble() - 0.5) * living.getBbWidth(),
+                           entity.getRandom().nextDouble() * living.getBbHeight(),
+                           (entity.getRandom().nextDouble() - 0.5) * living.getBbWidth()
+                        );
+                     Vec3 speed = targetPos.subtract(entity.position().add(0.0, entity.getBbHeight() / 2.0F, 0.0));
+                     Vec3 pos = targetPos.subtract(speed.normalize().scale(1.0));
+
+                     for (int i = 0; i < 2; i++) {
+                        ESPlatform.INSTANCE
+                           .sendToAllClients(
+                              serverLevel, new ParticlePacket((ParticleOptions)ESParticles.LUNAR_SLASH.get(), pos.x, pos.y, pos.z, speed.x, speed.y, speed.z)
+                           );
+                     }
+                  }
+               }
+            }
+
+            if (entity.level() instanceof ServerLevel serverLevel) {
+               Vec3 centerPos = entity.position().add(0.0, entity.getBbHeight() / 2.0F, 0.0);
+
+               for (int i = 0; i < 10; i++) {
+                  Vec3 speed = new Vec3(
+                        (entity.getRandom().nextFloat() - entity.getRandom().nextFloat()) * 0.1F,
+                        entity.getRandom().nextFloat() * 0.05F,
+                        (entity.getRandom().nextFloat() - entity.getRandom().nextFloat()) * 0.1F
+                     )
+                     .normalize();
+                  ESPlatform.INSTANCE
+                     .sendToAllClients(
+                        serverLevel,
+                        new ParticlePacket(
+                           ExplosionShockParticleOptions.CRESCENT_SPEAR,
+                           centerPos.x + speed.x * 1.5,
+                           centerPos.y + speed.y * 1.5,
+                           centerPos.z + speed.z * 1.5,
+                           speed.x,
+                           speed.y,
+                           speed.z
+                        )
+                     );
+               }
+
+               ScreenShakeVfx.createInstance(entity.level().dimension(), entity.position(), 40.0F, 20, 0.12F, 0.24F, 3.0F, 5.5F).send(serverLevel);
+            }
+
+            entity.invulnerableTime = Math.max(entity.invulnerableTime, 10);
+         }
+
+         ESDataAttachments.CRESCENT_SPEAR_DASH.setData(entity, false);
+      }
+   }
+
+   @Inject(
+      method = "eat(Lnet/minecraft/world/level/Level;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/food/FoodProperties;)Lnet/minecraft/world/item/ItemStack;",
+      at = @At("HEAD")
+   )
+   private void eat(Level level, ItemStack itemStack, FoodProperties foodProperties, CallbackInfoReturnable<ItemStack> cir) {
+      if (itemStack.is(ESItems.LUNARIS_CACTUS_GEL.get())) {
+         List<Holder<MobEffect>> effectsToRemove = new ArrayList<>();
+
+         for (MobEffectInstance effectInstance : this.getActiveEffects()) {
+            if (!((MobEffect)effectInstance.getEffect().value()).isBeneficial()) {
+               effectsToRemove.add(effectInstance.getEffect());
+            }
+         }
+
+         for (Holder<MobEffect> effect : effectsToRemove) {
+            if (this.hasEffect(effect)) {
+               this.removeEffect(effect);
+            }
+         }
+      } else if (itemStack.is(ESItems.PUNGENCY_STEW.get())) {
+         this.removeEffect(MobEffects.HUNGER);
+      }
+   }
+
+   @WrapOperation(
+      method = "eat(Lnet/minecraft/world/level/Level;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/food/FoodProperties;)Lnet/minecraft/world/item/ItemStack;",
+      at = @At(value = "INVOKE", target = "Lnet/minecraft/world/item/ItemStack;consume(ILnet/minecraft/world/entity/LivingEntity;)V")
+   )
+   private void consume(
+      ItemStack instance, int count, LivingEntity livingEntity, Operation<Void> original, @Local(argsOnly = true) LocalRef<ItemStack> foodStack
+   ) {
+      if (instance.is(ESItems.POPPED_NOCTURNAL_MILLET_BUCKET.get())) {
+         if (instance.isDamageableItem() && !livingEntity.hasInfiniteMaterials()) {
+            instance.setDamageValue(instance.getDamageValue() + 1);
+            if (instance.getDamageValue() >= instance.getMaxDamage()) {
+               foodStack.set(Items.BUCKET.getDefaultInstance());
+            }
+         }
+      } else {
+         original.call(new Object[]{instance, count, livingEntity});
+      }
+   }
+
+   @WrapOperation(
+      method = "triggerItemUseEffects(Lnet/minecraft/world/item/ItemStack;I)V",
+      at = @At(value = "INVOKE", target = "Lnet/minecraft/world/item/ItemStack;getUseAnimation()Lnet/minecraft/world/item/UseAnim;")
+   )
+   private UseAnim getUseAnimation(ItemStack instance, Operation<UseAnim> original) {
+      return ESAccessoryUtil.getActiveAccessoriesOnArmors((LivingEntity)this).contains(ESItems.FUNGUS_AMULET.get())
+            && instance.is(ESTags.Items.CONSUMABLE_WHEN_WEARING_FUNGUS_AMULET)
+         ? UseAnim.EAT
+         : (UseAnim)original.call(new Object[]{instance});
+   }
+
+   @WrapOperation(
+      method = "triggerItemUseEffects(Lnet/minecraft/world/item/ItemStack;I)V",
+      at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;playSound(Lnet/minecraft/sounds/SoundEvent;FF)V")
+   )
+   private void playEatingOrDrinkingSound(LivingEntity instance, SoundEvent soundEvent, float volume, float pitch, Operation<Void> original) {
+      if (!((LivingEntity)this).getItemBySlot(EquipmentSlot.HEAD).is(ESItems.UNREALIUM_HELMET.get())) {
+         original.call(new Object[]{instance, soundEvent, volume, pitch});
+      }
+   }
+
+   @WrapOperation(
+      method = "eat(Lnet/minecraft/world/level/Level;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/food/FoodProperties;)Lnet/minecraft/world/item/ItemStack;",
+      at = @At(
+         value = "INVOKE",
+         target = "Lnet/minecraft/world/level/Level;playSound(Lnet/minecraft/world/entity/player/Player;DDDLnet/minecraft/sounds/SoundEvent;Lnet/minecraft/sounds/SoundSource;FF)V"
+      )
+   )
+   private void playEatSound(
+      Level instance,
+      Player player,
+      double x,
+      double y,
+      double z,
+      SoundEvent soundEvent,
+      SoundSource soundSource,
+      float volume,
+      float pitch,
+      Operation<Void> original
+   ) {
+      if (!((LivingEntity)this).getItemBySlot(EquipmentSlot.HEAD).is(ESItems.UNREALIUM_HELMET.get())) {
+         original.call(new Object[]{instance, player, x, y, z, soundEvent, soundSource, volume, pitch});
+      }
+   }
+
+   @WrapOperation(
+      method = "causeFallDamage(FFLnet/minecraft/world/damagesource/DamageSource;)Z",
+      at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;playSound(Lnet/minecraft/sounds/SoundEvent;FF)V")
+   )
+   private void playFallSound(LivingEntity instance, SoundEvent soundEvent, float volume, float pitch, Operation<Void> original) {
+      if (!((LivingEntity)this).getItemBySlot(EquipmentSlot.LEGS).is(ESItems.UNREALIUM_LEGGINGS.get())) {
+         original.call(new Object[]{instance, soundEvent, volume, pitch});
+      }
+   }
+
+   @Inject(method = "playBlockFallSound()V", at = @At("HEAD"), cancellable = true)
+   private void playBlockFallSound(CallbackInfo ci) {
+      if (((LivingEntity)this).getItemBySlot(EquipmentSlot.LEGS).is(ESItems.UNREALIUM_LEGGINGS.get())) {
+         ci.cancel();
+      }
+   }
+
+   @Inject(method = "onClimbable()Z", at = @At("RETURN"), cancellable = true)
+   private void onClimbable(CallbackInfoReturnable<Boolean> cir) {
+      LivingEntity livingEntity = (LivingEntity)this;
+      if (this.hasEffect(ESMobEffects.STICKY.asHolder())) {
+         boolean climbable = false;
+         AABB box = livingEntity.getBoundingBox();
+         BlockPos fromPos = BlockPos.containing(box.minX - 0.001, box.minY + 1.0E-7, box.minZ - 0.001);
+         BlockPos toPos = BlockPos.containing(box.maxX + 0.001, box.maxY - 1.0E-7, box.maxZ + 0.001);
+         MutableBlockPos mutableBlockPos = new MutableBlockPos();
+
+         for (int i = fromPos.getX(); i <= toPos.getX(); i++) {
+            for (int j = fromPos.getY(); j <= toPos.getY(); j++) {
+               for (int k = fromPos.getZ(); k <= toPos.getZ(); k++) {
+                  mutableBlockPos.set(i, j, k);
+                  if (livingEntity.level().getBlockState(mutableBlockPos).isCollisionShapeFullBlock(livingEntity.level(), mutableBlockPos)) {
+                     climbable = true;
+                  }
+               }
+            }
+         }
+
+         if (climbable) {
+            this.lastClimbablePos = Optional.of(livingEntity.blockPosition());
+            cir.setReturnValue(true);
+         }
+      }
+   }
+
+   @Inject(
+      method = "tickEffects()V",
+      at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;updateGlowingStatus()V", shift = Shift.AFTER)
+   )
+   private void tickEffects(CallbackInfo ci) {
+      LivingEntity livingEntity = (LivingEntity)this;
+      if (!this.hasEffect(ESMobEffects.NUMBNESS.asHolder())) {
+         float damage = ESDataAttachments.NUMBNESS_DAMAGE.getData(livingEntity);
+         if (damage != 0.0F) {
+            livingEntity.hurt(ESDamageTypes.getDamageSource(livingEntity.level(), ESDamageTypes.NUMBNESS), damage);
+            ESDataAttachments.NUMBNESS_DAMAGE.setData(livingEntity, 0.0F);
+         }
+      }
+   }
+
+   @WrapOperation(
+      method = "hurt(Lnet/minecraft/world/damagesource/DamageSource;F)Z",
+      at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;knockback(DDD)V")
+   )
+   private void knockback(LivingEntity instance, double strength, double x, double z, Operation<Void> original, @Local(argsOnly = true) DamageSource source) {
+      if (source.getDirectEntity() instanceof AbstractArrow arrow) {
+         ItemStack weaponItem = arrow.getWeaponItem();
+         if (weaponItem != null && weaponItem.is(ESItems.UNREALIUM_CROSSBOW.get())) {
+            original.call(new Object[]{instance, strength * 0.5, x, z});
+            return;
+         }
+      }
+
+      original.call(new Object[]{instance, strength, x, z});
+   }
+
+   @Inject(
+      method = "die(Lnet/minecraft/world/damagesource/DamageSource;)V",
+      at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;gameEvent(Lnet/minecraft/core/Holder;)V", shift = Shift.AFTER)
+   )
+   private void die(CallbackInfo ci) {
+      LivingEntity livingEntity = (LivingEntity)this;
+      if (livingEntity.getType().is(ESTags.EntityTypes.STRANGHOUL_PREYS) && this.getKillCredit() instanceof Stranghoul) {
+         for (Player player : livingEntity.level()
+            .getNearbyPlayers(TargetingConditions.forNonCombat(), livingEntity, livingEntity.getBoundingBox().inflate(20.0))) {
+            if (player instanceof ServerPlayer serverPlayer) {
+               ((PlayerTrigger)ESCriteriaTriggers.WITNESS_STRANGHOUL_HUNT.get()).trigger(serverPlayer);
+            }
+         }
+      }
+   }
+}

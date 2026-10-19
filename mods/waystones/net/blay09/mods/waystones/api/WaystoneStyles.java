@@ -1,0 +1,43 @@
+package net.blay09.mods.waystones.api;
+
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.block.Block;
+import org.jetbrains.annotations.Nullable;
+
+public class WaystoneStyles {
+   private static final Map<ResourceLocation, WaystoneStyle> styles = new HashMap<>();
+   private static final Map<Block, WaystoneStyle> stylesByBlock = new HashMap<>();
+   public static WaystoneStyle DEFAULT = register(new WaystoneStyle(ResourceLocation.fromNamespaceAndPath("waystones", "waystone")));
+   public static WaystoneStyle MOSSY = register(new WaystoneStyle(ResourceLocation.fromNamespaceAndPath("waystones", "mossy_waystone")));
+   public static WaystoneStyle SANDY = register(new WaystoneStyle(ResourceLocation.fromNamespaceAndPath("waystones", "sandy_waystone")));
+   public static WaystoneStyle BLACKSTONE = register(
+      new WaystoneStyle(ResourceLocation.fromNamespaceAndPath("waystones", "blackstone_waystone")).withRuneColor(-6737101)
+   );
+   public static WaystoneStyle DEEPSLATE = register(new WaystoneStyle(ResourceLocation.fromNamespaceAndPath("waystones", "deepslate_waystone")));
+   public static WaystoneStyle END_STONE = register(
+      new WaystoneStyle(ResourceLocation.fromNamespaceAndPath("waystones", "end_stone_waystone")).withRuneColor(-9305857)
+   );
+
+   public static WaystoneStyle register(WaystoneStyle style) {
+      styles.put(style.getBlockRegistryName(), style);
+      return style;
+   }
+
+   @Nullable
+   public static WaystoneStyle getStyle(Block block) {
+      return stylesByBlock.computeIfAbsent(block, key -> getStyle(BuiltInRegistries.BLOCK.getKey(block)));
+   }
+
+   @Nullable
+   public static WaystoneStyle getStyle(ResourceLocation name) {
+      return styles.get(name);
+   }
+
+   public static Collection<ResourceLocation> getRegisteredKeys() {
+      return styles.keySet();
+   }
+}

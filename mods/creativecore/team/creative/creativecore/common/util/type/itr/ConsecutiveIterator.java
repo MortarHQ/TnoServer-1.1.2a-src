@@ -1,0 +1,36 @@
+package team.creative.creativecore.common.util.type.itr;
+
+import java.util.Iterator;
+
+public class ConsecutiveIterator<T> implements IterableIterator<T> {
+   public final Iterator<T>[] itrs;
+   protected int index;
+
+   @SafeVarargs
+   public ConsecutiveIterator(Iterator<T>... itrs) {
+      this.itrs = itrs;
+   }
+
+   @SafeVarargs
+   public ConsecutiveIterator(Iterable<T>... itrs) {
+      this.itrs = new Iterator[itrs.length];
+
+      for (int i = 0; i < itrs.length; i++) {
+         this.itrs[i] = itrs[i].iterator();
+      }
+   }
+
+   @Override
+   public boolean hasNext() {
+      while (this.index < this.itrs.length && !this.itrs[this.index].hasNext()) {
+         this.index++;
+      }
+
+      return this.index < this.itrs.length;
+   }
+
+   @Override
+   public T next() {
+      return this.itrs[this.index].next();
+   }
+}

@@ -1,0 +1,21 @@
+{
+	"parent": "minecraft:item/generated",
+	"textures": {
+	  "layer0": "minecraft:item/ominous_trial_key"
+	},
+	"overrides": [
+	  {
+		"predicate": {
+		  "custom_model_data": 6768
+		},
+		"model": "minecraft:item/keys/dragon_key"
+	  },
+	   {
+		"predicate": {
+		  "custom_model_data": 6162
+		},
+		"model": "minecraft:item/keys/ravager_key"
+	  }
+	]
+  }
+  

@@ -1,0 +1,43 @@
+package dev.latvian.mods.kubejs.script;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.function.Predicate;
+
+public interface ScriptTypePredicate extends Predicate<ScriptType> {
+   ScriptTypePredicate ALL = type -> true;
+   ScriptTypePredicate COMMON = type -> type != ScriptType.STARTUP;
+   ScriptTypePredicate STARTUP_OR_CLIENT = type -> type != ScriptType.SERVER;
+   ScriptTypePredicate STARTUP_OR_SERVER = type -> type != ScriptType.CLIENT;
+
+   boolean test(ScriptType type);
+
+   default List<ScriptType> getValidTypes() {
+      if (this == ALL) {
+         return Arrays.asList(ScriptType.VALUES);
+      }
+
+      if (this == COMMON) {
+         return List.of(ScriptType.SERVER, ScriptType.CLIENT);
+      }
+
+      if (this == STARTUP_OR_CLIENT) {
+         return List.of(ScriptType.STARTUP, ScriptType.CLIENT);
+      }
+
+      if (this == STARTUP_OR_SERVER) {
+         return List.of(ScriptType.STARTUP, ScriptType.SERVER);
+      }
+
+      ArrayList<ScriptType> list = new ArrayList<>(2);
+
+      for (ScriptType type : ScriptType.VALUES) {
+         if (this.test(type)) {
+            list.add(type);
+         }
+      }
+
+      return list;
+   }
+}

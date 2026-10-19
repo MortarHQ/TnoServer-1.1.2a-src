@@ -1,0 +1,33 @@
+package twilightforest.block;
+
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.LevelReader;
+import net.minecraft.world.level.block.MushroomBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.BlockBehaviour.Properties;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.VoxelShape;
+import twilightforest.init.TFBlocks;
+import twilightforest.init.TFConfiguredFeatures;
+
+public class MushgloomBlock extends MushroomBlock {
+   private static final VoxelShape MUSHGLOOM_SHAPE = box(2.0, 0.0, 2.0, 14.0, 8.0, 14.0);
+
+   public MushgloomBlock(Properties properties) {
+      super(TFConfiguredFeatures.BIG_MUSHGLOOM, properties);
+   }
+
+   public boolean canSurvive(BlockState state, LevelReader reader, BlockPos pos) {
+      return reader.getBlockState(pos.below()).isFaceSturdy(reader, pos, Direction.UP) || reader.getBlockState(pos.below()).is(TFBlocks.UBEROUS_SOIL);
+   }
+
+   public VoxelShape getShape(BlockState state, BlockGetter getter, BlockPos pos, CollisionContext context) {
+      return MUSHGLOOM_SHAPE;
+   }
+
+   public boolean isValidBonemealTarget(LevelReader getter, BlockPos pos, BlockState state) {
+      return false;
+   }
+}

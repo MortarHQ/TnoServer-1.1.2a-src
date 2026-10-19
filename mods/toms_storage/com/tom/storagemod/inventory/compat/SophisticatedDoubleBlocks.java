@@ -1,0 +1,22 @@
+package com.tom.storagemod.inventory.compat;
+
+import com.tom.storagemod.api.MultiblockInventoryAPI;
+import java.util.function.Consumer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
+import net.p3pp3rf1y.sophisticatedstorage.block.StoragePositionGroups;
+
+public class SophisticatedDoubleBlocks {
+   public static void register() {
+      MultiblockInventoryAPI.EVENT.register(SophisticatedDoubleBlocks::checkGroup);
+   }
+
+   public static void checkGroup(Level level, BlockPos p, BlockState state, Consumer<BlockPos> extra) {
+      for (BlockPos pos : StoragePositionGroups.getGroup(level, p).memberPositions()) {
+         if (!pos.equals(p)) {
+            extra.accept(pos);
+         }
+      }
+   }
+}

@@ -1,0 +1,453 @@
+package com.faboslav.friendsandfoes.common.entity;
+
+import com.faboslav.friendsandfoes.common.FriendsAndFoes;
+import com.faboslav.friendsandfoes.common.entity.ai.brain.WildfireBrain;
+import com.faboslav.friendsandfoes.common.entity.animation.AnimatedEntity;
+import com.faboslav.friendsandfoes.common.entity.animation.WildfireAnimations;
+import com.faboslav.friendsandfoes.common.entity.animation.animator.context.AnimationContextTracker;
+import com.faboslav.friendsandfoes.common.entity.animation.animator.loader.json.AnimationHolder;
+import com.faboslav.friendsandfoes.common.entity.pose.FriendsAndFoesEntityPose;
+import com.faboslav.friendsandfoes.common.init.FriendsAndFoesEntityDataSerializers;
+import com.faboslav.friendsandfoes.common.init.FriendsAndFoesSoundEvents;
+import com.faboslav.friendsandfoes.common.tag.FriendsAndFoesTags;
+import com.faboslav.friendsandfoes.common.versions.VersionedEntity;
+import com.faboslav.friendsandfoes.common.versions.VersionedNbt;
+import com.faboslav.friendsandfoes.common.versions.VersionedProfilerProvider;
+import com.mojang.serialization.Dynamic;
+import java.util.ArrayList;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.BlockParticleOption;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.tags.BlockTags;
+import net.minecraft.util.profiling.ProfilerFiller;
+import net.minecraft.world.DifficultyInstance;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.MobSpawnType;
+import net.minecraft.world.entity.SpawnGroupData;
+import net.minecraft.world.entity.ai.Brain;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.attributes.AttributeSupplier.Builder;
+import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.ServerLevelAccessor;
+import net.minecraft.world.level.block.RenderShape;
+import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.gameevent.GameEvent;
+import net.minecraft.world.level.pathfinder.PathType;
+import net.minecraft.world.phys.Vec3;
+import org.jetbrains.annotations.Nullable;
+
+public final class WildfireEntity extends Monster implements AnimatedEntity {
+   private AnimationContextTracker animationContextTracker;
+   private float damageAmountCounter = 0.0F;
+   public static final float GENERIC_ATTACK_DAMAGE = 8.0F;
+   public static final float GENERIC_FOLLOW_RANGE = 32.0F;
+   public static final int DEFAULT_ACTIVE_SHIELDS_COUNT = 4;
+   public static final int DEFAULT_TICKS_UNTIL_SHIELD_REGENERATION = 300;
+   public static final int DEFAULT_SUMMONED_BLAZES_COUNT = 0;
+   public static final int MAXIMUM_SUMMONED_BLAZES_COUNT = 2;
+   private static final String ACTIVE_SHIELDS_NBT_NAME = "ActiveShieldsCount";
+   private static final String TICKS_UNTIL_SHIELD_REGENERATION_NBT_NAME = "TicksUntilShieldRegeneration";
+   private static final String SUMMONED_BLAZES_COUNT_NBT_NAME = "SummonedBlazesCount";
+   private static final EntityDataAccessor<Integer> ACTIVE_SHIELDS_COUNT = SynchedEntityData.defineId(WildfireEntity.class, EntityDataSerializers.INT);
+   private static final EntityDataAccessor<Integer> TICKS_UNTIL_SHIELD_REGENERATION = SynchedEntityData.defineId(
+      WildfireEntity.class, EntityDataSerializers.INT
+   );
+   private static final EntityDataAccessor<Integer> SUMMONED_BLAZES_COUNT = SynchedEntityData.defineId(WildfireEntity.class, EntityDataSerializers.INT);
+   private static final EntityDataAccessor<Integer> POSE_TICKS = SynchedEntityData.defineId(WildfireEntity.class, EntityDataSerializers.INT);
+   private static final EntityDataAccessor<FriendsAndFoesEntityPose> ENTITY_POSE = SynchedEntityData.defineId(
+      WildfireEntity.class, FriendsAndFoesEntityDataSerializers.ENTITY_POSE
+   );
+
+   public WildfireEntity(EntityType<? extends WildfireEntity> entityType, Level world) {
+      super(entityType, world);
+      this.setPathfindingMalus(PathType.WATER, -1.0F);
+      this.setPathfindingMalus(PathType.LAVA, 8.0F);
+      this.setPathfindingMalus(PathType.DANGER_FIRE, 0.0F);
+      this.setPathfindingMalus(PathType.DAMAGE_FIRE, 0.0F);
+      this.xpReward = 10;
+   }
+
+   @Nullable
+   public SpawnGroupData finalizeSpawn(ServerLevelAccessor world, DifficultyInstance difficulty, MobSpawnType spawnReason, @Nullable SpawnGroupData entityData) {
+      this.setEntityPose(FriendsAndFoesEntityPose.IDLE);
+      this.setActiveShieldsCount(4);
+      this.setSummonedBlazesCount(0);
+      return super.finalizeSpawn(world, difficulty, spawnReason, entityData);
+   }
+
+   @Override
+   public AnimationContextTracker getAnimationContextTracker() {
+      if (this.animationContextTracker == null) {
+         this.animationContextTracker = new AnimationContextTracker();
+
+         for (AnimationHolder animation : this.getTrackedAnimations()) {
+            this.animationContextTracker.add(animation);
+         }
+
+         this.animationContextTracker.add(WildfireAnimations.SHIELD_ROTATION);
+      }
+
+      return this.animationContextTracker;
+   }
+
+   @Override
+   public ArrayList<AnimationHolder> getTrackedAnimations() {
+      return WildfireAnimations.TRACKED_ANIMATIONS;
+   }
+
+   @Override
+   public AnimationHolder getMovementAnimation() {
+      return WildfireAnimations.WALK;
+   }
+
+   @Override
+   public int getCurrentAnimationTick() {
+      return (Integer)this.entityData.get(POSE_TICKS);
+   }
+
+   @Override
+   public void setCurrentAnimationTick(int keyframeAnimationTicks) {
+      this.entityData.set(POSE_TICKS, keyframeAnimationTicks);
+   }
+
+   protected Brain<?> makeBrain(Dynamic<?> dynamic) {
+      return WildfireBrain.create(dynamic);
+   }
+
+   public Brain<WildfireEntity> getBrain() {
+      return super.getBrain();
+   }
+
+   protected void customServerAiStep() {
+      ServerLevel level = (ServerLevel)this.level();
+      ProfilerFiller profiler = VersionedProfilerProvider.getProfiler(this);
+      profiler.push("wildfireBrain");
+      this.getBrain().tick(level, this);
+      profiler.pop();
+      profiler.push("wildfireActivityUpdate");
+      WildfireBrain.updateActivities(this);
+      profiler.pop();
+      super.customServerAiStep();
+   }
+
+   public static Builder createWildfireAttributes() {
+      return Monster.createMonsterAttributes()
+         .add(Attributes.MAX_HEALTH, 120.0)
+         .add(Attributes.ATTACK_DAMAGE, 8.0)
+         .add(Attributes.ATTACK_KNOCKBACK, 32.0)
+         .add(Attributes.MOVEMENT_SPEED, 0.23F)
+         .add(Attributes.FOLLOW_RANGE, 32.0)
+         .add(Attributes.KNOCKBACK_RESISTANCE, 1.0);
+   }
+
+   protected void defineSynchedData(net.minecraft.network.syncher.SynchedEntityData.Builder builder) {
+      super.defineSynchedData(builder);
+      builder.define(ACTIVE_SHIELDS_COUNT, 4);
+      builder.define(TICKS_UNTIL_SHIELD_REGENERATION, 300);
+      builder.define(SUMMONED_BLAZES_COUNT, 0);
+      builder.define(POSE_TICKS, 0);
+      builder.define(ENTITY_POSE, FriendsAndFoesEntityPose.IDLE);
+   }
+
+   public void addAdditionalSaveData(CompoundTag nbt) {
+      super.addAdditionalSaveData(nbt);
+      nbt.putInt("ActiveShieldsCount", this.getActiveShieldsCount());
+      nbt.putInt("TicksUntilShieldRegeneration", this.getTicksUntilShieldRegeneration());
+      nbt.putInt("SummonedBlazesCount", this.getSummonedBlazesCount());
+   }
+
+   public void readAdditionalSaveData(CompoundTag nbt) {
+      super.readAdditionalSaveData(nbt);
+      this.setActiveShieldsCount(VersionedNbt.getInt(nbt, "ActiveShieldsCount", 4));
+      this.setTicksUntilShieldRegeneration(VersionedNbt.getInt(nbt, "TicksUntilShieldRegeneration", 300));
+      this.setSummonedBlazesCount(VersionedNbt.getInt(nbt, "SummonedBlazesCount", 0));
+   }
+
+   protected void playStepSound(BlockPos pos, BlockState state) {
+      if (!state.liquid()) {
+         BlockState blockState = this.level().getBlockState(pos.above());
+         SoundType blockSoundGroup = blockState.is(BlockTags.INSIDE_STEP_SOUND_BLOCKS) ? blockState.getSoundType() : state.getSoundType();
+         this.playSound((SoundEvent)FriendsAndFoesSoundEvents.ENTITY_WILDFIRE_STEP.get(), blockSoundGroup.getVolume() * 0.15F, blockSoundGroup.getPitch());
+      }
+   }
+
+   public SoundEvent getShootSound() {
+      return (SoundEvent)FriendsAndFoesSoundEvents.ENTITY_WILDFIRE_SHOOT.get();
+   }
+
+   public void playShootSound() {
+      this.playSound(this.getShootSound(), this.getSoundVolume(), this.getVoicePitch());
+   }
+
+   public SoundEvent getShockwaveSound() {
+      return (SoundEvent)FriendsAndFoesSoundEvents.ENTITY_WILDFIRE_SHOCKWAVE.get();
+   }
+
+   public void playShockwaveSound() {
+      this.playSound(this.getShockwaveSound(), this.getSoundVolume(), this.getVoicePitch());
+   }
+
+   public void breakShield() {
+      this.setActiveShieldsCount(this.getActiveShieldsCount() - 1);
+   }
+
+   public void regenerateShield() {
+      if (this.getActiveShieldsCount() < 4) {
+         this.setActiveShieldsCount(this.getActiveShieldsCount() + 1);
+      }
+   }
+
+   public int getActiveShieldsCount() {
+      return (Integer)this.entityData.get(ACTIVE_SHIELDS_COUNT);
+   }
+
+   public void setActiveShieldsCount(int activeShields) {
+      this.entityData.set(ACTIVE_SHIELDS_COUNT, activeShields);
+   }
+
+   public boolean hasActiveShields() {
+      return this.getActiveShieldsCount() > 0;
+   }
+
+   public int getTicksUntilShieldRegeneration() {
+      return (Integer)this.entityData.get(TICKS_UNTIL_SHIELD_REGENERATION);
+   }
+
+   public void setTicksUntilShieldRegeneration(int ticksUntilShieldRegeneration) {
+      this.entityData.set(TICKS_UNTIL_SHIELD_REGENERATION, ticksUntilShieldRegeneration);
+   }
+
+   public void resetTicksUntilShieldRegeneration() {
+      this.setTicksUntilShieldRegeneration(300);
+   }
+
+   public int getSummonedBlazesCount() {
+      return (Integer)this.entityData.get(SUMMONED_BLAZES_COUNT);
+   }
+
+   public void setSummonedBlazesCount(int summonedBlazesCount) {
+      this.entityData.set(SUMMONED_BLAZES_COUNT, summonedBlazesCount);
+   }
+
+   public boolean areBlazesSummoned() {
+      return this.getSummonedBlazesCount() > 0;
+   }
+
+   public SoundEvent getShieldBreakSound() {
+      return (SoundEvent)FriendsAndFoesSoundEvents.ENTITY_WILDFIRE_SHIELD_BREAK.get();
+   }
+
+   public void playShieldBreakSound() {
+      this.playSound(this.getShieldBreakSound(), this.getSoundVolume(), this.getVoicePitch());
+   }
+
+   protected SoundEvent getAmbientSound() {
+      return (SoundEvent)FriendsAndFoesSoundEvents.ENTITY_WILDFIRE_AMBIENT.get();
+   }
+
+   protected SoundEvent getHurtSound(DamageSource source) {
+      return (SoundEvent)FriendsAndFoesSoundEvents.ENTITY_WILDFIRE_HURT.get();
+   }
+
+   protected SoundEvent getDeathSound() {
+      return (SoundEvent)FriendsAndFoesSoundEvents.ENTITY_WILDFIRE_DEATH.get();
+   }
+
+   public SoundEvent getSummonBlazeSound() {
+      return (SoundEvent)FriendsAndFoesSoundEvents.ENTITY_WILDFIRE_SUMMON_BLAZE.get();
+   }
+
+   public void playSummonBlazeSound() {
+      this.playSound(this.getSummonBlazeSound(), this.getSoundVolume(), this.getVoicePitch());
+   }
+
+   public void tick() {
+      if (!FriendsAndFoes.getConfig().enableWildfire) {
+         this.discard();
+      }
+
+      if (this.walkAnimation.isMoving()) {
+         this.emitGroundParticles(20);
+      } else {
+         this.emitGroundParticles(1 + this.getRandom().nextInt(1));
+      }
+
+      super.tick();
+      this.updateKeyframeAnimations();
+      this.setTicksUntilShieldRegeneration(this.getTicksUntilShieldRegeneration() - 1);
+      if (this.getTicksUntilShieldRegeneration() == 0) {
+         this.regenerateShield();
+         this.resetTicksUntilShieldRegeneration();
+      }
+   }
+
+   protected void updateWalkAnimation(float partialTick) {
+      float f;
+      if (this.getAnimationContextTracker().get(WildfireAnimations.SHOCKWAVE).isRunning()) {
+         f = 0.0F;
+      } else {
+         f = Math.min(partialTick * 4.0F, 1.0F);
+      }
+
+      this.walkAnimation.update(f, 0.4F);
+   }
+
+   private void updateKeyframeAnimations() {
+      if (!this.level().isClientSide()) {
+         this.updateCurrentAnimationTick();
+      }
+
+      AnimationHolder animationToStart = this.getAnimationByPose();
+      if (animationToStart != null) {
+         this.tryToStartAnimation(animationToStart);
+      }
+   }
+
+   @Nullable
+   @Override
+   public AnimationHolder getAnimationByPose() {
+      AnimationHolder animation = null;
+      if (this.isInEntityPose(FriendsAndFoesEntityPose.IDLE) && !this.walkAnimation.isMoving()) {
+         animation = WildfireAnimations.IDLE;
+      } else if (this.isInEntityPose(FriendsAndFoesEntityPose.SHOCKWAVE)) {
+         animation = WildfireAnimations.SHOCKWAVE;
+      }
+
+      return animation;
+   }
+
+   private void tryToStartAnimation(AnimationHolder animationToStart) {
+      if (!this.isKeyframeAnimationRunning(animationToStart)) {
+         if (!this.level().isClientSide()) {
+            this.setCurrentAnimationTick(animationToStart.get().lengthInTicks());
+         }
+
+         this.startKeyframeAnimation(animationToStart);
+      }
+   }
+
+   private void startKeyframeAnimation(AnimationHolder animationToStart) {
+      for (AnimationHolder animation : this.getTrackedAnimations()) {
+         if (animation != animationToStart) {
+            this.stopKeyframeAnimation(animation);
+         }
+      }
+
+      this.startKeyframeAnimation(animationToStart, this.tickCount);
+   }
+
+   public void startShockwaveAnimation() {
+      if (!this.isInEntityPose(FriendsAndFoesEntityPose.SHOCKWAVE)) {
+         this.gameEvent(GameEvent.ENTITY_ACTION);
+         this.playShockwaveSound();
+         this.setEntityPose(FriendsAndFoesEntityPose.SHOCKWAVE);
+      }
+   }
+
+   public void setEntityPose(FriendsAndFoesEntityPose pose) {
+      if (!this.level().isClientSide()) {
+         this.entityData.set(ENTITY_POSE, pose);
+      }
+   }
+
+   public FriendsAndFoesEntityPose getEntityPose() {
+      return (FriendsAndFoesEntityPose)this.entityData.get(ENTITY_POSE);
+   }
+
+   public boolean isInEntityPose(FriendsAndFoesEntityPose pose) {
+      return this.getEntityPose() == pose;
+   }
+
+   public void aiStep() {
+      if (!this.onGround() && this.getDeltaMovement().y < 0.0) {
+         this.setDeltaMovement(this.getDeltaMovement().multiply(1.0, 0.6F, 1.0));
+      }
+
+      if (this.level().isClientSide()) {
+         if (this.getRandom().nextInt(24) == 0 && !this.isSilent()) {
+         }
+
+         for (int i = 0; i < 2; i++) {
+            this.level().addParticle(ParticleTypes.LARGE_SMOKE, this.getRandomX(0.5), this.getRandomY(), this.getRandomZ(0.5), 0.0, 0.0, 0.0);
+         }
+      }
+
+      super.aiStep();
+   }
+
+   public void emitGroundParticles(int i) {
+      if (!this.isPassenger()) {
+         Vec3 vec3 = this.getBoundingBox().getCenter();
+         Vec3 vec32 = new Vec3(vec3.x, this.position().y, vec3.z);
+         BlockState blockState = !this.getInBlockState().isAir() ? this.getInBlockState() : this.getBlockStateOn();
+         if (blockState.getRenderShape() != RenderShape.INVISIBLE) {
+            for (int j = 0; j < i; j++) {
+               this.level().addParticle(new BlockParticleOption(ParticleTypes.BLOCK, blockState), vec32.x, vec32.y, vec32.z, 0.0, 0.0, 0.0);
+            }
+         }
+      }
+   }
+
+   public boolean hurt(DamageSource damageSource, float amount) {
+      Level level = this.level();
+      if (damageSource != this.damageSources().generic() && damageSource != this.damageSources().genericKill()) {
+         Entity attacker = damageSource.getEntity();
+         if (damageSource != this.damageSources().inFire() && (attacker == null || !attacker.getType().is(FriendsAndFoesTags.WILDFIRE_ALLIES))) {
+            if (this.hasActiveShields()) {
+               this.damageAmountCounter += amount;
+               float shieldBreakDamageThreshold = (float)this.getAttributeValue(Attributes.MAX_HEALTH) * 0.25F;
+               if (this.damageAmountCounter >= shieldBreakDamageThreshold) {
+                  if (attacker instanceof LivingEntity) {
+                     VersionedEntity.hurt(attacker, this.damageSources().mobAttack(this), 8.0F);
+                  }
+
+                  this.breakShield();
+                  this.playShieldBreakSound();
+                  this.damageAmountCounter = 0.0F;
+               }
+
+               amount = 0.0F;
+            }
+
+            this.resetTicksUntilShieldRegeneration();
+            boolean damageResult = super.hurt(damageSource, amount);
+            if (damageResult && attacker instanceof LivingEntity) {
+               WildfireBrain.onAttacked(this, (LivingEntity)attacker);
+            }
+
+            return damageResult;
+         } else {
+            return false;
+         }
+      } else {
+         return super.hurt(damageSource, amount);
+      }
+   }
+
+   public float getLightLevelDependentMagicValue() {
+      return 1.0F;
+   }
+
+   public boolean isSensitiveToWater() {
+      return true;
+   }
+
+   public boolean isOnFire() {
+      return false;
+   }
+
+   public boolean causeFallDamage(float fallDistance, float damageMultiplier, DamageSource damageSource) {
+      return false;
+   }
+}

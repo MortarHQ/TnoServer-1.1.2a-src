@@ -1,0 +1,76 @@
+package net.regions_unexplored.world.level.block.plant.sapling;
+
+import com.mojang.serialization.MapCodec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelReader;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.BonemealableBlock;
+import net.minecraft.world.level.block.BushBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.BlockBehaviour.Properties;
+import net.minecraft.world.level.block.state.StateDefinition.Builder;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
+import net.minecraft.world.level.block.state.properties.Property;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.VoxelShape;
+import net.regions_unexplored.block.sapling.RuUltraFromMegaTreeGrower;
+
+public class BaobabSaplingBlock extends BushBlock implements BonemealableBlock {
+   public static final MapCodec<BaobabSaplingBlock> CODEC = RecordCodecBuilder.mapCodec(
+      i -> i.group(RuUltraFromMegaTreeGrower.CODEC.fieldOf("tree").forGetter(b -> b.treeGrower), propertiesCodec()).apply(i, BaobabSaplingBlock::new)
+   );
+   public static final IntegerProperty STAGE = BlockStateProperties.STAGE;
+   protected static final float AABB_OFFSET = 6.0F;
+   protected static final VoxelShape SHAPE = Block.box(2.0, 0.0, 2.0, 14.0, 12.0, 14.0);
+   protected final RuUltraFromMegaTreeGrower treeGrower;
+
+   public MapCodec<? extends BaobabSaplingBlock> codec() {
+      return CODEC;
+   }
+
+   public BaobabSaplingBlock(RuUltraFromMegaTreeGrower treeGrower, Properties properties) {
+      super(properties);
+      this.treeGrower = treeGrower;
+      this.registerDefaultState((BlockState)((BlockState)this.stateDefinition.any()).setValue(STAGE, 0));
+   }
+
+   public VoxelShape getShape(BlockState state, BlockGetter getter, BlockPos pos, CollisionContext context) {
+      return SHAPE;
+   }
+
+   public void randomTick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
+      if (level.getMaxLocalRawBrightness(pos.above()) >= 9 && random.nextInt(7) == 0) {
+         this.advanceTree(level, pos, state, random);
+      }
+   }
+
+   public void advanceTree(ServerLevel level, BlockPos pos, BlockState state, RandomSource random) {
+      if ((Integer)state.getValue(STAGE) == 0) {
+         level.setBlock(pos, (BlockState)state.cycle(STAGE), 4);
+      } else {
+         this.treeGrower.growTree(level, level.getChunkSource().getGenerator(), pos, state, random);
+      }
+   }
+
+   public boolean isValidBonemealTarget(LevelReader level, BlockPos pos, BlockState state) {
+      return true;
+   }
+
+   public boolean isBonemealSuccess(Level level, RandomSource random, BlockPos pos, BlockState state) {
+      return level.random.nextFloat() < 0.45;
+   }
+
+   public void performBonemeal(ServerLevel level, RandomSource random, BlockPos pos, BlockState state) {
+      this.advanceTree(level, pos, state, random);
+   }
+
+   protected void createBlockStateDefinition(Builder<Block, BlockState> state) {
+      state.add(new Property[]{STAGE});
+   }
+}

@@ -1,0 +1,226 @@
+package mcjty.incontrol.tools.rules;
+
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import java.util.List;
+import java.util.function.BiFunction;
+import java.util.function.BiPredicate;
+import java.util.function.Predicate;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import mcjty.incontrol.ErrorHandler;
+import mcjty.incontrol.tools.varia.LookAtTools;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.LevelAccessor;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.Property;
+import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
+
+public class TestingBlockTools {
+   private static boolean testBlockStateSafe(LevelAccessor world, BlockPos pos, Block block) {
+      LevelChunk chunk = world.getChunkSource().getChunkNow(pos.getX() >> 4, pos.getZ() >> 4);
+      if (chunk != null) {
+         BlockState state = world.getBlockState(pos);
+         return state.getBlock() == block;
+      } else {
+         return false;
+      }
+   }
+
+   private static boolean testBlockStateSafe(LevelAccessor world, BlockPos pos, BlockState block) {
+      LevelChunk chunk = world.getChunkSource().getChunkNow(pos.getX() >> 4, pos.getZ() >> 4);
+      if (chunk != null) {
+         BlockState state = world.getBlockState(pos);
+         return state == block;
+      } else {
+         return false;
+      }
+   }
+
+   @Nullable
+   public static TestingBlockTools.BlockMatcherWithSettings parseBlockWithSettings(String json) {
+      JsonParser parser = new JsonParser();
+      JsonElement element = parser.parse(json);
+      BiPredicate<LevelAccessor, BlockPos> matcher = parseBlockJson(element);
+      if (matcher == null) {
+         return null;
+      }
+
+      int distbelow = 1;
+      int distabove = 0;
+      boolean onlyAir = false;
+      if (element.isJsonObject()) {
+         JsonObject obj = element.getAsJsonObject();
+         if (obj.has("distbelow")) {
+            distbelow = obj.get("distbelow").getAsInt();
+         }
+
+         if (obj.has("distabove")) {
+            distabove = obj.get("distabove").getAsInt();
+         }
+
+         if (obj.has("onlyair")) {
+            onlyAir = obj.get("onlyair").getAsBoolean();
+         }
+      }
+
+      return new TestingBlockTools.BlockMatcherWithSettings(matcher, distbelow, distabove, onlyAir);
+   }
+
+   @Nullable
+   public static BiPredicate<LevelAccessor, BlockPos> parseBlock(String json) {
+      JsonParser parser = new JsonParser();
+      JsonElement element = parser.parse(json);
+      return parseBlockJson(element);
+   }
+
+   @Nullable
+   public static BiPredicate<LevelAccessor, BlockPos> parseBlockJson(JsonElement element) {
+      if (element.isJsonPrimitive()) {
+         String blockname = element.getAsString();
+         if (blockname.startsWith("tag:")) {
+            ResourceLocation tagname = ResourceLocation.parse(blockname.substring(4));
+            TagKey<Block> key = TagKey.create(Registries.BLOCK, tagname);
+            return (world, pos) -> {
+               BlockState state = world.getBlockState(pos);
+               return state.is(key);
+            };
+         } else if (!BuiltInRegistries.BLOCK.containsKey(ResourceLocation.parse(blockname))) {
+            ErrorHandler.error("Block '" + blockname + "' is not valid!");
+            return null;
+         } else {
+            Block block = (Block)BuiltInRegistries.BLOCK.get(ResourceLocation.parse(blockname));
+            return (world, pos) -> testBlockStateSafe(world, pos, block);
+         }
+      } else {
+         if (!element.isJsonObject()) {
+            ErrorHandler.error("Block description is not valid!");
+            return null;
+         }
+
+         JsonObject obj = element.getAsJsonObject();
+         BiPredicate<LevelAccessor, BlockPos> test;
+         if (obj.has("tag")) {
+            ResourceLocation tagname = ResourceLocation.parse(obj.get("tag").getAsString());
+            TagKey<Block> key = TagKey.create(Registries.BLOCK, tagname);
+            test = (world, pos) -> {
+               BlockState state = world.getBlockState(pos);
+               return state.is(key);
+            };
+         } else if (obj.has("block")) {
+            String blockname = obj.get("block").getAsString();
+            if (!BuiltInRegistries.BLOCK.containsKey(ResourceLocation.parse(blockname))) {
+               ErrorHandler.error("Block '" + blockname + "' is not valid!");
+               return null;
+            }
+
+            Block block = (Block)BuiltInRegistries.BLOCK.get(ResourceLocation.parse(blockname));
+            if (obj.has("properties")) {
+               BlockState blockState = block.defaultBlockState();
+
+               for (JsonElement el : obj.get("properties").getAsJsonArray()) {
+                  JsonObject propObj = el.getAsJsonObject();
+                  String name = propObj.get("name").getAsString();
+                  String value = propObj.get("value").getAsString();
+
+                  for (Property<?> key : blockState.getProperties()) {
+                     if (name.equals(key.getName())) {
+                        blockState = TestingTools.set(blockState, key, value);
+                     }
+                  }
+               }
+
+               BlockState finalBlockState = blockState;
+               test = (world, pos) -> testBlockStateSafe(world, pos, finalBlockState);
+            } else {
+               test = (world, pos) -> testBlockStateSafe(world, pos, block);
+            }
+         } else {
+            test = (world, pos) -> true;
+         }
+
+         if (obj.has("mod")) {
+            String mod = obj.get("mod").getAsString();
+            BiPredicate<LevelAccessor, BlockPos> finalTest = test;
+            test = (world, pos) -> {
+               LevelChunk chunk = world.getChunkSource().getChunkNow(pos.getX() >> 4, pos.getZ() >> 4);
+               return chunk == null
+                  ? false
+                  : finalTest.test(world, pos) && mod.equals(BuiltInRegistries.BLOCK.getKey(world.getBlockState(pos).getBlock()).getNamespace());
+            };
+         }
+
+         if (obj.has("energy")) {
+            Predicate<Integer> energy = TestingTools.getExpression(obj.get("energy"));
+            if (energy != null) {
+               Direction side;
+               if (obj.has("side")) {
+                  side = Direction.byName(obj.get("side").getAsString().toLowerCase());
+               } else {
+                  side = null;
+               }
+
+               BiPredicate<LevelAccessor, BlockPos> finalTest = test;
+               test = (world, pos) -> finalTest.test(world, pos) && energy.test(TestingTools.getEnergy(world, pos, side));
+            }
+         }
+
+         if (obj.has("contains")) {
+            Direction side;
+            if (obj.has("side")) {
+               side = Direction.byName(obj.get("energyside").getAsString().toLowerCase());
+            } else {
+               side = null;
+            }
+
+            List<Predicate<ItemStack>> items = TestingTools.getItemsJson(obj.get("contains"));
+            BiPredicate<LevelAccessor, BlockPos> finalTest = test;
+            test = (world, pos) -> finalTest.test(world, pos) && TestingTools.contains(world, pos, side, items);
+         }
+
+         return test;
+      }
+   }
+
+   @Nonnull
+   public static BiFunction<Object, IEventQuery, BlockPos> parseOffset(String json) {
+      JsonParser parser = new JsonParser();
+      JsonElement element = parser.parse(json);
+      JsonObject obj = element.getAsJsonObject();
+      int offsetX;
+      int offsetY;
+      int offsetZ;
+      if (obj.has("offset")) {
+         JsonObject offset = obj.getAsJsonObject("offset");
+         offsetX = offset.has("x") ? offset.get("x").getAsInt() : 0;
+         offsetY = offset.has("y") ? offset.get("y").getAsInt() : 0;
+         offsetZ = offset.has("z") ? offset.get("z").getAsInt() : 0;
+      } else {
+         offsetX = obj.has("x") ? obj.get("x").getAsInt() : 0;
+         offsetY = obj.has("y") ? obj.get("y").getAsInt() : 0;
+         offsetZ = obj.has("z") ? obj.get("z").getAsInt() : 0;
+      }
+
+      return obj.has("look")
+         ? (event, query) -> {
+            HitResult result = LookAtTools.getMovingObjectPositionFromPlayer(query.getWorld(event), query.getPlayer(event), false);
+            return result instanceof BlockHitResult
+               ? ((BlockHitResult)result).getBlockPos().offset(offsetX, offsetY, offsetZ)
+               : query.getValidBlockPos(event).offset(offsetX, offsetY, offsetZ);
+         }
+         : (event, query) -> query.getValidBlockPos(event).offset(offsetX, offsetY, offsetZ);
+   }
+
+   public record BlockMatcherWithSettings(BiPredicate<LevelAccessor, BlockPos> matcher, int distBelow, int distAbove, boolean onlyAir) {
+   }
+}

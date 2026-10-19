@@ -1,0 +1,17 @@
+package com.blackgear.vanillabackport.core.neoforge;
+
+import com.blackgear.vanillabackport.common.worldgen.ModSurfaceRuleData;
+import com.blackgear.vanillabackport.common.worldgen.biomes.terrablender.OverworldRegion;
+import com.blackgear.vanillabackport.core.VanillaBackport;
+import terrablender.api.RegionType;
+import terrablender.api.Regions;
+import terrablender.api.SurfaceRuleManager;
+import terrablender.api.SurfaceRuleManager.RuleCategory;
+import terrablender.api.SurfaceRuleManager.RuleStage;
+
+public class VanillaBackportTerrablender {
+   public static void onTerraBlenderInitialized() {
+      Regions.register(new OverworldRegion(VanillaBackport.resource("overworld"), RegionType.OVERWORLD, 5));
+      SurfaceRuleManager.addToDefaultSurfaceRulesAtStage(RuleCategory.OVERWORLD, RuleStage.BEFORE_BEDROCK, 5, ModSurfaceRuleData.makeRules());
+   }
+}

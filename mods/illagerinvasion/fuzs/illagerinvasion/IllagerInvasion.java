@@ -1,0 +1,272 @@
+package fuzs.illagerinvasion;
+
+import fuzs.extensibleenums.api.v2.BuiltInEnumFactories;
+import fuzs.illagerinvasion.config.RaidWavesConfigHelper;
+import fuzs.illagerinvasion.config.ServerConfig;
+import fuzs.illagerinvasion.handler.PlatinumTrimHandler;
+import fuzs.illagerinvasion.handler.VillagerGoalHandler;
+import fuzs.illagerinvasion.init.ModEntityTypes;
+import fuzs.illagerinvasion.init.ModItems;
+import fuzs.illagerinvasion.init.ModRegistry;
+import fuzs.puzzleslib.api.config.v3.ConfigHolder;
+import fuzs.puzzleslib.api.core.v1.ModConstructor;
+import fuzs.puzzleslib.api.core.v1.context.CreativeModeTabContext;
+import fuzs.puzzleslib.api.core.v1.context.EntityAttributesCreateContext;
+import fuzs.puzzleslib.api.core.v1.context.SpawnPlacementsContext;
+import fuzs.puzzleslib.api.core.v1.utility.ResourceLocationHelper;
+import fuzs.puzzleslib.api.event.v1.entity.ServerEntityLevelEvents;
+import fuzs.puzzleslib.api.event.v1.entity.living.LivingExperienceDropCallback;
+import fuzs.puzzleslib.api.event.v1.entity.player.BreakSpeedCallback;
+import fuzs.puzzleslib.api.event.v1.level.BlockEvents;
+import fuzs.puzzleslib.api.event.v1.server.LootTableLoadEvents;
+import fuzs.puzzleslib.api.event.v1.server.RegisterPotionBrewingMixesCallback;
+import fuzs.puzzleslib.api.event.v1.server.LootTableLoadEvents.Modify;
+import fuzs.puzzleslib.api.event.v1.server.RegisterPotionBrewingMixesCallback.Builder;
+import fuzs.puzzleslib.api.item.v2.CreativeModeTabConfigurator;
+import java.util.function.Consumer;
+import net.minecraft.core.Holder.Reference;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.SpawnPlacementTypes;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.entity.monster.PatrollingMonster;
+import net.minecraft.world.entity.raid.Raider;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.alchemy.Potions;
+import net.minecraft.world.level.ItemLike;
+import net.minecraft.world.level.levelgen.Heightmap.Types;
+import net.minecraft.world.level.storage.loot.LootPool;
+import net.minecraft.world.level.storage.loot.LootTable;
+import net.minecraft.world.level.storage.loot.entries.NestedLootTable;
+import net.minecraft.world.level.storage.loot.providers.number.ConstantValue;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class IllagerInvasion implements ModConstructor {
+   public static final String MOD_ID = "illagerinvasion";
+   public static final String MOD_NAME = "Illager Invasion";
+   public static final Logger LOGGER = LoggerFactory.getLogger("Illager Invasion");
+   public static final ConfigHolder CONFIG = ConfigHolder.builder("illagerinvasion").server(ServerConfig.class);
+
+   public void onConstructMod() {
+      ModRegistry.touch();
+      registerEventHandlers();
+   }
+
+   private static void registerEventHandlers() {
+      BreakSpeedCallback.EVENT.register(PlatinumTrimHandler::onBreakSpeed);
+      LivingExperienceDropCallback.EVENT.register(PlatinumTrimHandler::onLivingExperienceDrop);
+      BlockEvents.FARMLAND_TRAMPLE.register(PlatinumTrimHandler::onFarmlandTrample);
+      ServerEntityLevelEvents.LOAD.register(VillagerGoalHandler::onEntityLoad);
+      LootTableLoadEvents.MODIFY.register((Modify)(resourceLocation, addLootPool, removeLootPool) -> {
+         injectLootPool(resourceLocation, addLootPool, EntityType.ILLUSIONER.getDefaultLootTable(), ModRegistry.ILLUSIONER_INJECT_LOOT_TABLE);
+         injectLootPool(resourceLocation, addLootPool, EntityType.PILLAGER.getDefaultLootTable(), ModRegistry.PILLAGER_INJECT_LOOT_TABLE);
+         injectLootPool(resourceLocation, addLootPool, EntityType.RAVAGER.getDefaultLootTable(), ModRegistry.RAVAGER_INJECT_LOOT_TABLE);
+      });
+      RegisterPotionBrewingMixesCallback.EVENT.register(IllagerInvasion::registerPotionRecipes);
+   }
+
+   private static void injectLootPool(
+      ResourceLocation resourceLocation, Consumer<LootPool> addPool, ResourceKey<LootTable> builtInLootTable, ResourceKey<LootTable> injectedLootTable
+   ) {
+      if (resourceLocation.equals(builtInLootTable.location())) {
+         addPool.accept(LootPool.lootPool().setRolls(ConstantValue.exactly(1.0F)).add(NestedLootTable.lootTableReference(injectedLootTable)).build());
+      }
+   }
+
+   public void onCommonSetup() {
+      registerRaiderTypes();
+      VillagerGoalHandler.init();
+   }
+
+   private static void registerRaiderTypes() {
+      registerRaiderType(ModEntityTypes.BASHER_ENTITY_TYPE, RaidWavesConfigHelper.BASHER_RAID_WAVES);
+      registerRaiderType(ModEntityTypes.PROVOKER_ENTITY_TYPE, RaidWavesConfigHelper.PROVOKER_RAID_WAVES);
+      registerRaiderType(ModEntityTypes.NECROMANCER_ENTITY_TYPE, RaidWavesConfigHelper.NECROMANCER_RAID_WAVES);
+      registerRaiderType(ModEntityTypes.SORCERER_ENTITY_TYPE, RaidWavesConfigHelper.SORCERER_RAID_WAVES);
+      BuiltInEnumFactories.INSTANCE.createRaiderType(id("illusioner"), EntityType.ILLUSIONER, RaidWavesConfigHelper.ILLUSIONER_RAID_WAVES);
+      registerRaiderType(ModEntityTypes.ARCHIVIST_ENTITY_TYPE, RaidWavesConfigHelper.ARCHIVIST_RAID_WAVES);
+      registerRaiderType(ModEntityTypes.MARAUDER_ENTITY_TYPE, RaidWavesConfigHelper.MARAUDER_RAID_WAVES);
+      registerRaiderType(ModEntityTypes.INQUISITOR_ENTITY_TYPE, RaidWavesConfigHelper.INQUISITOR_RAID_WAVES);
+      registerRaiderType(ModEntityTypes.ALCHEMIST_ENTITY_TYPE, RaidWavesConfigHelper.ALCHEMIST_RAID_WAVES);
+      registerRaiderType(ModEntityTypes.INVOKER_ENTITY_TYPE, RaidWavesConfigHelper.INVOKER_RAID_WAVES);
+   }
+
+   private static void registerRaiderType(Reference<? extends EntityType<? extends Raider>> holder, int[] spawnsPerWaveBeforeBonus) {
+      BuiltInEnumFactories.INSTANCE.createRaiderType(holder.key().location(), (EntityType)holder.value(), spawnsPerWaveBeforeBonus);
+   }
+
+   private static void registerPotionRecipes(Builder builder) {
+      builder.registerPotionRecipe(Potions.AWKWARD, Items.GOAT_HORN, ModRegistry.BERSERKING_POTION);
+      builder.registerPotionRecipe(ModRegistry.BERSERKING_POTION, Items.REDSTONE, ModRegistry.LONG_BERSERKING_POTION);
+      builder.registerPotionRecipe(ModRegistry.BERSERKING_POTION, Items.GLOWSTONE_DUST, ModRegistry.STRONG_BERSERKING_POTION);
+   }
+
+   public void onEntityAttributeCreation(EntityAttributesCreateContext context) {
+      context.registerEntityAttributes(
+         (EntityType)ModEntityTypes.ALCHEMIST_ENTITY_TYPE.value(),
+         Monster.createMonsterAttributes().add(Attributes.MAX_HEALTH, 24.0).add(Attributes.MOVEMENT_SPEED, 0.38)
+      );
+      context.registerEntityAttributes(
+         (EntityType)ModEntityTypes.ARCHIVIST_ENTITY_TYPE.value(),
+         Monster.createMonsterAttributes().add(Attributes.MAX_HEALTH, 24.0).add(Attributes.MOVEMENT_SPEED, 0.36)
+      );
+      context.registerEntityAttributes(
+         (EntityType)ModEntityTypes.BASHER_ENTITY_TYPE.value(),
+         Monster.createMonsterAttributes()
+            .add(Attributes.MAX_HEALTH, 32.0)
+            .add(Attributes.MOVEMENT_SPEED, 0.31)
+            .add(Attributes.ATTACK_DAMAGE, 3.0)
+            .add(Attributes.ATTACK_KNOCKBACK, 0.2)
+      );
+      context.registerEntityAttributes(
+         (EntityType)ModEntityTypes.FIRECALLER_ENTITY_TYPE.value(),
+         Monster.createMonsterAttributes().add(Attributes.MAX_HEALTH, 32.0).add(Attributes.MOVEMENT_SPEED, 0.38)
+      );
+      context.registerEntityAttributes(
+         (EntityType)ModEntityTypes.INQUISITOR_ENTITY_TYPE.value(),
+         Monster.createMonsterAttributes()
+            .add(Attributes.MAX_HEALTH, 80.0)
+            .add(Attributes.MOVEMENT_SPEED, 0.33)
+            .add(Attributes.ATTACK_DAMAGE, 10.0)
+            .add(Attributes.ATTACK_KNOCKBACK, 1.6)
+            .add(Attributes.KNOCKBACK_RESISTANCE, 0.8)
+      );
+      context.registerEntityAttributes(
+         (EntityType)ModEntityTypes.INVOKER_ENTITY_TYPE.value(),
+         Monster.createMonsterAttributes()
+            .add(Attributes.MAX_HEALTH, 250.0)
+            .add(Attributes.MOVEMENT_SPEED, 0.36)
+            .add(Attributes.KNOCKBACK_RESISTANCE, 0.3)
+            .add(Attributes.ATTACK_DAMAGE, 8.0)
+      );
+      context.registerEntityAttributes(
+         (EntityType)ModEntityTypes.MARAUDER_ENTITY_TYPE.value(),
+         Monster.createMonsterAttributes().add(Attributes.MAX_HEALTH, 24.0).add(Attributes.MOVEMENT_SPEED, 0.3)
+      );
+      context.registerEntityAttributes(
+         (EntityType)ModEntityTypes.PROVOKER_ENTITY_TYPE.value(),
+         Monster.createMonsterAttributes().add(Attributes.MAX_HEALTH, 24.0).add(Attributes.MOVEMENT_SPEED, 0.38)
+      );
+      context.registerEntityAttributes(
+         (EntityType)ModEntityTypes.SORCERER_ENTITY_TYPE.value(),
+         Monster.createMonsterAttributes().add(Attributes.MAX_HEALTH, 32.0).add(Attributes.MOVEMENT_SPEED, 0.38)
+      );
+      context.registerEntityAttributes(
+         (EntityType)ModEntityTypes.SURRENDERED_ENTITY_TYPE.value(),
+         Monster.createMonsterAttributes().add(Attributes.MAX_HEALTH, 14.0).add(Attributes.ATTACK_DAMAGE, 5.0)
+      );
+      context.registerEntityAttributes(
+         (EntityType)ModEntityTypes.NECROMANCER_ENTITY_TYPE.value(),
+         Monster.createMonsterAttributes().add(Attributes.MAX_HEALTH, 32.0).add(Attributes.MOVEMENT_SPEED, 0.38)
+      );
+   }
+
+   public void onRegisterSpawnPlacements(SpawnPlacementsContext context) {
+      context.registerSpawnPlacement(
+         (EntityType)ModEntityTypes.ALCHEMIST_ENTITY_TYPE.value(),
+         SpawnPlacementTypes.ON_GROUND,
+         Types.MOTION_BLOCKING_NO_LEAVES,
+         PatrollingMonster::checkPatrollingMonsterSpawnRules
+      );
+      context.registerSpawnPlacement(
+         (EntityType)ModEntityTypes.ARCHIVIST_ENTITY_TYPE.value(),
+         SpawnPlacementTypes.ON_GROUND,
+         Types.MOTION_BLOCKING_NO_LEAVES,
+         PatrollingMonster::checkPatrollingMonsterSpawnRules
+      );
+      context.registerSpawnPlacement(
+         (EntityType)ModEntityTypes.BASHER_ENTITY_TYPE.value(),
+         SpawnPlacementTypes.ON_GROUND,
+         Types.MOTION_BLOCKING_NO_LEAVES,
+         PatrollingMonster::checkPatrollingMonsterSpawnRules
+      );
+      context.registerSpawnPlacement(
+         (EntityType)ModEntityTypes.FIRECALLER_ENTITY_TYPE.value(),
+         SpawnPlacementTypes.ON_GROUND,
+         Types.MOTION_BLOCKING_NO_LEAVES,
+         PatrollingMonster::checkPatrollingMonsterSpawnRules
+      );
+      context.registerSpawnPlacement(
+         (EntityType)ModEntityTypes.INQUISITOR_ENTITY_TYPE.value(),
+         SpawnPlacementTypes.ON_GROUND,
+         Types.MOTION_BLOCKING_NO_LEAVES,
+         PatrollingMonster::checkPatrollingMonsterSpawnRules
+      );
+      context.registerSpawnPlacement(
+         (EntityType)ModEntityTypes.INVOKER_ENTITY_TYPE.value(),
+         SpawnPlacementTypes.NO_RESTRICTIONS,
+         Types.MOTION_BLOCKING_NO_LEAVES,
+         Monster::checkMonsterSpawnRules
+      );
+      context.registerSpawnPlacement(
+         (EntityType)ModEntityTypes.MARAUDER_ENTITY_TYPE.value(),
+         SpawnPlacementTypes.ON_GROUND,
+         Types.MOTION_BLOCKING_NO_LEAVES,
+         PatrollingMonster::checkPatrollingMonsterSpawnRules
+      );
+      context.registerSpawnPlacement(
+         (EntityType)ModEntityTypes.PROVOKER_ENTITY_TYPE.value(),
+         SpawnPlacementTypes.ON_GROUND,
+         Types.MOTION_BLOCKING_NO_LEAVES,
+         PatrollingMonster::checkPatrollingMonsterSpawnRules
+      );
+      context.registerSpawnPlacement(
+         (EntityType)ModEntityTypes.SORCERER_ENTITY_TYPE.value(),
+         SpawnPlacementTypes.ON_GROUND,
+         Types.MOTION_BLOCKING_NO_LEAVES,
+         PatrollingMonster::checkPatrollingMonsterSpawnRules
+      );
+      context.registerSpawnPlacement(
+         (EntityType)ModEntityTypes.SURRENDERED_ENTITY_TYPE.value(),
+         SpawnPlacementTypes.NO_RESTRICTIONS,
+         Types.MOTION_BLOCKING_NO_LEAVES,
+         Monster::checkMonsterSpawnRules
+      );
+      context.registerSpawnPlacement(
+         (EntityType)ModEntityTypes.NECROMANCER_ENTITY_TYPE.value(),
+         SpawnPlacementTypes.ON_GROUND,
+         Types.MOTION_BLOCKING_NO_LEAVES,
+         PatrollingMonster::checkPatrollingMonsterSpawnRules
+      );
+   }
+
+   public void onRegisterCreativeModeTabs(CreativeModeTabContext context) {
+      context.registerCreativeModeTab(
+         CreativeModeTabConfigurator.from("illagerinvasion")
+            .icon(() -> new ItemStack((ItemLike)ModItems.HORN_OF_SIGHT_ITEM.value()))
+            .displayItems((itemDisplayParameters, output) -> {
+               output.accept((ItemLike)ModItems.IMBUING_TABLE_ITEM.value());
+               output.accept((ItemLike)ModItems.UNUSUAL_DUST_ITEM.value());
+               output.accept((ItemLike)ModItems.ILLUSIONARY_DUST_ITEM.value());
+               output.accept((ItemLike)ModItems.HALLOWED_GEM_ITEM.value());
+               output.accept((ItemLike)ModItems.PRIMAL_ESSENCE_ITEM.value());
+               output.accept((ItemLike)ModItems.PLATINUM_CHUNK_ITEM.value());
+               output.accept((ItemLike)ModItems.PLATINUM_SHEET_ITEM.value());
+               output.accept((ItemLike)ModItems.PLATINUM_INFUSED_HATCHET_ITEM.value());
+               output.accept((ItemLike)ModItems.HORN_OF_SIGHT_ITEM.value());
+               output.accept((ItemLike)ModItems.LOST_CANDLE_ITEM.value());
+               output.accept((ItemLike)ModItems.MAGICAL_FIRE_CHARGE_ITEM.value());
+               output.accept((ItemLike)ModItems.PROVOKER_SPAWN_EGG_ITEM.value());
+               output.accept((ItemLike)ModItems.BASHER_SPAWN_EGG_ITEM.value());
+               output.accept((ItemLike)ModItems.SORCERER_SPAWN_EGG_ITEM.value());
+               output.accept((ItemLike)ModItems.ARCHIVIST_SPAWN_EGG_ITEM.value());
+               output.accept((ItemLike)ModItems.INQUISITOR_SPAWN_EGG_ITEM.value());
+               output.accept((ItemLike)ModItems.MARAUDER_SPAWN_EGG_ITEM.value());
+               output.accept((ItemLike)ModItems.INVOKER_SPAWN_EGG_ITEM.value());
+               output.accept((ItemLike)ModItems.ALCHEMIST_SPAWN_EGG_ITEM.value());
+               output.accept((ItemLike)ModItems.FIRECALLER_SPAWN_EGG_ITEM.value());
+               output.accept((ItemLike)ModItems.NECROMANCER_SPAWN_EGG_ITEM.value());
+               output.accept((ItemLike)ModItems.SURRENDERED_SPAWN_EGG_ITEM.value());
+               output.accept((ItemLike)ModItems.ILLUSIONER_SPAWN_EGG_ITEM.value());
+            })
+      );
+   }
+
+   public static ResourceLocation id(String path) {
+      return ResourceLocationHelper.fromNamespaceAndPath("illagerinvasion", path);
+   }
+}

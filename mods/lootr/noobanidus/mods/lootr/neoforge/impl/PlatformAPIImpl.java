@@ -1,0 +1,118 @@
+package noobanidus.mods.lootr.neoforge.impl;
+
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.LockCode;
+import net.minecraft.world.entity.vehicle.AbstractMinecartContainer;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.block.entity.BaseContainerBlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.neoforged.neoforge.network.PacketDistributor;
+import noobanidus.mods.lootr.common.api.DataToCopy;
+import noobanidus.mods.lootr.common.api.IPlatformAPI;
+import noobanidus.mods.lootr.common.api.data.blockentity.ILootrBlockEntity;
+import noobanidus.mods.lootr.common.api.data.entity.ILootrEntity;
+import noobanidus.mods.lootr.common.impl.DefaultPlatformAPIImpl;
+import noobanidus.mods.lootr.common.mixin.accessor.AccessorMixinBaseContainerBlockEntity;
+import noobanidus.mods.lootr.neoforge.network.toClient.PacketCloseCart;
+import noobanidus.mods.lootr.neoforge.network.toClient.PacketCloseContainer;
+import noobanidus.mods.lootr.neoforge.network.toClient.PacketOpenCart;
+import noobanidus.mods.lootr.neoforge.network.toClient.PacketOpenContainer;
+import noobanidus.mods.lootr.neoforge.network.toClient.PacketPerformBreakEffect;
+import noobanidus.mods.lootr.neoforge.network.toClient.PacketRefreshSection;
+
+public class PlatformAPIImpl extends DefaultPlatformAPIImpl implements IPlatformAPI {
+   @Override
+   public void performEntityOpen(ILootrEntity entity, ServerPlayer player) {
+      PacketDistributor.sendToPlayer(player, new PacketOpenCart(entity.asEntity().getId()), new CustomPacketPayload[0]);
+   }
+
+   @Override
+   public void performEntityOpen(ILootrEntity entity) {
+      PacketDistributor.sendToPlayersTrackingEntity(entity.asEntity(), new PacketOpenCart(entity.asEntity().getId()), new CustomPacketPayload[0]);
+   }
+
+   @Override
+   public void performEntityClose(ILootrEntity entity, ServerPlayer player) {
+      PacketDistributor.sendToPlayer(player, new PacketCloseCart(entity.asEntity().getId()), new CustomPacketPayload[0]);
+   }
+
+   @Override
+   public void performEntityClose(ILootrEntity entity) {
+      PacketDistributor.sendToPlayersTrackingEntity(entity.asEntity(), new PacketCloseCart(entity.asEntity().getId()), new CustomPacketPayload[0]);
+   }
+
+   @Override
+   public void performBlockOpen(ILootrBlockEntity blockEntity, ServerPlayer player) {
+      PacketDistributor.sendToPlayer(player, new PacketOpenContainer(blockEntity.asBlockEntity().getBlockPos()), new CustomPacketPayload[0]);
+   }
+
+   @Override
+   public void performBlockOpen(ILootrBlockEntity blockEntity) {
+      PacketDistributor.sendToPlayersTrackingChunk(
+         (ServerLevel)blockEntity.getInfoLevel(),
+         new ChunkPos(blockEntity.asBlockEntity().getBlockPos()),
+         new PacketOpenContainer(blockEntity.asBlockEntity().getBlockPos()),
+         new CustomPacketPayload[0]
+      );
+   }
+
+   @Override
+   public void performBlockClose(ILootrBlockEntity blockEntity, ServerPlayer player) {
+      PacketDistributor.sendToPlayer(player, new PacketCloseContainer(blockEntity.asBlockEntity().getBlockPos()), new CustomPacketPayload[0]);
+   }
+
+   @Override
+   public void performBlockClose(ILootrBlockEntity blockEntity) {
+      PacketDistributor.sendToPlayersTrackingChunk(
+         (ServerLevel)blockEntity.getInfoLevel(),
+         new ChunkPos(blockEntity.asBlockEntity().getBlockPos()),
+         new PacketCloseContainer(blockEntity.asBlockEntity().getBlockPos()),
+         new CustomPacketPayload[0]
+      );
+   }
+
+   @Override
+   public DataToCopy copySpecificData(BlockEntity oldBlockEntity) {
+      LockCode code = LockCode.NO_LOCK;
+      if (oldBlockEntity instanceof BaseContainerBlockEntity baseContainer) {
+         code = ((AccessorMixinBaseContainerBlockEntity)baseContainer).getLockKey();
+      }
+
+      return new DataToCopy(oldBlockEntity.getPersistentData(), code);
+   }
+
+   @Override
+   public void restoreSpecificData(DataToCopy data, BlockEntity newBlockEntity) {
+      if (data != DataToCopy.EMPTY) {
+         newBlockEntity.getPersistentData().merge(data.data());
+      }
+
+      if (newBlockEntity instanceof BaseContainerBlockEntity baseContainer) {
+         ((AccessorMixinBaseContainerBlockEntity)baseContainer).setLockKey(data.lockCode());
+      }
+   }
+
+   @Deprecated
+   @Override
+   public void copyEntityData(AbstractMinecartContainer entity1, AbstractMinecartContainer entity2) {
+      super.copyEntityData(entity1, entity2);
+      entity2.getPersistentData().merge(entity1.getPersistentData());
+   }
+
+   @Override
+   public void refreshPlayerSection(ServerPlayer player) {
+      PacketDistributor.sendToPlayer(player, PacketRefreshSection.INSTANCE, new CustomPacketPayload[0]);
+   }
+
+   @Override
+   public void performPotBreak(ILootrBlockEntity blockEntity, ServerPlayer player) {
+      PacketDistributor.sendToPlayersTrackingChunk(
+         (ServerLevel)blockEntity.getInfoLevel(),
+         new ChunkPos(blockEntity.asBlockEntity().getBlockPos()),
+         new PacketPerformBreakEffect(player.getId(), blockEntity.asBlockEntity().getBlockPos()),
+         new CustomPacketPayload[0]
+      );
+   }
+}

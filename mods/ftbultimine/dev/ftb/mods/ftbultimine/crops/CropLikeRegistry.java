@@ -1,0 +1,61 @@
+package dev.ftb.mods.ftbultimine.crops;
+
+import dev.ftb.mods.ftbultimine.FTBUltimine;
+import dev.ftb.mods.ftbultimine.api.crop.CropLikeHandler;
+import dev.ftb.mods.ftbultimine.api.crop.RegisterCropLikeEvent;
+import dev.ftb.mods.ftbultimine.api.util.ItemCollector;
+import dev.ftb.mods.ftbultimine.config.FTBUltimineServerConfig;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
+
+public enum CropLikeRegistry implements RegisterCropLikeEvent.Dispatcher {
+   INSTANCE;
+
+   private final Set<CropLikeHandler> handlers = ConcurrentHashMap.newKeySet();
+
+   public static CropLikeRegistry getInstance() {
+      return INSTANCE;
+   }
+
+   @Override
+   public void registerHandler(CropLikeHandler handler) {
+      this.handlers.add(handler);
+   }
+
+   public Optional<CropLikeHandler> getHandlerFor(Level level, BlockPos pos, BlockState state) {
+      return this.handlers.stream().filter(h -> h.isApplicable(level, pos, state)).findFirst();
+   }
+
+   public boolean areStatesEquivalent(BlockState original, BlockState state) {
+      return this.handlers.stream().anyMatch(h -> h.isEquivalent(original, state));
+   }
+
+   public void clear() {
+      this.handlers.clear();
+   }
+
+   public static boolean checkForSingleCropHarvesting(Player player, BlockPos clickPos) {
+      if ((Boolean)FTBUltimineServerConfig.SINGLE_CROP_HARVESTING.get()) {
+         BlockState state = player.level().getBlockState(clickPos);
+         if (state.is(FTBUltimine.SINGLE_CROP_HARVESTING_BLACKLIST)) {
+            return false;
+         }
+
+         Optional<CropLikeHandler> cropHandler = getInstance().getHandlerFor(player.level(), clickPos, state);
+         if (cropHandler.isPresent()) {
+            ItemCollector collector = new ItemCollector();
+            if (cropHandler.get().doHarvesting(player, clickPos, state, collector)) {
+               collector.drop(player.level(), clickPos);
+               return true;
+            }
+         }
+      }
+
+      return false;
+   }
+}

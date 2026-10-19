@@ -1,0 +1,32 @@
+[milim]
+	#Dragon Star searches every living target in the forward half-space within this distance.
+	# Default: 48.0
+	# Range: 4.0 ~ 96.0
+	burstRange = 48.0
+	#Ticks between volleys during the 4.43-10.8 second release phase.
+	# Default: 20
+	# Range: 10 ~ 60
+	volleyIntervalTicks = 20
+	#Damage per star hit. Gameplay default, not a canonical Tensura power value.
+	# Default: 300.0
+	# Range: 0.0 ~ 1000000.0
+	dragonStarDamage = 300.0
+	#Minimum recovery ticks after Dragon Star; default 3 minutes.
+	# Default: 3600
+	# Range: 20 ~ 72000
+	burstCooldownMinTicks = 3600
+	#Maximum recovery ticks after Dragon Star; default 5 minutes.
+	# Default: 6000
+	# Range: 20 ~ 72000
+	burstCooldownMaxTicks = 6000
+	#Satanael wrath gained per second of recent hostile contact by Milim; no gain during Stampede, weakness or cooldown.
+	# Default: 4.0
+	# Range: 0.0 ~ 100.0
+	satanaelCombatWrathPerSecond = 4.0
+	#Satanael contact wrath per second while Milim is below half health.
+	# Default: 6.0
+	# Range: 0.0 ~ 100.0
+	satanaelInjuredWrathPerSecond = 6.0
+	#Natural spawn rarity follows the selected Tensura otherworlder and its current spawn_rate_config values.
+	#Allowed Values: HINATA, SHIZU
+	naturalSpawnReference = "HINATA"

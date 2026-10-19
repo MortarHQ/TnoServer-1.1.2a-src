@@ -1,0 +1,68 @@
+package com.github.b4ndithelps.tennogamenolife.client.renderer.layer;
+
+import com.github.b4ndithelps.tennogamenolife.client.model.AngelHalo;
+import com.github.b4ndithelps.tennogamenolife.client.renderer.AngelHaloRenderer;
+import com.github.b4ndithelps.tennogamenolife.race.Flugel.IFlugelRace;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
+import io.github.manasmods.manascore.race.api.RaceAPI;
+import java.util.Map;
+import java.util.WeakHashMap;
+import net.minecraft.client.model.PlayerModel;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.entity.RenderLayerParent;
+import net.minecraft.client.renderer.entity.layers.RenderLayer;
+import net.minecraft.world.entity.player.Player;
+
+public final class PlayerFlugelHaloLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> {
+   private final AngelHaloRenderer haloRenderer = new AngelHaloRenderer();
+   private final Map<AbstractClientPlayer, AngelHalo> playerHalos = new WeakHashMap<>();
+
+   public PlayerFlugelHaloLayer(RenderLayerParent<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> renderer) {
+      super(renderer);
+   }
+
+   public void render(
+      PoseStack poseStack,
+      MultiBufferSource buffer,
+      int packedLight,
+      AbstractClientPlayer player,
+      float limbSwing,
+      float limbSwingAmount,
+      float partialTicks,
+      float ageInTicks,
+      float netHeadYaw,
+      float headPitch
+   ) {
+      if (!player.isInvisible() && this.isFlugelRace(player)) {
+         PlayerModel<AbstractClientPlayer> playerModel = (PlayerModel<AbstractClientPlayer>)this.getParentModel();
+         playerModel.setupAnim(player, limbSwing, limbSwingAmount, ageInTicks, netHeadYaw, headPitch);
+         poseStack.pushPose();
+         this.applyPlayerHeadTransform(poseStack, playerModel, player, netHeadYaw, headPitch);
+         AngelHalo halo = this.playerHalos
+            .computeIfAbsent(player, ignored -> new AngelHalo(player.getUUID().getMostSignificantBits() ^ player.getUUID().getLeastSignificantBits()));
+         this.haloRenderer.render(poseStack, halo, buffer, null, null, 15728880, partialTicks);
+         poseStack.popPose();
+      }
+   }
+
+   private void applyPlayerHeadTransform(
+      PoseStack poseStack, PlayerModel<AbstractClientPlayer> playerModel, AbstractClientPlayer player, float netHeadYaw, float headPitch
+   ) {
+      poseStack.translate(playerModel.head.x / 16.0F, playerModel.head.y / 16.0F, playerModel.head.z / 16.0F);
+      poseStack.mulPose(Axis.YP.rotation((float)Math.toRadians(netHeadYaw)));
+      poseStack.mulPose(Axis.XP.rotation((float)Math.toRadians(headPitch)));
+      float yTranslation = 0.05F * player.getScale();
+      if (player.isCrouching()) {
+         yTranslation -= 0.1F * player.getScale();
+      }
+
+      poseStack.translate(0.0F, yTranslation, 0.0F);
+      poseStack.scale(playerModel.head.xScale, playerModel.head.yScale, playerModel.head.zScale);
+   }
+
+   private boolean isFlugelRace(Player player) {
+      return RaceAPI.getRaceFrom(player).getRace().map(instance -> instance.getRace() instanceof IFlugelRace).orElse(false);
+   }
+}

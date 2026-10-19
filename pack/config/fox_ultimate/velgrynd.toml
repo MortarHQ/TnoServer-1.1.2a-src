@@ -1,0 +1,61 @@
+[Velgrynd]
+	#Enable automatic Velgrynd evolution when all configured requirements are met.
+	acquisitionEnabled = true
+	#Required permanent skill IDs. All listed skills are required; temporary and sub-instance copies never count.
+	acquisitionRequiredSkills = ["tensura:flame_domination", "tensura:flame_breath", "tensura:thought_acceleration", "tensura:spatial_manipulation"]
+	#Require every prerequisite skill to be mastered. False requires permanent ownership only.
+	acquisitionRequiresMastery = true
+	#Remove all configured prerequisite skills after successful evolution.
+	acquisitionConsumeRequiredSkills = true
+	#Permanent maximum-magicule capacity consumed on evolution, not recoverable current magicules. Temporary capacity bonuses do not count.
+	acquisitionMaximumMagiculeCost = 3000000.0
+	#Ticks between automatic evolution checks. 20 ticks = 1 second; minimum 1 tick.
+	acquisitionCheckIntervalTicks = 20
+	#Initial mastery of the acquired Velgrynd skill, clamped to its maximum mastery.
+	acquisitionGrantMastery = 0
+	#Magicule cost for summoning an avatar with Scorching Dragon Liberation.
+	magiculeCostLiberation = 50000.0
+	#Scorching Dragon Liberation cooldown in seconds.
+	liberationCooldown = 60
+	#Maximum number of avatars. Summoning beyond this replaces the oldest avatar.
+	maxAvatars = 5
+	#Maximum distance in blocks to target your own avatar when switching control.
+	avatarTargetRange = 50.0
+	#Magicule cost for Scorching Excitation.
+	magiculeCostExcitation = 10000.0
+	#Scorching Excitation duration in seconds.
+	excitationDurationSeconds = 300
+	#Scorching Excitation cooldown in seconds.
+	excitationCooldown = 300
+	#Scorching Excitation movement speed bonus. 0.5 means +50%.
+	excitationMovementSpeedBonus = 0.5
+	#Scorching Excitation attack speed bonus. 0.5 means +50%.
+	excitationAttackSpeedBonus = 0.5
+	#Scorching Excitation chant (casting) speed bonus added to Tensura's chant speed attribute.
+	excitationChantSpeedBonus = 1.0
+	#Scorching Excitation flame and heat damage bonus. 0.5 means +50%.
+	excitationHeatDamageBonus = 0.5
+	#Magicule cost for Dimension Jump.
+	magiculeCostDimensionJump = 4000.0
+	#Dimension Jump cooldown in seconds.
+	dimensionJumpCooldown = 30
+	#Dimension Jump teleport range in blocks.
+	dimensionJumpRange = 64.0
+	#Magicule cost for Scorching Dragon Hegemony: Accelerated Excitation.
+	magiculeCostAcceleration = 20000.0
+	#Scorching Dragon Hegemony: Accelerated Excitation cooldown in seconds.
+	accelerationCooldown = 600
+	#Hold time in ticks before the weapon is charged. 100 ticks = 5 seconds.
+	accelerationChargeTicks = 100
+	#Flame damage dealt by a charged weapon strike.
+	accelerationDamage = 300.0
+	#Passive flame damage boost. 0.5 means +50% flame damage.
+	flameDamageBoost = 0.5
+	#Passive reduction for incoming flame attacks. 0.8 means 80% less damage.
+	flameDamageReduction = 0.8
+	#Seconds of burning applied to targets by the owner's melee attacks.
+	attackBurnSeconds = 5
+	#Passive reduction for incoming physical attacks. 0.3 means 30% less damage.
+	physicalDamageReduction = 0.3
+	#Passive reduction for incoming elemental attacks other than flame. 0.5 means 50% less damage.
+	elementalDamageReduction = 0.5

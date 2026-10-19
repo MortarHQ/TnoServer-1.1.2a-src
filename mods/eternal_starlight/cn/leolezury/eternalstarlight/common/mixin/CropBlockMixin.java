@@ -1,0 +1,34 @@
+package cn.leolezury.eternalstarlight.common.mixin;
+
+import cn.leolezury.eternalstarlight.common.registry.ESBlocks;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.LevelReader;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.CropBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+@Mixin(CropBlock.class)
+public abstract class CropBlockMixin {
+   @Inject(
+      method = "mayPlaceOn(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;)Z",
+      at = @At("HEAD"),
+      cancellable = true
+   )
+   private void mayPlaceOn(BlockState blockState, BlockGetter blockGetter, BlockPos blockPos, CallbackInfoReturnable<Boolean> cir) {
+      if (blockState.is((Block)ESBlocks.NIGHTFALL_FARMLAND.get())) {
+         cir.setReturnValue(true);
+      }
+   }
+
+   @Inject(method = "hasSufficientLight(Lnet/minecraft/world/level/LevelReader;Lnet/minecraft/core/BlockPos;)Z", at = @At("RETURN"), cancellable = true)
+   private static void hasSufficientLight(LevelReader level, BlockPos pos, CallbackInfoReturnable<Boolean> cir) {
+      if (level.getBlockState(pos).is((Block)ESBlocks.PUNGENCY_FRUIT_VINES.get())) {
+         cir.setReturnValue(true);
+      }
+   }
+}

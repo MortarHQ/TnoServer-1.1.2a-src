@@ -1,0 +1,145 @@
+package nadiendev.constructionwand.containers.handlers;
+
+import appeng.api.config.Actionable;
+import appeng.api.networking.security.IActionSource;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
+import appeng.api.storage.MEStorage;
+import appeng.api.storage.StorageHelper;
+import appeng.helpers.WirelessTerminalMenuHost;
+import appeng.items.tools.powered.WirelessTerminalItem;
+import appeng.menu.locator.ItemMenuHostLocator;
+import de.mari_023.ae2wtlib.api.registration.WTDefinition;
+import it.unimi.dsi.fastutil.objects.Object2LongMap.Entry;
+import nadiendev.constructionwand.api.IContainerHandler;
+import nadiendev.constructionwand.containers.ContainerTrace;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+
+public class HandlerWirelessTerminalAE2WTLib implements IContainerHandler {
+   @Override
+   public boolean matches(Player player, ItemStack itemStack, ItemStack inventoryStack) {
+      return isWTLibTerminal(inventoryStack.getItem());
+   }
+
+   private static boolean isWTLibTerminal(Item item) {
+      for (WTDefinition def : WTDefinition.wirelessTerminals()) {
+         if (def.item() == item) {
+            return true;
+         }
+      }
+
+      return false;
+   }
+
+   @Override
+   public int getSignature(Player player, ItemStack inventoryStack) {
+      return inventoryStack.getComponents().hashCode();
+   }
+
+   @Override
+   public int countItems(Player player, ContainerTrace trace, ItemStack target, ItemStack terminal) {
+      if (!(player instanceof ServerPlayer serverPlayer)) {
+         return 0;
+      } else {
+         MEStorage storage = this.getStorage(serverPlayer, terminal);
+         if (storage == null) {
+            return 0;
+         }
+
+         AEItemKey key = AEItemKey.of(target);
+         if (key == null) {
+            return 0;
+         }
+
+         long amount = 0L;
+
+         for (Entry<AEKey> entry : storage.getAvailableStacks()) {
+            if (((AEKey)entry.getKey()).equals(key)) {
+               amount = entry.getLongValue();
+               break;
+            }
+         }
+
+         return amount > 2147483647L ? Integer.MAX_VALUE : (int)amount;
+      }
+   }
+
+   @Override
+   public int useItems(Player player, ContainerTrace trace, ItemStack target, ItemStack terminal, int count) {
+      if (player instanceof ServerPlayer serverPlayer) {
+         WirelessTerminalMenuHost<?> host = this.getHost(serverPlayer, terminal);
+         if (host == null) {
+            return count;
+         }
+
+         MEStorage storage = host.getInventory();
+         if (storage == null) {
+            return count;
+         }
+
+         AEItemKey key = AEItemKey.of(target);
+         if (key == null) {
+            return count;
+         }
+
+         IActionSource source = IActionSource.ofPlayer(serverPlayer);
+         long extracted = StorageHelper.poweredExtraction(host, storage, key, count, source, Actionable.MODULATE);
+         long remaining = count - extracted;
+         return remaining > 2147483647L ? Integer.MAX_VALUE : (int)remaining;
+      } else {
+         return count;
+      }
+   }
+
+   private MEStorage getStorage(ServerPlayer player, ItemStack terminal) {
+      WirelessTerminalMenuHost<?> host = this.getHost(player, terminal);
+      return host != null ? host.getInventory() : null;
+   }
+
+   private WirelessTerminalMenuHost<?> getHost(ServerPlayer player, ItemStack terminal) {
+      try {
+         WTDefinition definition = definitionOf(terminal);
+         if (definition == null) {
+            return null;
+         } else {
+            ItemMenuHostLocator locator = HandlerWirelessTerminal.resolveLocator(player, terminal);
+            if (locator == null) {
+               return null;
+            } else {
+               WirelessTerminalMenuHost<?> host = this.buildHost(definition, player, locator);
+               if (host == null) {
+                  return null;
+               } else {
+                  return !host.getLinkStatus().connected() ? null : host;
+               }
+            }
+         }
+      } catch (Exception e) {
+         return null;
+      }
+   }
+
+   private WirelessTerminalMenuHost<?> buildHost(WTDefinition definition, ServerPlayer player, ItemMenuHostLocator locator) {
+      try {
+         if (definition.item() instanceof WirelessTerminalItem wireless) {
+            return new WirelessTerminalMenuHost(wireless, player, locator, (p, menu) -> {});
+         }
+      } catch (Exception var6) {
+      }
+
+      return null;
+   }
+
+   private static WTDefinition definitionOf(ItemStack terminal) {
+      for (WTDefinition def : WTDefinition.wirelessTerminals()) {
+         if (def.item() == terminal.getItem()) {
+            return def;
+         }
+      }
+
+      return null;
+   }
+}

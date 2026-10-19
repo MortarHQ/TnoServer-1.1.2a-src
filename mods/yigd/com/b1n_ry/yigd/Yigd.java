@@ -1,0 +1,121 @@
+package com.b1n_ry.yigd;
+
+import com.b1n_ry.yigd.block.GraveBlock;
+import com.b1n_ry.yigd.block.entity.GraveBlockEntity;
+import com.b1n_ry.yigd.compat.InvModCompat;
+import com.b1n_ry.yigd.config.ClaimPriority;
+import com.b1n_ry.yigd.config.YigdConfig;
+import com.b1n_ry.yigd.events.ServerEventHandler;
+import com.b1n_ry.yigd.events.YigdServerEventHandler;
+import com.b1n_ry.yigd.item.DeathScrollItem;
+import com.b1n_ry.yigd.item.GraveKeyItem;
+import com.b1n_ry.yigd.networking.PacketInitializer;
+import com.b1n_ry.yigd.util.YigdCommands;
+import com.b1n_ry.yigd.util.YigdResourceHandler;
+import com.mojang.logging.LogUtils;
+import com.mojang.serialization.MapCodec;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.function.Supplier;
+import me.shedaniel.autoconfig.AutoConfig;
+import me.shedaniel.autoconfig.serializer.GsonConfigSerializer;
+import net.minecraft.core.GlobalPos;
+import net.minecraft.core.UUIDUtil;
+import net.minecraft.core.component.DataComponentType;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.CreativeModeTabs;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.entity.BlockEntityType.Builder;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.block.state.BlockBehaviour.Properties;
+import net.minecraft.world.phys.Vec3;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.neoforged.neoforge.attachment.AttachmentType;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
+import net.neoforged.neoforge.event.server.ServerStartedEvent;
+import net.neoforged.neoforge.registries.DeferredBlock;
+import net.neoforged.neoforge.registries.DeferredHolder;
+import net.neoforged.neoforge.registries.DeferredItem;
+import net.neoforged.neoforge.registries.DeferredRegister;
+import net.neoforged.neoforge.registries.NeoForgeRegistries;
+import net.neoforged.neoforge.registries.DeferredRegister.Blocks;
+import net.neoforged.neoforge.registries.DeferredRegister.DataComponents;
+import net.neoforged.neoforge.registries.DeferredRegister.Items;
+import org.slf4j.Logger;
+
+@Mod("yigd")
+public class Yigd {
+   public static final String MOD_ID = "yigd";
+   public static final Logger LOGGER = LogUtils.getLogger();
+   public static final Blocks BLOCKS = DeferredRegister.createBlocks("yigd");
+   public static final Items ITEMS = DeferredRegister.createItems("yigd");
+   public static final DeferredRegister<MapCodec<? extends Block>> BLOCK_REGISTER = DeferredRegister.create(BuiltInRegistries.BLOCK_TYPE, "yigd");
+   public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<GraveBlock>> GRAVE_BLOCK_CODEC = BLOCK_REGISTER.register(
+      "grave", () -> BlockBehaviour.simpleCodec(GraveBlock::new)
+   );
+   public static final DeferredBlock<Block> GRAVE = BLOCKS.registerBlock("grave", GraveBlock::new, Properties.of().strength(-1.0F, 3600000.0F).noOcclusion());
+   public static final DeferredItem<BlockItem> GRAVE_ITEM = ITEMS.registerSimpleBlockItem("grave", GRAVE);
+   public static final DeferredItem<DeathScrollItem> DEATH_SCROLL_ITEM = ITEMS.registerItem(
+      "death_scroll", DeathScrollItem::new, new net.minecraft.world.item.Item.Properties()
+   );
+   public static final DeferredItem<GraveKeyItem> GRAVE_KEY_ITEM = ITEMS.registerItem(
+      "grave_key", GraveKeyItem::new, new net.minecraft.world.item.Item.Properties()
+   );
+   public static final DeferredRegister<BlockEntityType<?>> BE_REGISTER = DeferredRegister.create(BuiltInRegistries.BLOCK_ENTITY_TYPE, "yigd");
+   public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<GraveBlockEntity>> GRAVE_BLOCK_ENTITY = BE_REGISTER.register(
+      "grave_block_entity", () -> Builder.of(GraveBlockEntity::new, new Block[]{(Block)GRAVE.get()}).build(null)
+   );
+   private static final DeferredRegister<AttachmentType<?>> ATTACHMENT_TYPES = DeferredRegister.create(NeoForgeRegistries.ATTACHMENT_TYPES, "yigd");
+   public static final Supplier<AttachmentType<Vec3>> LAST_GROUND_POS = ATTACHMENT_TYPES.register(
+      "last_ground_pos", () -> AttachmentType.builder(() -> Vec3.ZERO).serialize(Vec3.CODEC).build()
+   );
+   private static final DataComponents DATA_COMPONENTS = DeferredRegister.createDataComponents(Registries.DATA_COMPONENT_TYPE, "yigd");
+   public static final DeferredHolder<DataComponentType<?>, DataComponentType<UUID>> GRAVE_ID = DATA_COMPONENTS.registerComponentType(
+      "grave_id", builder -> builder.persistent(UUIDUtil.CODEC).networkSynchronized(UUIDUtil.STREAM_CODEC)
+   );
+   public static final DeferredHolder<DataComponentType<?>, DataComponentType<GlobalPos>> GRAVE_LOCATION = DATA_COMPONENTS.registerComponentType(
+      "grave_location", builder -> builder.persistent(GlobalPos.CODEC).networkSynchronized(GlobalPos.STREAM_CODEC)
+   );
+   public static final Map<UUID, DeathHandler> UNFINISHED_DEATHS = new HashMap<>();
+   public static List<Runnable> END_OF_TICK = new ArrayList<>();
+   public static Map<UUID, List<String>> NOT_NOTIFIED_ROBBERIES = new HashMap<>();
+   public static Map<UUID, ClaimPriority> CLAIM_PRIORITIES = new HashMap<>();
+   public static Map<UUID, ClaimPriority> ROB_PRIORITIES = new HashMap<>();
+
+   public Yigd(IEventBus modEventBus, ModContainer modContainer) {
+      AutoConfig.register(YigdConfig.class, GsonConfigSerializer::new);
+      modEventBus.addListener(this::modInitializer);
+      ITEMS.register(modEventBus);
+      BLOCKS.register(modEventBus);
+      BE_REGISTER.register(modEventBus);
+      ATTACHMENT_TYPES.register(modEventBus);
+      DATA_COMPONENTS.register(modEventBus);
+      NeoForge.EVENT_BUS.register(new ServerEventHandler());
+      NeoForge.EVENT_BUS.register(new YigdServerEventHandler());
+      modEventBus.addListener(this::addCreative);
+      modEventBus.addListener(PacketInitializer::register);
+      NeoForge.EVENT_BUS.addListener(ServerStartedEvent.class, e -> InvModCompat.reloadModCompat());
+      NeoForge.EVENT_BUS.addListener(YigdCommands::registerCommands);
+      NeoForge.EVENT_BUS.addListener(YigdResourceHandler::serverDataEvent);
+   }
+
+   private void modInitializer(FMLCommonSetupEvent event) {
+      InvModCompat.reloadModCompat();
+   }
+
+   private void addCreative(BuildCreativeModeTabContentsEvent event) {
+      if (event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) {
+         event.accept(GRAVE_ITEM);
+      }
+   }
+}

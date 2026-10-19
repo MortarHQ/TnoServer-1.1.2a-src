@@ -1,0 +1,49 @@
+package artifacts.effect;
+
+import artifacts.extensions.mobeffect.magnetism.ItemEntityExtensions;
+import java.util.List;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectCategory;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+
+public class MagnetismMobEffect extends MobEffect {
+   public MagnetismMobEffect() {
+      super(MobEffectCategory.BENEFICIAL, 9715130);
+   }
+
+   public boolean shouldApplyEffectTickThisTick(int duration, int amplifier) {
+      return true;
+   }
+
+   public boolean applyEffectTick(LivingEntity entity, int amplifier) {
+      if (entity.level().isClientSide()) {
+         return true;
+      }
+
+      Vec3 pos = entity.position().add(0.0, 0.75, 0.0);
+      int range = Math.min(1 + amplifier, 10);
+      List<ItemEntity> items = entity.level()
+         .getEntitiesOfClass(ItemEntity.class, new AABB(pos.x - range, pos.y - range, pos.z - range, pos.x + range, pos.y + range, pos.z + range));
+      int amountPulled = 0;
+
+      for (ItemEntity item : items) {
+         if (item.isAlive() && !item.hasPickUpDelay() && !((ItemEntityExtensions)item).artifacts$wasThrownBy(entity)) {
+            if (amountPulled++ > 50) {
+               break;
+            }
+
+            Vec3 motion = pos.subtract(item.position().add(0.0, item.getBbHeight() / 2.0F, 0.0));
+            if (Math.sqrt(motion.x * motion.x + motion.y * motion.y + motion.z * motion.z) > 1.0) {
+               motion = motion.normalize();
+            }
+
+            item.setDeltaMovement(motion.scale(1.0));
+         }
+      }
+
+      return true;
+   }
+}

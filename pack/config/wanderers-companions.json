@@ -1,0 +1,42 @@
+{
+  "installed": {
+    "wanderers:rem": {
+      "version": "bundled",
+      "checksum": 1729361476,
+      "file": "wanderers_rem.0.zip"
+    },
+    "wanderers:ram": {
+      "version": "bundled",
+      "checksum": 4104639994,
+      "file": "wanderers_ram.0.zip"
+    },
+    "wanderers:emilia": {
+      "version": "bundled",
+      "checksum": 838453967,
+      "file": "wanderers_emilia.0.zip"
+    },
+    "wanderers:furina": {
+      "version": "bundled",
+      "checksum": 2287828014,
+      "file": "wanderers_furina.0.zip"
+    },
+    "wanderers:kokomi": {
+      "version": "bundled",
+      "checksum": 4071640160,
+      "file": "wanderers_kokomi.0.zip"
+    },
+    "wanderers:puck": {
+      "version": "bundled",
+      "checksum": 1287321623,
+      "file": "wanderers_puck.0.zip"
+    }
+  },
+  "enabled": [
+    "wanderers:rem",
+    "wanderers:ram",
+    "wanderers:emilia",
+    "wanderers:furina",
+    "wanderers:kokomi",
+    "wanderers:puck"
+  ]
+}

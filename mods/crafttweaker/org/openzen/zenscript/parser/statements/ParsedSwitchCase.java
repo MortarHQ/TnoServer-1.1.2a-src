@@ -1,0 +1,33 @@
+package org.openzen.zenscript.parser.statements;
+
+import java.util.ArrayList;
+import java.util.List;
+import org.openzen.zencode.shared.CompileException;
+import org.openzen.zenscript.codemodel.expression.switchvalue.SwitchValue;
+import org.openzen.zenscript.codemodel.scope.ExpressionScope;
+import org.openzen.zenscript.codemodel.scope.StatementScope;
+import org.openzen.zenscript.codemodel.statement.Statement;
+import org.openzen.zenscript.codemodel.statement.SwitchCase;
+import org.openzen.zenscript.codemodel.type.TypeID;
+import org.openzen.zenscript.parser.expression.ParsedExpression;
+
+public class ParsedSwitchCase {
+   public final ParsedExpression value;
+   public final List<ParsedStatement> statements = new ArrayList<>();
+
+   public ParsedSwitchCase(ParsedExpression value) {
+      this.value = value;
+   }
+
+   public SwitchCase compile(TypeID type, StatementScope scope) throws CompileException {
+      SwitchValue cValue = this.value == null ? null : this.value.compileToSwitchValue(type, new ExpressionScope(scope));
+      Statement[] cStatements = new Statement[this.statements.size()];
+      int i = 0;
+
+      for (ParsedStatement statement : this.statements) {
+         cStatements[i++] = statement.compile(scope);
+      }
+
+      return new SwitchCase(cValue, cStatements);
+   }
+}

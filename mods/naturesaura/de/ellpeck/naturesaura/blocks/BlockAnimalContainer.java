@@ -1,0 +1,62 @@
+package de.ellpeck.naturesaura.blocks;
+
+import de.ellpeck.naturesaura.api.render.IVisualizable;
+import de.ellpeck.naturesaura.blocks.tiles.BlockEntityAnimalContainer;
+import de.ellpeck.naturesaura.data.BlockStateGenerator;
+import de.ellpeck.naturesaura.reg.ICustomBlockState;
+import de.ellpeck.naturesaura.reg.IPickaxeBreakable;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.BlockBehaviour.Properties;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.VoxelShape;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.api.distmarker.OnlyIn;
+
+public class BlockAnimalContainer extends BlockContainerImpl implements IVisualizable, ICustomBlockState, IPickaxeBreakable {
+   private static final VoxelShape SHAPE = Block.box(5.0, 0.0, 5.0, 11.0, 13.0, 11.0);
+
+   public BlockAnimalContainer() {
+      super("animal_container", BlockEntityAnimalContainer.class, Properties.ofFullCopy(Blocks.STONE));
+   }
+
+   @Override
+   protected boolean hasWaterlogging() {
+      return true;
+   }
+
+   public VoxelShape getShape(BlockState state, BlockGetter levelIn, BlockPos pos, CollisionContext context) {
+      return SHAPE;
+   }
+
+   @OnlyIn(Dist.CLIENT)
+   @Override
+   public AABB getVisualizationBounds(Level level, BlockPos pos) {
+      BlockEntity tile = level.getBlockEntity(pos);
+      if (tile instanceof BlockEntityAnimalContainer) {
+         int radius = ((BlockEntityAnimalContainer)tile).getRadius();
+         if (radius > 0) {
+            return new AABB(pos).inflate(radius);
+         }
+      }
+
+      return null;
+   }
+
+   @OnlyIn(Dist.CLIENT)
+   @Override
+   public int getVisualizationColor(Level level, BlockPos pos) {
+      return 4382197;
+   }
+
+   @Override
+   public void generateCustomBlockState(BlockStateGenerator generator) {
+      generator.simpleBlock(this, generator.models().getExistingFile(generator.modLoc(this.getBaseName())));
+   }
+}

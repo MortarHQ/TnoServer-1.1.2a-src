@@ -1,0 +1,54 @@
+package team.creative.creativecore.common.gui.dialog;
+
+import java.util.function.BiConsumer;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Component.Serializer;
+import team.creative.creativecore.common.gui.GuiLayer;
+import team.creative.creativecore.common.gui.integration.IGuiIntegratedParent;
+import team.creative.creativecore.common.gui.sync.GuiSyncGlobalLayer;
+import team.creative.creativecore.common.gui.sync.GuiSyncHolder;
+
+public class GuiDialogHandler {
+   public static final GuiSyncGlobalLayer<DialogGuiLayer> DIALOG_HANDLER = GuiSyncHolder.GLOBAL.layer("dialog", (p, nbt) -> {
+      int[] array = nbt.getIntArray("buttons");
+      DialogGuiLayer.DialogButton[] buttons = new DialogGuiLayer.DialogButton[array.length];
+
+      for (int i = 0; i < array.length; i++) {
+         buttons[i] = DialogGuiLayer.DialogButton.values()[array[i]];
+      }
+
+      return new DialogGuiLayer(nbt.getString("name"), Serializer.fromJson(nbt.getString("title"), p), null, buttons);
+   });
+
+   public static void init() {
+   }
+
+   public static GuiLayer openDialog(
+      IGuiIntegratedParent parent, String name, BiConsumer<DialogGuiLayer, DialogGuiLayer.DialogButton> onClicked, DialogGuiLayer.DialogButton... buttons
+   ) {
+      return openDialog(parent, name, Component.translatable("dialog." + name), onClicked, buttons);
+   }
+
+   public static GuiLayer openDialog(
+      IGuiIntegratedParent parent,
+      String name,
+      Component title,
+      BiConsumer<DialogGuiLayer, DialogGuiLayer.DialogButton> onClicked,
+      DialogGuiLayer.DialogButton... buttons
+   ) {
+      CompoundTag nbt = new CompoundTag();
+      nbt.putString("name", name);
+      nbt.putString("title", Serializer.toJson(title, parent.provider()));
+      int[] array = new int[buttons.length];
+
+      for (int i = 0; i < array.length; i++) {
+         array[i] = buttons[i].ordinal();
+      }
+
+      nbt.putIntArray("buttons", array);
+      DialogGuiLayer layer = DIALOG_HANDLER.open(parent, nbt);
+      layer.onClicked = onClicked;
+      return layer;
+   }
+}

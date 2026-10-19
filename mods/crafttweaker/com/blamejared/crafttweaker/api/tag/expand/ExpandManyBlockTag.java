@@ -1,0 +1,30 @@
+package com.blamejared.crafttweaker.api.tag.expand;
+
+import com.blamejared.crafttweaker.api.annotation.ZenRegister;
+import com.blamejared.crafttweaker.api.block.CTBlockIngredient;
+import com.blamejared.crafttweaker.api.tag.type.KnownTag;
+import com.blamejared.crafttweaker.api.util.Many;
+import com.blamejared.crafttweaker_annotations.annotations.Document;
+import java.util.ArrayList;
+import java.util.List;
+import net.minecraft.world.level.block.Block;
+import org.openzen.zencode.java.ZenCodeType;
+
+@ZenRegister
+@Document("vanilla/api/tag/ExpandManyBlockTag")
+@ZenCodeType.Expansion("crafttweaker.api.util.Many<crafttweaker.api.tag.type.KnownTag<crafttweaker.api.block.Block>>")
+public class ExpandManyBlockTag {
+   @ZenCodeType.Method
+   @ZenCodeType.Caster(implicit = true)
+   public static CTBlockIngredient asIngredient(Many<KnownTag<Block>> internal) {
+      return new CTBlockIngredient.BlockTagWithAmountIngredient(internal);
+   }
+
+   @ZenCodeType.Operator(ZenCodeType.OperatorType.OR)
+   public static CTBlockIngredient asList(Many<KnownTag<Block>> internal, CTBlockIngredient other) {
+      List<CTBlockIngredient> elements = new ArrayList<>();
+      elements.add(asIngredient(internal));
+      elements.add(other);
+      return new CTBlockIngredient.CompoundBlockIngredient(elements);
+   }
+}

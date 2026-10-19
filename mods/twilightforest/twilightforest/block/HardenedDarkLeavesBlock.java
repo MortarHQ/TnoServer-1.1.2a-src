@@ -1,0 +1,22 @@
+package twilightforest.block;
+
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.ItemLike;
+import net.minecraft.world.level.LevelReader;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.BlockBehaviour.Properties;
+import net.minecraft.world.phys.HitResult;
+import twilightforest.init.TFBlocks;
+
+public class HardenedDarkLeavesBlock extends Block {
+   public HardenedDarkLeavesBlock(Properties properties) {
+      super(properties);
+   }
+
+   public ItemStack getCloneItemStack(BlockState state, HitResult result, LevelReader reader, BlockPos pos, Player player) {
+      return new ItemStack((ItemLike)TFBlocks.DARK_LEAVES.get());
+   }
+}

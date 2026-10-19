@@ -1,0 +1,23 @@
+package com.chronodawn.items.consumables;
+
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.food.FoodProperties;
+import net.minecraft.world.food.FoodProperties.Builder;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Item.Properties;
+
+public class TimeBreadItem extends Item {
+   public TimeBreadItem(Properties properties) {
+      super(properties);
+   }
+
+   public static Properties createProperties() {
+      FoodProperties foodProperties = new Builder()
+         .nutrition(5)
+         .saturationModifier(0.6F)
+         .effect(new MobEffectInstance(MobEffects.REGENERATION, 100, 0), 1.0F)
+         .build();
+      return new Properties().food(foodProperties);
+   }
+}

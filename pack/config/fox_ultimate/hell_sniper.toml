@@ -1,0 +1,63 @@
+[HellSniper]
+	#Minimum current magicule and permanent maximum-magicule capacity required to awaken Hell Sniper. The acquisition consumes the configured permanent capacity cost afterward.
+	acquisitionRequiredMaximumMagicule = 3000000.0
+	#Permanent maximum-magicule capacity consumed when Hell Sniper awakens. The default reduces a 3,000,000 capacity to 2,000,000.
+	acquisitionMaximumMagiculeCost = 1000000.0
+	#Ticks between automatic Hell Sniper acquisition checks.
+	acquisitionCheckIntervalTicks = 20
+	#Mastery granted when Hell Sniper is acquired. Sniper is retained and is not consumed.
+	acquisitionGrantMastery = 0
+	#Maximum distance in blocks at which Sniping can acquire and retain a target.
+	targetingRange = 100.0
+	#Magicules consumed when a valid target is locked and the cast begins.
+	magiculeCost = 5000.0
+	#Magicules consumed once when Infinite Sniping starts. Repeated shots do not consume additional magicules.
+	infiniteMagiculeCost = 50000.0
+	#Cooldown in Tensura skill-system seconds, counted from the moment the cast starts. Earlier magic circles keep running independently, so this alone decides how often Sniping can be re-fired.
+	cooldownSeconds = 3
+	#How many real seconds the Sniping activation button must be held before the needle can be released. The progress uses Tensura's native casting display.
+	snipingChargeSeconds = 2
+	#How many real seconds the Infinite Sniping activation button must be held before the formation can be released. This mode is available after mastery.
+	infiniteChargeSeconds = 10
+	#Cooldown for Infinite Sniping in Tensura skill-system seconds. 600 seconds is ten minutes; this value is intentionally stored in seconds, not ticks.
+	infiniteCooldownSeconds = 600
+	#Number of fixed magic circles summoned by Infinite Sniping. Values are clamped to 3-32 at runtime.
+	infiniteCircleCount = 8
+	#Requested radius in blocks of the Infinite Sniping circle formation. The runtime automatically enlarges this radius when necessary to prevent the rendered magic circles from overlapping.
+	infiniteRingRadius = 7.0
+	#Minimum empty distance in blocks between adjacent Infinite Sniping circles.
+	infiniteMinimumCircleSpacing = 1.0
+	#Radius in blocks around the fixed formation centre used to acquire targets.
+	infiniteTargetingRange = 100.0
+	#Duration in seconds for which Infinite Sniping attacks after its firing warm-up has completed.
+	infiniteDurationSeconds = 60
+	#Ticks between Infinite Sniping volleys. One volley fires at most one beam from each circle and rotates through every eligible target.
+	infiniteShotIntervalTicks = 20
+	#Ticks between the starts of consecutive Infinite Sniping circle appearance animations. A value of 2 lets the next circle begin just before the previous one finishes its 2.5-tick supplied appearance animation.
+	infiniteAppearanceStaggerTicks = 2
+	#Direct magic-bullet damage dealt before the impact explosion.
+	damage = 500.0
+	#Direct magic-bullet damage dealt after Hell Sniper is mastered.
+	damageMastered = 800.0
+	#Vanilla explosion power at the impact point. TNT uses power 4.
+	explosionPower = 4.0
+	#Whether the impact explosion destroys terrain.
+	explosionDestroysTerrain = true
+	#Speed in blocks per tick of the homing needle released from the magic circle.
+	projectileSpeed = 2.0
+	#Exact distance in blocks from the caster's eye position to the centre of the fixed Sniping magic circle.
+	projectileLaunchDistance = 1.0
+	#Duration in ticks of the smooth magic-circle appearance phase.
+	appearanceDurationTicks = 3
+	#Duration in ticks of the rotating middle-circle aiming phase.
+	aimingDurationTicks = 80
+	#Ticks spent in the firing animation before the ray projectile is released. The animation's two secondary circles finish expanding around tick 13, so values above that let the firing pose play out before the shot leaves.
+	firingWarmupTicks = 30
+	#Maximum vertical adjustment, in degrees, used while a magic circle tracks a target. The default limits the smooth adjustment to 35 degrees up or down.
+	verticalAimLimitDegrees = 35.0
+	#Maximum vertical aim change per server tick, in degrees. Smaller values make the circle turn more gradually.
+	verticalAimStepDegrees = 4.0
+	#Half-angle, in degrees, of the cone an Infinite Sniping circle may fire into. Each formation circle keeps the outward bearing it spawned with, so this stops it firing backwards through its own face. Together with the vertical limit it defines what a circle can reach; 180 restores firing in every direction.
+	infiniteFiringConeDegrees = 60.0
+	#Ticks the firing pose may remain after impact when the target survives.
+	postFireDurationTicks = 6

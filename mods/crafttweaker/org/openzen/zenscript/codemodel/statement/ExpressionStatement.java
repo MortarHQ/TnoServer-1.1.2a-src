@@ -1,0 +1,50 @@
+package org.openzen.zenscript.codemodel.statement;
+
+import java.util.function.Consumer;
+import org.openzen.zencode.shared.CodePosition;
+import org.openzen.zencode.shared.ConcatMap;
+import org.openzen.zenscript.codemodel.expression.Expression;
+import org.openzen.zenscript.codemodel.expression.ExpressionTransformer;
+import org.openzen.zenscript.codemodel.scope.TypeScope;
+
+public class ExpressionStatement extends Statement {
+   public final Expression expression;
+
+   public ExpressionStatement(CodePosition position, Expression expression) {
+      super(position, expression.thrownType);
+      this.expression = expression;
+   }
+
+   @Override
+   public <T> T accept(StatementVisitor<T> visitor) {
+      return visitor.visitExpression(this);
+   }
+
+   @Override
+   public <C, R> R accept(C context, StatementVisitorWithContext<C, R> visitor) {
+      return visitor.visitExpression(context, this);
+   }
+
+   @Override
+   public void forEachStatement(Consumer<Statement> consumer) {
+      consumer.accept(this);
+      this.expression.forEachStatement(consumer);
+   }
+
+   @Override
+   public Statement transform(StatementTransformer transformer, ConcatMap<LoopStatement, LoopStatement> modified) {
+      Expression tExpression = this.expression.transform(transformer);
+      return tExpression == this.expression ? this : new ExpressionStatement(this.position, tExpression);
+   }
+
+   @Override
+   public Statement transform(ExpressionTransformer transformer, ConcatMap<LoopStatement, LoopStatement> modified) {
+      Expression tExpression = this.expression.transform(transformer);
+      return tExpression == this.expression ? this : new ExpressionStatement(this.position, tExpression);
+   }
+
+   @Override
+   public Statement normalize(TypeScope scope, ConcatMap<LoopStatement, LoopStatement> modified) {
+      return new ExpressionStatement(this.position, this.expression.normalize(scope));
+   }
+}

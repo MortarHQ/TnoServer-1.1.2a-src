@@ -1,0 +1,62 @@
+package net.regions_unexplored.block;
+
+import net.minecraft.world.level.block.state.properties.BlockSetType;
+import net.minecraft.world.level.block.state.properties.BlockSetType.PressurePlateSensitivity;
+import net.regions_unexplored.RegionsUnexplored;
+import net.regions_unexplored.registry.RUSoundEvents;
+import net.regions_unexplored.sound.WoodSoundSet;
+
+public class RuBlockSetType {
+   public static final BlockSetType ALPHA = register("alpha");
+   public static final BlockSetType BAOBAB = register("baobab", RUSoundEvents.BAOBAB_SET);
+   public static final BlockSetType BLACKWOOD = register("blackwood");
+   public static final BlockSetType BLUE_BIOSHROOM = register("blue_bioshroom");
+   public static final BlockSetType BRIMWOOD = register("brimwood");
+   public static final BlockSetType COBALT = register("cobalt");
+   public static final BlockSetType CYPRESS = register("cypress");
+   public static final BlockSetType DEAD = register("dead");
+   public static final BlockSetType EUCALYPTUS = register("eucalyptus");
+   public static final BlockSetType GREEN_BIOSHROOM = register("green_bioshroom");
+   public static final BlockSetType JOSHUA = register("joshua");
+   public static final BlockSetType KAPOK = register("kapok");
+   public static final BlockSetType LARCH = register("larch");
+   public static final BlockSetType MAGNOLIA = register("magnolia");
+   public static final BlockSetType MAPLE = register("maple");
+   public static final BlockSetType PALM = register("palm");
+   public static final BlockSetType PINE = register("pine");
+   public static final BlockSetType PINK_BIOSHROOM = register("pink_bioshroom");
+   public static final BlockSetType REDWOOD = register("redwood", RUSoundEvents.REDWOOD_SET);
+   public static final BlockSetType SOCOTRA = register("socotra");
+   public static final BlockSetType WILLOW = register("willow");
+   public static final BlockSetType WISTERIA = register("wisteria");
+   public static final BlockSetType YELLOW_BIOSHROOM = register("yellow_bioshroom");
+
+   private static BlockSetType register(String name) {
+      return register(new BlockSetType(RegionsUnexplored.stringId(name)));
+   }
+
+   private static BlockSetType register(String name, WoodSoundSet soundSet) {
+      return register(
+         new BlockSetType(
+            RegionsUnexplored.stringId(name),
+            true,
+            true,
+            true,
+            PressurePlateSensitivity.EVERYTHING,
+            soundSet.baseType(),
+            soundSet.doorClose(),
+            soundSet.doorOpen(),
+            soundSet.trapdoorClose(),
+            soundSet.trapdoorOpen(),
+            soundSet.pressurePlateOff(),
+            soundSet.pressurePlateOn(),
+            soundSet.buttonOff(),
+            soundSet.buttonOn()
+         )
+      );
+   }
+
+   private static BlockSetType register(BlockSetType type) {
+      return BlockSetType.register(type);
+   }
+}

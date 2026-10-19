@@ -1,0 +1,20 @@
+package cn.leolezury.eternalstarlight.common.registry;
+
+import cn.leolezury.eternalstarlight.common.platform.registry.RegistrationProvider;
+import cn.leolezury.eternalstarlight.common.platform.registry.RegistryObject;
+import cn.leolezury.eternalstarlight.common.world.gen.surface.OnSurfaceCondition;
+import com.mojang.serialization.MapCodec;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.world.level.levelgen.SurfaceRules.ConditionSource;
+
+public class ESMaterialConditions {
+   public static final RegistrationProvider<MapCodec<? extends ConditionSource>> MATERIAL_CONDITIONS = RegistrationProvider.get(
+      Registries.MATERIAL_CONDITION, "eternal_starlight"
+   );
+   public static final RegistryObject<MapCodec<? extends ConditionSource>, MapCodec<OnSurfaceCondition>> ON_SURFACE = MATERIAL_CONDITIONS.register(
+      "on_surface", OnSurfaceCondition.CODEC::codec
+   );
+
+   public static void loadClass() {
+   }
+}

@@ -1,0 +1,52 @@
+package com.iafenvoy.iceandfire.compat.jei;
+
+import com.iafenvoy.iceandfire.recipe.DragonForgeRecipe;
+import mezz.jei.api.gui.builder.IRecipeLayoutBuilder;
+import mezz.jei.api.gui.builder.IRecipeSlotBuilder;
+import mezz.jei.api.gui.drawable.IDrawable;
+import mezz.jei.api.gui.drawable.IDrawableAnimated.StartDirection;
+import mezz.jei.api.gui.ingredient.IRecipeSlotsView;
+import mezz.jei.api.helpers.IGuiHelper;
+import mezz.jei.api.recipe.IFocusGroup;
+import mezz.jei.api.recipe.RecipeIngredientRole;
+import mezz.jei.api.recipe.RecipeType;
+import mezz.jei.api.recipe.category.AbstractRecipeCategory;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import org.jetbrains.annotations.NotNull;
+
+public abstract class DragonForgeRecipeCategory extends AbstractRecipeCategory<DragonForgeRecipe> {
+   private final IDrawable background;
+   private final IDrawable overlay;
+
+   public DragonForgeRecipeCategory(IGuiHelper guiHelper, RecipeType<DragonForgeRecipe> recipeType, String forgeType, IDrawable icon) {
+      super(recipeType, Component.translatable("jei.iceandfire.dragon_forge_" + forgeType), icon, 170, 79);
+      this.background = guiHelper.drawableBuilder(
+            ResourceLocation.fromNamespaceAndPath("iceandfire", "textures/gui/dragonforge_" + forgeType + ".png"), 3, 4, 170, 79
+         )
+         .setTextureSize(256, 256)
+         .build();
+      this.overlay = guiHelper.createAnimatedDrawable(
+         guiHelper.drawableBuilder(ResourceLocation.fromNamespaceAndPath("iceandfire", "textures/gui/dragonforge_" + forgeType + ".png"), 0, 166, 126, 38)
+            .setTextureSize(256, 256)
+            .build(),
+         50,
+         StartDirection.LEFT,
+         false
+      );
+   }
+
+   public void draw(
+      @NotNull DragonForgeRecipe recipe, @NotNull IRecipeSlotsView recipeSlotsView, @NotNull GuiGraphics guiGraphics, double mouseX, double mouseY
+   ) {
+      this.background.draw(guiGraphics);
+      this.overlay.draw(guiGraphics, 9, 19);
+   }
+
+   public void setRecipe(IRecipeLayoutBuilder builder, DragonForgeRecipe recipe, @NotNull IFocusGroup focuses) {
+      ((IRecipeSlotBuilder)builder.addSlot(RecipeIngredientRole.INPUT, 65, 30).addIngredients(recipe.getInput())).setStandardSlotBackground();
+      ((IRecipeSlotBuilder)builder.addSlot(RecipeIngredientRole.INPUT, 83, 30).addIngredients(recipe.getBlood())).setStandardSlotBackground();
+      builder.addSlot(RecipeIngredientRole.OUTPUT, 145, 31).addItemStack(recipe.getResultItem());
+   }
+}

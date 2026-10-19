@@ -1,0 +1,70 @@
+package artifacts.neoforge.platform;
+
+import artifacts.component.SwimData;
+import artifacts.neoforge.registry.ModAttachmentTypes;
+import artifacts.neoforge.registry.NeoForgeRegister;
+import artifacts.platform.PlatformHelper;
+import artifacts.registry.ModEntityTypes;
+import artifacts.registry.Register;
+import java.nio.file.Path;
+import java.util.function.Consumer;
+import net.minecraft.core.Holder;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.Attribute;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.SpawnEggItem;
+import net.minecraft.world.item.Item.Properties;
+import net.neoforged.fml.ModList;
+import net.neoforged.fml.loading.FMLPaths;
+import net.neoforged.neoforge.common.DeferredSpawnEggItem;
+import net.neoforged.neoforge.common.ItemAbilities;
+import net.neoforged.neoforge.common.NeoForgeMod;
+import net.neoforged.neoforge.registries.callback.AddCallback;
+import org.jetbrains.annotations.Nullable;
+
+public class NeoForgePlatformHelper implements PlatformHelper {
+   @Nullable
+   @Override
+   public SwimData getSwimData(LivingEntity entity) {
+      return (SwimData)entity.getData(ModAttachmentTypes.SWIM_DATA);
+   }
+
+   @Override
+   public Holder<Attribute> getSwimSpeedAttribute() {
+      return NeoForgeMod.SWIM_SPEED;
+   }
+
+   @Override
+   public boolean isFishingRod(ItemStack stack) {
+      return stack.canPerformAction(ItemAbilities.FISHING_ROD_CAST);
+   }
+
+   @Override
+   public Path getConfigDir() {
+      return FMLPaths.CONFIGDIR.get();
+   }
+
+   @Override
+   public void addItemRegistryCallback(Consumer<Item> consumer) {
+      BuiltInRegistries.ITEM.addCallback((AddCallback)(registry, i, key, item) -> consumer.accept(item));
+   }
+
+   @Override
+   public boolean isModLoaded(String modid) {
+      return ModList.get().isLoaded(modid);
+   }
+
+   @Override
+   public <R> Register<R> createRegister(ResourceKey<Registry<R>> registry) {
+      return new NeoForgeRegister<>(registry);
+   }
+
+   @Override
+   public SpawnEggItem createMimicSpawnEgg(Properties properties) {
+      return new DeferredSpawnEggItem(ModEntityTypes.MIMIC, 16777215, 16777215, properties);
+   }
+}

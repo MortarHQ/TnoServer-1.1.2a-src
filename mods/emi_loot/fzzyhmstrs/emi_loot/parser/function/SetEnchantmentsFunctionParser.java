@@ -1,0 +1,60 @@
+package fzzyhmstrs.emi_loot.parser.function;
+
+import fzzyhmstrs.emi_loot.mixins.SetEnchantmentsLootFunctionAccessor;
+import fzzyhmstrs.emi_loot.parser.LootTableParser;
+import fzzyhmstrs.emi_loot.parser.processor.NumberProcessors;
+import fzzyhmstrs.emi_loot.util.TextKey;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.item.EnchantedBookItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentInstance;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
+import net.minecraft.world.item.enchantment.ItemEnchantments.Mutable;
+import net.minecraft.world.level.storage.loot.functions.LootItemFunction;
+import net.minecraft.world.level.storage.loot.providers.number.NumberProvider;
+
+public class SetEnchantmentsFunctionParser implements FunctionParser {
+   @Override
+   public LootTableParser.LootFunctionResult parseFunction(
+      LootItemFunction function, ItemStack stack, boolean parentIsAlternative, List<TextKey> conditionTexts
+   ) {
+      Map<Holder<Enchantment>, NumberProvider> enchantments = ((SetEnchantmentsLootFunctionAccessor)function).getEnchantments();
+      boolean add = ((SetEnchantmentsLootFunctionAccessor)function).getAdd();
+      if (stack.is(Items.BOOK)) {
+         stack = new ItemStack(Items.ENCHANTED_BOOK);
+         AtomicReference<ItemStack> finalStack = new AtomicReference<>(stack);
+         enchantments.forEach((enchantment, provider) -> {
+            float rollAvg = NumberProcessors.getRollAvg(provider);
+            finalStack.set(EnchantedBookItem.createForEnchantment(new EnchantmentInstance(enchantment, (int)rollAvg)));
+         });
+         return new LootTableParser.LootFunctionResult(TextKey.of("emi_loot.function.set_enchant_book"), finalStack.get(), conditionTexts);
+      }
+
+      if (!stack.isEmpty()) {
+         Mutable finalStackMap = new Mutable(ItemEnchantments.EMPTY);
+         if (add) {
+            ItemEnchantments stackMap = (ItemEnchantments)stack.getOrDefault(DataComponents.ENCHANTMENTS, ItemEnchantments.EMPTY);
+            enchantments.forEach((enchantment, provider) -> {
+               float rollAvg = NumberProcessors.getRollAvg(provider);
+               finalStackMap.set(enchantment, Math.max((int)rollAvg + stackMap.getLevel(enchantment), 0));
+            });
+         } else {
+            enchantments.forEach((enchantment, provider) -> {
+               float rollAvg = NumberProcessors.getRollAvg(provider);
+               finalStackMap.set(enchantment, Math.max((int)rollAvg, 1));
+            });
+         }
+
+         stack.set(DataComponents.ENCHANTMENTS, finalStackMap.toImmutable());
+         return new LootTableParser.LootFunctionResult(TextKey.of("emi_loot.function.set_enchant_item"), stack, conditionTexts);
+      } else {
+         return new LootTableParser.LootFunctionResult(TextKey.of("emi_loot.function.set_enchant_item"), ItemStack.EMPTY, conditionTexts);
+      }
+   }
+}

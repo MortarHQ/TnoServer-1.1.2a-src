@@ -1,0 +1,62 @@
+package cn.leolezury.eternalstarlight.common.registry;
+
+import cn.leolezury.eternalstarlight.common.EternalStarlight;
+import cn.leolezury.eternalstarlight.common.platform.registry.RegistrationProvider;
+import cn.leolezury.eternalstarlight.common.platform.registry.RegistryObject;
+import cn.leolezury.eternalstarlight.common.spell.AbstractSpell;
+import cn.leolezury.eternalstarlight.common.spell.BurstSparkSpell;
+import cn.leolezury.eternalstarlight.common.spell.FlamingAftershockSpell;
+import cn.leolezury.eternalstarlight.common.spell.FlamingArcSpell;
+import cn.leolezury.eternalstarlight.common.spell.FlamingRingSpell;
+import cn.leolezury.eternalstarlight.common.spell.FrozenFogSpell;
+import cn.leolezury.eternalstarlight.common.spell.GuidanceOfStarsSpell;
+import cn.leolezury.eternalstarlight.common.spell.IcySpikesSpell;
+import cn.leolezury.eternalstarlight.common.spell.LaserBeamSpell;
+import cn.leolezury.eternalstarlight.common.spell.ManaType;
+import cn.leolezury.eternalstarlight.common.spell.MergedFireballSpell;
+import cn.leolezury.eternalstarlight.common.spell.SurroundingFireballsSpell;
+import com.mojang.serialization.Codec;
+import java.util.List;
+import net.minecraft.core.Holder;
+import net.minecraft.resources.ResourceKey;
+
+public class ESSpells {
+   public static final RegistrationProvider<AbstractSpell> SPELLS = RegistrationProvider.newRegistry(
+      ResourceKey.createRegistryKey(EternalStarlight.id("spell")), "eternal_starlight"
+   );
+   public static final Codec<AbstractSpell> CODEC = SPELLS.registry().byNameCodec();
+   public static final Codec<Holder<AbstractSpell>> HOLDER_CODEC = SPELLS.registry().holderByNameCodec();
+   public static final RegistryObject<AbstractSpell, GuidanceOfStarsSpell> GUIDANCE_OF_STARS = SPELLS.register(
+      "guidance_of_stars", () -> new GuidanceOfStarsSpell(new AbstractSpell.Properties(List.of(ManaType.TERRA, ManaType.WIND, ManaType.LUNAR), 30, 30, 200))
+   );
+   public static final RegistryObject<AbstractSpell, LaserBeamSpell> LASER_BEAM = SPELLS.register(
+      "laser_beam", () -> new LaserBeamSpell(new AbstractSpell.Properties(List.of(ManaType.BLAZE, ManaType.LIGHT), 30, 400, 250))
+   );
+   public static final RegistryObject<AbstractSpell, BurstSparkSpell> BURST_SPARK = SPELLS.register(
+      "burst_spark", () -> new BurstSparkSpell(new AbstractSpell.Properties(List.of(ManaType.BLAZE, ManaType.LIGHT), 30, 400, 250))
+   );
+   public static final RegistryObject<AbstractSpell, FlamingAftershockSpell> FLAMING_AFTERSHOCK = SPELLS.register(
+      "flaming_aftershock", () -> new FlamingAftershockSpell(new AbstractSpell.Properties(List.of(ManaType.BLAZE, ManaType.TERRA), 30, 400, 250))
+   );
+   public static final RegistryObject<AbstractSpell, FlamingRingSpell> FLAMING_RING = SPELLS.register(
+      "flaming_ring", () -> new FlamingRingSpell(new AbstractSpell.Properties(List.of(ManaType.BLAZE, ManaType.LIGHT), 30, 400, 250))
+   );
+   public static final RegistryObject<AbstractSpell, FlamingArcSpell> FLAMING_ARC = SPELLS.register(
+      "flaming_arc", () -> new FlamingArcSpell(new AbstractSpell.Properties(List.of(ManaType.BLAZE, ManaType.LIGHT), 30, 400, 250))
+   );
+   public static final RegistryObject<AbstractSpell, MergedFireballSpell> MERGED_FIREBALL = SPELLS.register(
+      "merged_fireball", () -> new MergedFireballSpell(new AbstractSpell.Properties(List.of(ManaType.BLAZE, ManaType.LIGHT), 30, 400, 250))
+   );
+   public static final RegistryObject<AbstractSpell, SurroundingFireballsSpell> SURROUNDING_FIREBALLS = SPELLS.register(
+      "surrounding_fireballs", () -> new SurroundingFireballsSpell(new AbstractSpell.Properties(List.of(ManaType.BLAZE, ManaType.LIGHT), 30, 400, 250))
+   );
+   public static final RegistryObject<AbstractSpell, FrozenFogSpell> FROZEN_FOG = SPELLS.register(
+      "frozen_fog", () -> new FrozenFogSpell(new AbstractSpell.Properties(List.of(ManaType.WATER, ManaType.LUNAR), 30, 400, 250))
+   );
+   public static final RegistryObject<AbstractSpell, IcySpikesSpell> ICY_SPIKES = SPELLS.register(
+      "icy_spikes", () -> new IcySpikesSpell(new AbstractSpell.Properties(List.of(ManaType.WATER, ManaType.WIND), 30, 400, 250))
+   );
+
+   public static void loadClass() {
+   }
+}

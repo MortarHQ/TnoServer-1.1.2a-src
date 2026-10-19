@@ -1,0 +1,78 @@
+package com.moepus.byepregen.compat;
+
+import com.bawnorton.mixinsquared.adjuster.tools.AdjustableAnnotationNode;
+import com.bawnorton.mixinsquared.api.MixinAnnotationAdjuster;
+import com.moepus.byepregen.ConfigParser;
+import java.util.List;
+import org.objectweb.asm.tree.MethodNode;
+
+public final class FastTickChunksMixinAdjuster implements MixinAnnotationAdjuster {
+   private static final String SERVER_CHUNK_CACHE = "net.minecraft.server.level.ServerChunkCache";
+   private static final String C2ME_BASE_INSTRUMENTATION = "com.ishland.c2me.base.mixin.instrumentation.MixinServerChunkManager";
+   private static final String C2ME_REWRITES_CHUNK_SYSTEM = "com.ishland.c2me.rewrites.chunksystem.mixin.MixinServerChunkManager";
+   private static final String C2ME_NOTICKVD = "com.ishland.c2me.notickvd.mixin.MixinServerChunkManager";
+   private static final String C2ME_MID_TICK_CHUNK_TASKS = "com.ishland.c2me.opts.scheduling.mixin.mid_tick_chunk_tasks.MixinServerChunkManager";
+   private static final String LITHIUM_ALLOC_CHUNK_TICKING_CHUNK_CACHE_MIXIN = "net.caffeinemc.mods.lithium.mixin.alloc.chunk_ticking.ServerChunkCacheMixin";
+   private static final String LITHIUM_SPAWNING_CHUNK_CACHE_MIXIN = "net.caffeinemc.mods.lithium.mixin.minimal_nonvanilla.spawning.ServerChunkCacheMixin";
+   private static final String WRAP_METHOD = "Lcom/llamalad7/mixinextras/injector/wrapmethod/WrapMethod;";
+   private static final String WRAP_OPERATION = "Lcom/llamalad7/mixinextras/injector/wrapoperation/WrapOperation;";
+   private static final String INJECT = "Lorg/spongepowered/asm/mixin/injection/Inject;";
+   private static final String REDIRECT = "Lorg/spongepowered/asm/mixin/injection/Redirect;";
+   private static final List<DisabledHandler> DISABLED_HANDLERS = List.of(
+      new DisabledHandler(
+         "com.ishland.c2me.base.mixin.instrumentation.MixinServerChunkManager",
+         "instrumentGetChunk",
+         "Lcom/llamalad7/mixinextras/injector/wrapmethod/WrapMethod;"
+      ),
+      new DisabledHandler(
+         "com.ishland.c2me.base.mixin.instrumentation.MixinServerChunkManager",
+         "instrumentAwaitChunk",
+         "Lcom/llamalad7/mixinextras/injector/wrapoperation/WrapOperation;"
+      ),
+      new DisabledHandler(
+         "com.ishland.c2me.rewrites.chunksystem.mixin.MixinServerChunkManager", "shortcutGetChunk", "Lorg/spongepowered/asm/mixin/injection/Inject;"
+      ),
+      new DisabledHandler(
+         "com.ishland.c2me.notickvd.mixin.MixinServerChunkManager",
+         "redirectIterateEntities",
+         "Lcom/llamalad7/mixinextras/injector/wrapoperation/WrapOperation;"
+      ),
+      new DisabledHandler(
+         "com.ishland.c2me.notickvd.mixin.MixinServerChunkManager", "redirectIterateEntities", "Lorg/spongepowered/asm/mixin/injection/Redirect;"
+      ),
+      new DisabledHandler(
+         "com.ishland.c2me.notickvd.mixin.MixinServerChunkManager", "broadcastBorderChunks", "Lcom/llamalad7/mixinextras/injector/wrapoperation/WrapOperation;"
+      ),
+      new DisabledHandler(
+         "com.ishland.c2me.notickvd.mixin.MixinServerChunkManager", "broadcastBorderChunks", "Lorg/spongepowered/asm/mixin/injection/Redirect;"
+      ),
+      new DisabledHandler(
+         "com.ishland.c2me.opts.scheduling.mixin.mid_tick_chunk_tasks.MixinServerChunkManager",
+         "onPostTickChunk",
+         "Lorg/spongepowered/asm/mixin/injection/Inject;"
+      ),
+      new DisabledHandler(
+         "net.caffeinemc.mods.lithium.mixin.alloc.chunk_ticking.ServerChunkCacheMixin",
+         "redirectChunksListClone",
+         "Lorg/spongepowered/asm/mixin/injection/Redirect;"
+      ),
+      new DisabledHandler(
+         "net.caffeinemc.mods.lithium.mixin.alloc.chunk_ticking.ServerChunkCacheMixin", "preTick", "Lorg/spongepowered/asm/mixin/injection/Inject;"
+      ),
+      new DisabledHandler(
+         "net.caffeinemc.mods.lithium.mixin.minimal_nonvanilla.spawning.ServerChunkCacheMixin",
+         "iterateEntitiesChunkAware",
+         "Lorg/spongepowered/asm/mixin/injection/Redirect;"
+      )
+   );
+
+   public AdjustableAnnotationNode adjust(List<String> targetClassNames, String mixinClassName, MethodNode handlerNode, AdjustableAnnotationNode annotationNode) {
+      if (annotationNode == null || !ConfigParser.getConfig().enableFastTickChunks) {
+         return annotationNode;
+      } else if (!targetClassNames.contains("net.minecraft.server.level.ServerChunkCache")) {
+         return annotationNode;
+      } else {
+         return DisabledHandler.matchesAny(DISABLED_HANDLERS, DisabledHandler.target(mixinClassName, handlerNode, annotationNode)) ? null : annotationNode;
+      }
+   }
+}

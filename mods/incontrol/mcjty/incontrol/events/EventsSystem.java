@@ -1,0 +1,259 @@
+package mcjty.incontrol.events;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.Set;
+import java.util.Map.Entry;
+import java.util.function.Predicate;
+import javax.annotation.Nullable;
+import mcjty.incontrol.data.DataStorage;
+import mcjty.incontrol.mob.DefaultMob;
+import mcjty.incontrol.tools.rules.RuleBase;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.MobSpawnType;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.ServerLevelAccessor;
+import net.minecraft.world.phys.Vec2;
+import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.event.EventHooks;
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.neoforged.neoforge.event.level.BlockEvent.BreakEvent;
+import net.neoforged.neoforge.event.tick.LevelTickEvent.Pre;
+
+public class EventsSystem {
+   private static final Map<EventType.Type, List<EventsRule>> rules = new HashMap<>();
+   private static final Map<ResourceLocation, List<EventsRule>> rulesByMob = new HashMap<>();
+   private static final Random rnd = new Random();
+   public static Mob busySpawning = null;
+   private static Map<Level, List<EventsSystem.ScheduledCustomEvent>> customEventMap = new HashMap<>();
+
+   public static void reloadRules() {
+      customEventMap.clear();
+      rules.clear();
+      rulesByMob.clear();
+      EventsParser.readRules("events.json");
+   }
+
+   public static void cleanup() {
+      customEventMap.clear();
+      rules.clear();
+      rulesByMob.clear();
+   }
+
+   public static void addRule(EventsRule rule) {
+      rules.computeIfAbsent(rule.getEventType().type(), k -> new ArrayList<>()).add(rule);
+      if (rule.getEventType() instanceof EventTypeMobKilled mobKilled) {
+         for (ResourceLocation mob : mobKilled.getMobs()) {
+            rulesByMob.computeIfAbsent(mob, k -> new ArrayList<>()).add(rule);
+         }
+      }
+   }
+
+   public static void onEntityKilled(LivingDeathEvent event) {
+      Entity entity = event.getEntity();
+      ResourceLocation key = BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType());
+      List<EventsRule> eventsRules = rulesByMob.get(key);
+      if (eventsRules != null) {
+         for (EventsRule rule : eventsRules) {
+            EventTypeMobKilled eventType = (EventTypeMobKilled)rule.getEventType();
+            if ((!eventType.isPlayerKill() || event.getSource().getEntity() instanceof Player) && checkConditions(rule, entity.level())) {
+               doActions(rule, entity.blockPosition(), (ServerLevel)entity.level(), event.getSource().getEntity());
+            }
+         }
+      }
+   }
+
+   private static void doActions(EventsRule rule, BlockPos pos, ServerLevel level, @Nullable Entity player) {
+      doSpawnAction(rule, pos, level);
+      doPhaseAction(rule, level);
+      doNumberAction(rule, level);
+      doCommandAction(rule, pos, level, player);
+   }
+
+   private static void doCommandAction(EventsRule rule, BlockPos pos, ServerLevel level, @Nullable Entity player) {
+      CommandAction action = rule.getCommandAction();
+      if (action != null) {
+         List<String> commands = action.commands();
+         CommandSourceStack stack = new CommandSourceStack(
+            RuleBase.EMPTY, Vec3.atCenterOf(pos), Vec2.ZERO, level, 2, RuleBase.DEFAULT_NAME.getString(), RuleBase.DEFAULT_NAME, level.getServer(), player
+         );
+
+         for (String command : commands) {
+            level.getServer().getCommands().performPrefixedCommand(stack, command);
+         }
+      }
+   }
+
+   private static void doSpawnAction(EventsRule rule, BlockPos pos, ServerLevel level) {
+      SpawnEventAction action = rule.getSpawnAction();
+      if (action != null) {
+         List<DefaultMob> mobs = action.mobid();
+         DefaultMob mob = mobs.get(rnd.nextInt(mobs.size()));
+         int count = action.minamount() + rnd.nextInt(action.maxamount() - action.minamount() + 1);
+
+         for (int i = 0; i < count; i++) {
+            for (int a = 0; a < action.attempts(); a++) {
+               BlockPos randomPos = getRandomPos(pos, action.mindistance(), action.maxdistance());
+               if (spawn(mob, action, level, randomPos)) {
+                  break;
+               }
+            }
+         }
+      }
+   }
+
+   private static void doPhaseAction(EventsRule rule, Level level) {
+      PhaseAction action = rule.getPhaseAction();
+      if (action != null) {
+         DataStorage data = DataStorage.getData(level);
+         action.phases().forEach(p -> data.setPhase(p, action.set()));
+      }
+   }
+
+   private static void doNumberAction(EventsRule rule, Level level) {
+      NumberAction action = rule.getNumberAction();
+      if (action != null) {
+         DataStorage data = DataStorage.getData(level);
+         int number = data.getNumber(action.name());
+         data.setNumber(action.name(), action.perform(number));
+      }
+   }
+
+   private static boolean checkConditions(EventsRule rule, Level level) {
+      EventsConditions conditions = rule.getConditions();
+      float random = conditions.getRandom();
+      if (random >= 0.0F && rnd.nextFloat() >= random) {
+         return false;
+      }
+
+      if (!checkPhases(level, conditions)) {
+         return false;
+      }
+
+      if (!checkNumbers(level, conditions)) {
+         return false;
+      }
+
+      Set<ResourceKey<Level>> dimensions = conditions.getDimensions();
+      return dimensions.isEmpty() || dimensions.contains(level.dimension());
+   }
+
+   private static boolean checkNumbers(Level level, EventsConditions conditions) {
+      if (!conditions.getNumbers().isEmpty()) {
+         DataStorage data = DataStorage.getData(level);
+
+         for (Entry<String, Predicate<Integer>> entry : conditions.getNumbers().entrySet()) {
+            int number = data.getNumber(entry.getKey());
+            if (!entry.getValue().test(number)) {
+               return false;
+            }
+         }
+      }
+
+      return true;
+   }
+
+   private static boolean checkPhases(Level level, EventsConditions conditions) {
+      if (!conditions.getPhases().isEmpty()) {
+         Set<String> phases = DataStorage.getData(level).getPhases();
+         if (!phases.containsAll(conditions.getPhases())) {
+            return false;
+         }
+      }
+
+      return true;
+   }
+
+   private static BlockPos getRandomPos(BlockPos center, float mindistance, float maxdistance) {
+      float distance = mindistance + rnd.nextFloat() * (maxdistance - mindistance);
+      double angle = rnd.nextFloat() * Math.PI * 2.0;
+      int x = (int)(center.getX() + distance * Math.cos(angle));
+      int z = (int)(center.getZ() + distance * Math.sin(angle));
+      return new BlockPos(x, center.getY(), z);
+   }
+
+   private static boolean spawn(DefaultMob mob, SpawnEventAction action, ServerLevelAccessor world, BlockPos pos) {
+      Entity entity = mob.getEntity(world.getLevel());
+      if (entity == null) {
+         return false;
+      }
+
+      Mob mobEntity = (Mob)entity;
+      entity.moveTo(pos.getX(), pos.getY(), pos.getZ(), rnd.nextFloat() * 360.0F, 0.0F);
+      busySpawning = mobEntity;
+      if (canSpawn(world.getLevel(), mobEntity, action) && isNotColliding(world.getLevel(), mobEntity, action)) {
+         EventHooks.finalizeMobSpawn(mobEntity, world, world.getCurrentDifficultyAt(pos), MobSpawnType.NATURAL, null);
+         if (!((Mob)entity).isSpawnCancelled()) {
+            world.addFreshEntityWithPassengers(entity);
+            busySpawning = null;
+            return true;
+         }
+      }
+
+      busySpawning = null;
+      return false;
+   }
+
+   private static boolean canSpawn(Level world, Mob mobEntity, SpawnEventAction action) {
+      return action.norestrictions() ? true : EventHooks.checkSpawnPosition(mobEntity, (ServerLevelAccessor)world, MobSpawnType.NATURAL);
+   }
+
+   private static boolean isNotColliding(Level world, Mob mobEntity, SpawnEventAction action) {
+      return mobEntity.checkSpawnObstruction(world);
+   }
+
+   public static void onBlockBreak(BreakEvent event) {
+      List<EventsRule> eventsRules = rules.get(EventType.Type.BLOCK_BROKEN);
+      if (eventsRules != null) {
+         for (EventsRule rule : eventsRules) {
+            EventTypeBlockBroken eventType = (EventTypeBlockBroken)rule.getEventType();
+            if (checkConditions(rule, event.getPlayer().level()) && eventType.getBlockTest().test(event.getLevel(), event.getPos())) {
+               doActions(rule, event.getPos(), (ServerLevel)event.getLevel(), event.getPlayer());
+            }
+         }
+      }
+   }
+
+   public static void onLevelTick(Pre event) {
+      List<EventsSystem.ScheduledCustomEvent> events = customEventMap.get(event.getLevel());
+      if (events != null && !events.isEmpty()) {
+         ArrayList<EventsSystem.ScheduledCustomEvent> copy = new ArrayList<>(events);
+         events.clear();
+
+         for (EventsSystem.ScheduledCustomEvent scheduledCustomEvent : copy) {
+            handleCustomEvent((ServerLevel)event.getLevel(), scheduledCustomEvent.pos, scheduledCustomEvent.name);
+         }
+      }
+   }
+
+   public static void onCustomEvent(Level level, BlockPos pos, String name) {
+      List<EventsSystem.ScheduledCustomEvent> events = customEventMap.computeIfAbsent(level, k -> new ArrayList<>());
+      events.add(new EventsSystem.ScheduledCustomEvent(pos, name));
+   }
+
+   private static void handleCustomEvent(ServerLevel level, BlockPos pos, String name) {
+      List<EventsRule> eventsRules = rules.get(EventType.Type.CUSTOM);
+      if (eventsRules != null) {
+         for (EventsRule rule : eventsRules) {
+            EventTypeCustom eventType = (EventTypeCustom)rule.getEventType();
+            if (checkConditions(rule, level) && eventType.getName().equals(name)) {
+               doActions(rule, pos, level, null);
+            }
+         }
+      }
+   }
+
+   private record ScheduledCustomEvent(BlockPos pos, String name) {
+   }
+}

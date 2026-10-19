@@ -1,0 +1,22 @@
+package com.blackgear.vanillabackport.core.mixin.leash;
+
+import com.blackgear.vanillabackport.common.api.leash.LeashDataAccess;
+import net.minecraft.world.entity.Leashable.LeashData;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
+
+@Mixin(LeashData.class)
+public class LeashDataMixin implements LeashDataAccess {
+   @Unique
+   private double vb$angularMomentum;
+
+   @Override
+   public double vb$getAngularMomentum() {
+      return this.vb$angularMomentum;
+   }
+
+   @Override
+   public void vb$setAngularMomentum(double momentum) {
+      this.vb$angularMomentum = momentum;
+   }
+}

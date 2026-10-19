@@ -1,0 +1,153 @@
+package net.darkhax.bookshelf.common.api.registry;
+
+import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.serialization.MapCodec;
+import java.util.function.BiConsumer;
+import net.darkhax.bookshelf.common.api.PhysicalSide;
+import net.darkhax.bookshelf.common.api.annotation.OnlyFor;
+import net.darkhax.bookshelf.common.api.data.conditions.ILoadCondition;
+import net.darkhax.bookshelf.common.api.registry.register.ArgumentRegister;
+import net.darkhax.bookshelf.common.api.registry.register.ItemComponentRegister;
+import net.darkhax.bookshelf.common.api.registry.register.MenuRegister;
+import net.darkhax.bookshelf.common.api.registry.register.Register;
+import net.darkhax.bookshelf.common.api.registry.register.RegisterBlockEntityRenderer;
+import net.darkhax.bookshelf.common.api.registry.register.RegisterCatVariant;
+import net.darkhax.bookshelf.common.api.registry.register.RegisterIngredient;
+import net.darkhax.bookshelf.common.api.registry.register.RegisterItem;
+import net.darkhax.bookshelf.common.api.registry.register.RegisterItemTab;
+import net.darkhax.bookshelf.common.api.registry.register.RegisterLootDescription;
+import net.darkhax.bookshelf.common.api.registry.register.RegisterLootPoolAdditions;
+import net.darkhax.bookshelf.common.api.registry.register.RegisterMenuScreen;
+import net.darkhax.bookshelf.common.api.registry.register.RegisterPacket;
+import net.darkhax.bookshelf.common.api.registry.register.RegisterParticleProviders;
+import net.darkhax.bookshelf.common.api.registry.register.RegisterParticleTypes;
+import net.darkhax.bookshelf.common.api.registry.register.RegisterPotPatterns;
+import net.darkhax.bookshelf.common.api.registry.register.RegisterRecipeType;
+import net.darkhax.bookshelf.common.api.registry.register.RegisterVillagerTrades;
+import net.minecraft.advancements.CriterionTrigger;
+import net.minecraft.advancements.critereon.ItemSubPredicate.Type;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.commands.CommandBuildContext;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.Commands.CommandSelection;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.entity.EntityType.Builder;
+import net.minecraft.world.entity.ai.attributes.Attribute;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.alchemy.Potion;
+import net.minecraft.world.item.crafting.RecipeSerializer;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.storage.loot.entries.LootPoolEntryContainer;
+import net.minecraft.world.level.storage.loot.functions.LootItemFunction;
+import net.minecraft.world.level.storage.loot.predicates.LootItemCondition;
+
+public interface IContentProvider {
+   String contentNamespace();
+
+   default void registerMobEffects(Register<MobEffect> registry) {
+   }
+
+   default void registerBlocks(Register<Block> registry) {
+   }
+
+   default void registerEntities(Register<Builder<?>> registry) {
+   }
+
+   @Deprecated
+   default void registerItems(Register<Item> registry) {
+   }
+
+   default void registerItems(RegisterItem registry) {
+   }
+
+   default void registerBlockEntities(Register<net.minecraft.world.level.block.entity.BlockEntityType.Builder<?>> registry) {
+   }
+
+   default void registerRecipeTypes(RegisterRecipeType registry) {
+   }
+
+   default void registerRecipeSerializers(Register<RecipeSerializer<?>> registry) {
+   }
+
+   default void registerAttributes(Register<Attribute> registry) {
+   }
+
+   default void registerItemSubPredicates(Register<Type<?>> registry) {
+   }
+
+   default void registerCriteriaTriggers(Register<CriterionTrigger<?>> registry) {
+   }
+
+   default void registerCommands(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext context, CommandSelection selection) {
+   }
+
+   default void registerCommandArguments(ArgumentRegister registry) {
+   }
+
+   default void registerItemComponents(ItemComponentRegister registry) {
+   }
+
+   default void registerLoadConditions(Register<MapCodec<? extends ILoadCondition>> registry) {
+   }
+
+   default void registerLootEntryType(Register<MapCodec<? extends LootPoolEntryContainer>> register) {
+   }
+
+   default void registerPotPatterns(RegisterPotPatterns registry) {
+   }
+
+   default void registerMenus(MenuRegister registry) {
+   }
+
+   default void registerLootConditions(Register<MapCodec<? extends LootItemCondition>> registry) {
+   }
+
+   default void registerLootFunctions(Register<MapCodec<? extends LootItemFunction>> registry) {
+   }
+
+   default void registerPackets(RegisterPacket registry) {
+   }
+
+   default void registerTrades(RegisterVillagerTrades registry) {
+   }
+
+   default void registerParticleTypes(RegisterParticleTypes registry) {
+   }
+
+   default void registerLootPoolAdditions(RegisterLootPoolAdditions registry) {
+   }
+
+   default void registerCatVariants(RegisterCatVariant registry) {
+   }
+
+   default void registerItemTabs(RegisterItemTab registry) {
+   }
+
+   default void registerIngredientTypes(RegisterIngredient registry) {
+   }
+
+   default void registerPotions(Register<Potion> registry) {
+   }
+
+   default void registerBrewing(net.minecraft.world.item.alchemy.PotionBrewing.Builder registry) {
+   }
+
+   default void registerLootDescriptions(RegisterLootDescription registry) {
+   }
+
+   @OnlyFor(PhysicalSide.CLIENT)
+   default void registerMenuScreens(RegisterMenuScreen registry) {
+   }
+
+   @OnlyFor(PhysicalSide.CLIENT)
+   default void registerParticleFactories(RegisterParticleProviders registry) {
+   }
+
+   @OnlyFor(PhysicalSide.CLIENT)
+   default void bindRenderLayers(BiConsumer<Block, RenderType> registry) {
+   }
+
+   @OnlyFor(PhysicalSide.CLIENT)
+   default void bindBlockEntityRenderer(RegisterBlockEntityRenderer registry) {
+   }
+}

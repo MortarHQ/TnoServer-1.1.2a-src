@@ -1,0 +1,106 @@
+package cn.leolezury.eternalstarlight.common.client.particle.effect;
+
+import cn.leolezury.eternalstarlight.common.client.ESRenderType;
+import cn.leolezury.eternalstarlight.common.client.handler.ESClientHandler;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.blaze3d.vertex.PoseStack.Pose;
+import java.util.ArrayList;
+import java.util.List;
+import net.minecraft.client.Camera;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.particle.Particle;
+import net.minecraft.client.particle.ParticleProvider;
+import net.minecraft.client.particle.ParticleRenderType;
+import net.minecraft.client.particle.SpriteSet;
+import net.minecraft.client.particle.TextureSheetParticle;
+import net.minecraft.core.particles.SimpleParticleType;
+import net.minecraft.world.phys.Vec3;
+
+public class ElectricSparkParticle extends TextureSheetParticle {
+   private final Vec3 destPos;
+   private final List<Vec3> segments = new ArrayList<>();
+
+   protected ElectricSparkParticle(ClientLevel clientLevel, double x, double y, double z, double dx, double dy, double dz, SpriteSet spriteSet) {
+      super(clientLevel, x, y, z);
+      this.stoppedByCollision = true;
+      this.lifetime = (int)(this.random.nextFloat() * 7.0F + 7.0F);
+      this.destPos = new Vec3(x + dx, y + dy, z + dz);
+      this.pickSprite(spriteSet);
+   }
+
+   public void move(double d, double e, double f) {
+      super.move(d, e, f);
+   }
+
+   public ParticleRenderType getRenderType() {
+      return ParticleRenderType.PARTICLE_SHEET_TRANSLUCENT;
+   }
+
+   public void tick() {
+      super.tick();
+      Vec3 currentPos = new Vec3(this.x, this.y, this.z);
+      if (this.segments.isEmpty() || this.age % 3 == 0) {
+         this.segments.clear();
+         int numSegments = (int)(this.random.nextFloat() * 3.0F + 3.0F);
+         float segmentLength = (float)(this.destPos.subtract(currentPos).length() / numSegments);
+         Vec3 increment = this.destPos.subtract(currentPos).scale(1.0 / numSegments);
+         this.segments.add(currentPos);
+
+         for (int i = 0; i < numSegments; i++) {
+            if (i == numSegments - 1) {
+               this.segments.add(currentPos.add(increment.scale(i + 1)));
+            } else {
+               this.segments
+                  .add(
+                     currentPos.add(increment.scale(i + 1))
+                        .add(
+                           new Vec3(this.random.nextDouble() - 0.5, this.random.nextDouble() - 0.5, this.random.nextDouble() - 0.5)
+                              .normalize()
+                              .scale(segmentLength / 2.0F)
+                        )
+                  );
+            }
+         }
+      }
+   }
+
+   public void render(VertexConsumer consumer, Camera camera, float partialTick) {
+      Vec3 camPos = camera.getPosition();
+      PoseStack stack = new PoseStack();
+      stack.pushPose();
+      stack.translate(-camPos.x, -camPos.y, -camPos.z);
+      VertexConsumer vertexConsumer = ESClientHandler.DELAYED_BUFFER_SOURCE.getBuffer(ESRenderType.PARTICLE_ADDITIVE_GLOW);
+
+      for (int i = 0; i < this.segments.size() - 1; i++) {
+         Vec3 start = this.segments.get(i);
+         Vec3 end = this.segments.get(i + 1);
+         Vec3 offset = end.subtract(start);
+         Vec3 sight = camPos.subtract(start).scale(-1.0);
+         Vec3 sideOffset = offset.cross(sight).normalize().scale(0.03);
+         Pose pose = stack.last();
+         float u0 = this.getU0();
+         float u1 = this.getU1();
+         float v0 = this.getV0();
+         float v1 = this.getV1();
+         vertexConsumer.addVertex(pose, start.add(sideOffset).toVector3f()).setColor(0.6F, 0.6F, 0.9F, 0.75F).setUv(u0, v0).setLight(15728880);
+         vertexConsumer.addVertex(pose, start.add(sideOffset.scale(-1.0)).toVector3f()).setColor(0.6F, 0.6F, 0.9F, 0.75F).setUv(u0, v1).setLight(15728880);
+         vertexConsumer.addVertex(pose, end.add(sideOffset.scale(-1.0)).toVector3f()).setColor(0.6F, 0.6F, 0.9F, 0.75F).setUv(u1, v1).setLight(15728880);
+         vertexConsumer.addVertex(pose, end.add(sideOffset).toVector3f()).setColor(0.6F, 0.6F, 0.9F, 0.75F).setUv(u1, v0).setLight(15728880);
+      }
+
+      stack.popPose();
+   }
+
+   public static class Provider implements ParticleProvider<SimpleParticleType> {
+      private final SpriteSet sprites;
+
+      public Provider(SpriteSet spriteSet) {
+         this.sprites = spriteSet;
+      }
+
+      public Particle createParticle(SimpleParticleType options, ClientLevel level, double x, double y, double z, double dx, double dy, double dz) {
+         return new ElectricSparkParticle(level, x, y, z, dx, dy, dz, this.sprites);
+      }
+   }
+}

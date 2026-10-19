@@ -1,0 +1,64 @@
+package me.wesley1808.servercore.common.config.data;
+
+import space.arim.dazzleconf.annote.ConfComments;
+import space.arim.dazzleconf.annote.ConfKey;
+import space.arim.dazzleconf.annote.IntegerRange;
+import space.arim.dazzleconf.annote.NumericRange;
+import space.arim.dazzleconf.annote.ConfDefault.DefaultBoolean;
+import space.arim.dazzleconf.annote.ConfDefault.DefaultDouble;
+import space.arim.dazzleconf.annote.ConfDefault.DefaultInteger;
+import space.arim.dazzleconf.sorter.AnnotationBasedSorter.Order;
+
+public interface FeatureConfig {
+   @Order(1)
+   @ConfKey("prevent-moving-into-unloaded-chunks")
+   @DefaultBoolean(false)
+   @ConfComments("Prevents lagspikes caused by players moving into unloaded chunks.")
+   boolean preventMovingIntoUnloadedChunks();
+
+   @Order(2)
+   @ConfKey("autosave-interval-seconds")
+   @DefaultInteger(300)
+   @IntegerRange(min = 5L)
+   @ConfComments("The amount of seconds between auto-saves when /save-on is active.")
+   int autosaveIntervalSeconds();
+
+   @Order(3)
+   @ConfKey("xp-merge-fraction")
+   @DefaultInteger(40)
+   @IntegerRange(min = 1L)
+   @ConfComments(
+      {
+            "The fraction that decides the chance of experience orbs being able to merge with each other. (1 = 100%, 40 = 2.5%)",
+            "Note that just like in vanilla, experience orbs will still need to be of the same size to actually merge."
+      }
+   )
+   int xpMergeFraction();
+
+   @Order(4)
+   @ConfKey("xp-merge-radius")
+   @DefaultDouble(0.5)
+   @NumericRange(min = 0.5)
+   @ConfComments("The radius in blocks that experience orbs will merge at.")
+   double xpMergeRadius();
+
+   @Order(5)
+   @ConfKey("item-merge-radius")
+   @DefaultDouble(0.5)
+   @NumericRange(min = 0.5)
+   @ConfComments("The radius in blocks that items will merge at.")
+   double itemMergeRadius();
+
+   @Order(6)
+   @ConfKey("lobotomize-villagers.enabled")
+   @DefaultBoolean(false)
+   @ConfComments("Makes villagers tick less often if they are stuck in a 1x1 space.")
+   boolean lobotomizeVillagers();
+
+   @Order(7)
+   @ConfKey("lobotomize-villagers.tick-interval")
+   @DefaultInteger(20)
+   @IntegerRange(min = 2L)
+   @ConfComments("Decides the interval in between villager ticks when lobotomized.")
+   int lobotomizedTickInterval();
+}

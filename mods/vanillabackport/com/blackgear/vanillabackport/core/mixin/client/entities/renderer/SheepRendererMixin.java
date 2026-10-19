@@ -1,0 +1,28 @@
+package com.blackgear.vanillabackport.core.mixin.client.entities.renderer;
+
+import com.blackgear.vanillabackport.client.api.renderer.RenderConditions;
+import com.blackgear.vanillabackport.client.api.renderer.SpecialMobRenderer;
+import com.blackgear.vanillabackport.client.level.entities.layer.SheepWoolUndercoatLayer;
+import net.minecraft.client.model.SheepModel;
+import net.minecraft.client.renderer.entity.SheepRenderer;
+import net.minecraft.client.renderer.entity.EntityRendererProvider.Context;
+import net.minecraft.world.entity.animal.Sheep;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+@Mixin(SheepRenderer.class)
+public abstract class SheepRendererMixin extends MobRendererMixin<Sheep, SheepModel<Sheep>> {
+   public SheepRendererMixin(Context context, SheepModel<Sheep> model, float shadowRadius) {
+      super(context, model, shadowRadius);
+   }
+
+   @Inject(method = "<init>(Lnet/minecraft/client/renderer/entity/EntityRendererProvider$Context;)V", at = @At("TAIL"))
+   private void onInit(Context context, CallbackInfo ci) {
+      SpecialMobRenderer.addLayer(
+         SpecialMobRenderer.create(context, ctx -> new SheepWoolUndercoatLayer(this, ctx.getModelSet()), RenderConditions.SHEEP_UNDERCOAT),
+         x$0 -> this.addLayer(x$0)
+      );
+   }
+}

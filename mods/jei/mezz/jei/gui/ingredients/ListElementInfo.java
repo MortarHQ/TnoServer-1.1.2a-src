@@ -1,0 +1,211 @@
+package mezz.jei.gui.ingredients;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+import java.util.stream.Stream;
+import mezz.jei.api.helpers.IModIdHelper;
+import mezz.jei.api.ingredients.IIngredientHelper;
+import mezz.jei.api.ingredients.IIngredientRenderer;
+import mezz.jei.api.ingredients.ITypedIngredient;
+import mezz.jei.api.runtime.IIngredientManager;
+import mezz.jei.common.config.IIngredientFilterConfig;
+import mezz.jei.common.util.SafeIngredientUtil;
+import mezz.jei.common.util.StringUtil;
+import mezz.jei.common.util.Translator;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.FormattedText;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.CreativeModeTab;
+import net.minecraft.world.item.CreativeModeTabs;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.CreativeModeTab.Type;
+import net.minecraft.world.item.TooltipFlag.Default;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.Unmodifiable;
+
+public class ListElementInfo<V> implements IListElementInfo<V> {
+   private static final Logger LOGGER = LogManager.getLogger();
+   private static int elementCount = 0;
+   private final IListElement<V> element;
+   private final List<String> names;
+   private final List<String> modIds;
+   private final List<String> modNames;
+   private final ResourceLocation resourceLocation;
+
+   @Nullable
+   public static <V> IListElementInfo<V> create(ITypedIngredient<V> value, IIngredientManager ingredientManager, IModIdHelper modIdHelper) {
+      int createdIndex = elementCount++;
+      ListElement<V> element = new ListElement<>(value, createdIndex);
+      return createFromElement(element, ingredientManager, modIdHelper);
+   }
+
+   @Nullable
+   public static <V> IListElementInfo<V> createFromElement(IListElement<V> element, IIngredientManager ingredientManager, IModIdHelper modIdHelper) {
+      try {
+         return new ListElementInfo<>(element, ingredientManager, modIdHelper);
+      } catch (RuntimeException var8) {
+         RuntimeException e = var8;
+
+         try {
+            ITypedIngredient<V> typedIngredient = element.getTypedIngredient();
+            IIngredientHelper<V> ingredientHelper = ingredientManager.getIngredientHelper(typedIngredient.getType());
+            String ingredientInfo = ingredientHelper.getErrorInfo(typedIngredient.getIngredient());
+            LOGGER.warn("Found a broken ingredient {}", ingredientInfo, e);
+         } catch (RuntimeException e2) {
+            LOGGER.warn("Found a broken ingredient.", e2);
+         }
+
+         return null;
+      }
+   }
+
+   protected ListElementInfo(IListElement<V> element, IIngredientManager ingredientManager, IModIdHelper modIdHelper) {
+      this.element = element;
+      ITypedIngredient<V> value = element.getTypedIngredient();
+      V ingredient = value.getIngredient();
+      IIngredientHelper<V> ingredientHelper = ingredientManager.getIngredientHelper(value.getType());
+      this.resourceLocation = ingredientHelper.getResourceLocation(ingredient);
+      String displayModId = ingredientHelper.getDisplayModId(ingredient);
+      String modId = this.resourceLocation.getNamespace();
+      if (modId.equals(displayModId)) {
+         this.modIds = List.of(modId);
+         this.modNames = List.of(modIdHelper.getModNameForModId(modId));
+      } else {
+         this.modIds = List.of(modId, displayModId);
+         this.modNames = List.of(modIdHelper.getModNameForModId(modId), modIdHelper.getModNameForModId(displayModId));
+      }
+
+      String displayNameLowercase = DisplayNameUtil.getLowercaseDisplayNameForSearch(ingredient, ingredientHelper);
+      Collection<String> aliases = ingredientManager.getIngredientAliases(value);
+      if (aliases.isEmpty()) {
+         this.names = List.of(displayNameLowercase);
+      } else {
+         this.names = new ArrayList<>(1 + aliases.size());
+         this.names.add(displayNameLowercase);
+
+         for (String alias : aliases) {
+            String lowercaseAlias = Translator.toLowercaseWithLocale(alias);
+            this.names.add(lowercaseAlias);
+         }
+      }
+   }
+
+   @Override
+   public List<String> getNames() {
+      return this.names;
+   }
+
+   @Override
+   public String getModNameForSorting() {
+      return this.modNames.getFirst();
+   }
+
+   @Override
+   public List<String> getModNames() {
+      return this.modNames;
+   }
+
+   @Override
+   public List<String> getModIds() {
+      return this.modIds;
+   }
+
+   @Override
+   public final @Unmodifiable Set<String> getTooltipStrings(IIngredientFilterConfig config, IIngredientManager ingredientManager) {
+      ITypedIngredient<V> value = this.element.getTypedIngredient();
+      IIngredientRenderer<V> ingredientRenderer = ingredientManager.getIngredientRenderer(value.getType());
+      Default tooltipFlag = config.getSearchAdvancedTooltips() ? Default.ADVANCED : Default.NORMAL;
+      tooltipFlag = tooltipFlag.asCreative();
+      List<Component> tooltip = SafeIngredientUtil.getPlainTooltipForSearch(ingredientManager, ingredientRenderer, value, tooltipFlag);
+      Set<String> strings = getStrings(tooltip);
+      strings.remove(this.names.getFirst());
+      strings.remove(this.modNames.getFirst().toLowerCase(Locale.ENGLISH));
+      strings.remove(this.modIds.getFirst());
+      strings.remove(this.resourceLocation.getPath());
+      return strings;
+   }
+
+   public static Set<String> getStrings(@Unmodifiable List<Component> tooltip) {
+      Set<String> result = new HashSet<>();
+
+      for (FormattedText component : tooltip) {
+         String string = component.getString();
+         string = StringUtil.removeChatFormatting(string);
+         string = Translator.toLowercaseWithLocale(string);
+         String[] strings = string.split(" ");
+         Collections.addAll(result, strings);
+      }
+
+      return result;
+   }
+
+   @Override
+   public Collection<String> getTagStrings(IIngredientManager ingredientManager) {
+      ITypedIngredient<V> value = this.element.getTypedIngredient();
+      IIngredientHelper<V> ingredientHelper = ingredientManager.getIngredientHelper(value.getType());
+      return ingredientHelper.getTagStream(value.getIngredient()).<String>map(ResourceLocation::getPath).toList();
+   }
+
+   @Override
+   public Stream<ResourceLocation> getTagIds(IIngredientManager ingredientManager) {
+      ITypedIngredient<V> value = this.element.getTypedIngredient();
+      IIngredientHelper<V> ingredientHelper = ingredientManager.getIngredientHelper(value.getType());
+      return ingredientHelper.getTagStream(value.getIngredient());
+   }
+
+   @Override
+   public Iterable<Integer> getColors(IIngredientManager ingredientManager) {
+      ITypedIngredient<V> value = this.element.getTypedIngredient();
+      IIngredientHelper<V> ingredientHelper = ingredientManager.getIngredientHelper(value.getType());
+      V ingredient = value.getIngredient();
+      return ingredientHelper.getColors(ingredient);
+   }
+
+   @Override
+   public @Unmodifiable Collection<String> getCreativeTabsStrings(IIngredientManager ingredientManager) {
+      ItemStack itemStack = this.element.getTypedIngredient().getItemStack().orElse(ItemStack.EMPTY);
+      if (itemStack.isEmpty()) {
+         return List.of();
+      }
+
+      Set<String> creativeTabStrings = new HashSet<>();
+
+      for (CreativeModeTab itemGroup : CreativeModeTabs.allTabs()) {
+         if (itemGroup.shouldDisplay() && itemGroup.getType() == Type.CATEGORY && itemGroup.contains(itemStack)) {
+            String name = itemGroup.getDisplayName().getString();
+            name = StringUtil.removeChatFormatting(name);
+            name = Translator.toLowercaseWithLocale(name);
+            Collections.addAll(creativeTabStrings, name.split(" "));
+         }
+      }
+
+      return creativeTabStrings;
+   }
+
+   @Override
+   public ResourceLocation getResourceLocation() {
+      return this.resourceLocation;
+   }
+
+   @Override
+   public IListElement<V> getElement() {
+      return this.element;
+   }
+
+   @Override
+   public ITypedIngredient<V> getTypedIngredient() {
+      return this.element.getTypedIngredient();
+   }
+
+   @Override
+   public int getCreatedIndex() {
+      return this.element.getCreatedIndex();
+   }
+}

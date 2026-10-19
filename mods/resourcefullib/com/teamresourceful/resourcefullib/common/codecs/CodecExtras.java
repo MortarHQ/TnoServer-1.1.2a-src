@@ -1,0 +1,149 @@
+package com.teamresourceful.resourcefullib.common.codecs;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.mojang.datafixers.util.Either;
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.DataResult;
+import com.mojang.serialization.Dynamic;
+import com.mojang.serialization.DynamicOps;
+import com.mojang.serialization.JsonOps;
+import com.mojang.serialization.codecs.PrimitiveCodec;
+import com.teamresourceful.resourcefullib.common.collections.WeightedCollection;
+import com.teamresourceful.resourcefullib.common.exceptions.UtilityClassException;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.function.ToDoubleFunction;
+import net.minecraft.core.Registry;
+import net.minecraft.util.ExtraCodecs;
+import org.jetbrains.annotations.Nullable;
+
+public final class CodecExtras {
+   public static final Codec<Double> NON_NEGATIVE_DOUBLE = doubleRangeWithMessage(
+      0.0, Double.MAX_VALUE, aDouble -> "Value must be greater than or equal to 0. Found: " + aDouble
+   );
+   public static final Codec<Double> POSITIVE_DOUBLE = doubleRangeWithMessage(
+      1.0, Double.MAX_VALUE, aDouble -> "Value must be greater than 0. Found: " + aDouble
+   );
+   public static final Codec<Double> NON_POSITIVE_DOUBLE = doubleRangeWithMessage(
+      Double.MIN_VALUE, 0.0, aDouble -> "Value must be less than or equal to 0. Found: " + aDouble
+   );
+   public static final Codec<Double> NEGATIVE_DOUBLE = doubleRangeWithMessage(Double.MIN_VALUE, -1.0, aDouble -> "Value must be less than 0. Found: " + aDouble);
+   public static final Codec<Double> DOUBLE_UNIT_INTERVAL = doubleRangeWithMessage(0.0, 1.0, aDouble -> "Value must be between 0 and 1. Found: " + aDouble);
+   public static final Codec<Float> NON_NEGATIVE_FLOAT = floatRangeWithMessage(
+      0.0F, Float.MAX_VALUE, aFloat -> "Value must be greater than or equal to 0. Found: " + aFloat
+   );
+   public static final Codec<Float> POSITIVE_FLOAT = floatRangeWithMessage(1.0F, Float.MAX_VALUE, aFloat -> "Value must be greater than 0. Found: " + aFloat);
+   public static final Codec<Float> NON_POSITIVE_FLOAT = floatRangeWithMessage(
+      Float.MIN_VALUE, 0.0F, aFloat -> "Value must be less than or equal to 0. Found: " + aFloat
+   );
+   public static final Codec<Float> NEGATIVE_FLOAT = floatRangeWithMessage(Float.MIN_VALUE, -1.0F, aFloat -> "Value must be less than 0. Found: " + aFloat);
+   public static final Codec<Float> FLOAT_UNIT_INTERVAL = floatRangeWithMessage(0.0F, 1.0F, aFloat -> "Value must be between 0 and 1. Found: " + aFloat);
+   public static final Codec<Integer> NON_NEGATIVE_INT = ExtraCodecs.NON_NEGATIVE_INT;
+   public static final Codec<Integer> POSITIVE_INT = ExtraCodecs.POSITIVE_INT;
+   public static final Codec<Integer> NON_POSITIVE_INT = intRangeWithMessage(
+      Integer.MIN_VALUE, 0, integer -> "Value must be less than or equal to 0. Found: " + integer
+   );
+   public static final Codec<Integer> NEGATIVE_INT = intRangeWithMessage(Integer.MIN_VALUE, -1, integer -> "Value must be less than 0. Found: " + integer);
+   public static final Codec<Integer> INT_UNIT_INTERVAL = intRangeWithMessage(0, 1, integer -> "Value must be between 0 and 1. Found: " + integer);
+   public static final PrimitiveCodec<Number> NUMBER = PrimitiveCodecHelper.create(DynamicOps::getNumberValue, DynamicOps::createNumeric, "Number");
+
+   private CodecExtras() throws UtilityClassException {
+      throw new UtilityClassException();
+   }
+
+   public static <O, A> Function<O, Optional<A>> optionalFor(Function<O, @Nullable A> getter) {
+      return o -> Optional.ofNullable(getter.apply(o));
+   }
+
+   public static <T> Codec<WeightedCollection<T>> weightedCollection(Codec<T> codec, ToDoubleFunction<T> weighter) {
+      return codec.listOf().xmap(set -> WeightedCollection.of(set, weighter), collection -> collection.stream().toList());
+   }
+
+   public static <T> Codec<T> registryId(Registry<T> registry) {
+      return Codec.INT.comapFlatMap(value -> {
+         T t = (T)registry.byId(value);
+         return t == null ? DataResult.error(() -> "Unknown registry value: " + value) : DataResult.success(t);
+      }, registry::getId);
+   }
+
+   public static <T> Codec<Set<T>> set(Codec<T> codec) {
+      return codec.listOf().xmap(HashSet::new, ArrayList::new);
+   }
+
+   public static <T> Codec<Set<T>> linkedSet(Codec<T> codec) {
+      return codec.listOf().xmap(LinkedHashSet::new, LinkedList::new);
+   }
+
+   public static <T> Codec<T> passthrough(Function<T, JsonElement> encoder, Function<JsonElement, T> decoder) {
+      return Codec.PASSTHROUGH.comapFlatMap(dynamic -> {
+         if (dynamic.getValue() instanceof JsonElement jsonElement) {
+            JsonElement output = clearNulls(jsonElement);
+            return output == null ? DataResult.error(() -> "Value was null for decoder: " + decoder) : DataResult.success(decoder.apply(output));
+         } else {
+            return DataResult.error(() -> "Value was not an instance of JsonElement");
+         }
+      }, input -> new Dynamic(JsonOps.INSTANCE, clearNulls(encoder.apply((T)input))));
+   }
+
+   public static <S> Codec<S> eitherRight(Codec<Either<S, S>> eitherCodec) {
+      return eitherCodec.xmap(e -> e.map(p -> p, p -> p), Either::right);
+   }
+
+   public static <S> Codec<S> eitherLeft(Codec<Either<S, S>> eitherCodec) {
+      return eitherCodec.xmap(e -> e.map(p -> p, p -> p), Either::left);
+   }
+
+   private static JsonElement clearNulls(JsonElement json) {
+      if (json instanceof JsonObject object) {
+         JsonObject newObject = new JsonObject();
+
+         for (String key : object.keySet()) {
+            JsonElement element = clearNulls(object.get(key));
+            if (element != null) {
+               newObject.add(key, element);
+            }
+         }
+
+         return newObject;
+      } else if (json instanceof JsonArray array) {
+         JsonArray newArray = new JsonArray();
+
+         for (JsonElement item : array) {
+            JsonElement element = clearNulls(item);
+            if (element != null) {
+               newArray.add(element);
+            }
+         }
+
+         return newArray;
+      } else {
+         return json.isJsonNull() ? null : json;
+      }
+   }
+
+   private static Codec<Integer> intRangeWithMessage(int i, int j, Function<Integer, String> function) {
+      return Codec.INT
+         .validate(
+            integer -> integer.compareTo(i) >= 0 && integer.compareTo(j) <= 0 ? DataResult.success(integer) : DataResult.error(() -> function.apply(integer))
+         );
+   }
+
+   private static Codec<Double> doubleRangeWithMessage(double i, double j, Function<Double, String> function) {
+      return Codec.DOUBLE
+         .validate(
+            aDouble -> aDouble.compareTo(i) >= 0 && aDouble.compareTo(j) <= 0 ? DataResult.success(aDouble) : DataResult.error(() -> function.apply(aDouble))
+         );
+   }
+
+   private static Codec<Float> floatRangeWithMessage(float i, float j, Function<Float, String> function) {
+      return Codec.FLOAT
+         .validate(aFloat -> aFloat.compareTo(i) >= 0 && aFloat.compareTo(j) <= 0 ? DataResult.success(aFloat) : DataResult.error(() -> function.apply(aFloat)));
+   }
+}

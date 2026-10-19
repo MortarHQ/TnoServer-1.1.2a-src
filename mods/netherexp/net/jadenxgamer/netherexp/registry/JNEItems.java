@@ -1,0 +1,223 @@
+package net.jadenxgamer.netherexp.registry;
+
+import java.util.function.Supplier;
+import net.jadenxgamer.elysium_api.impl.core.item.ElysiumArrowItem;
+import net.jadenxgamer.netherexp.NetherExp;
+import net.jadenxgamer.netherexp.core.entity.PhasmoArrow;
+import net.jadenxgamer.netherexp.core.entity.PhasmoPellet;
+import net.jadenxgamer.netherexp.core.entity.ShotgunPellet;
+import net.jadenxgamer.netherexp.core.entity.SlugPellet;
+import net.jadenxgamer.netherexp.core.item.AntidoteItem;
+import net.jadenxgamer.netherexp.core.item.CerebrageSeedItem;
+import net.jadenxgamer.netherexp.core.item.GlowsporesItem;
+import net.jadenxgamer.netherexp.core.item.GrenadeAntidoteItem;
+import net.jadenxgamer.netherexp.core.item.MobBottleItem;
+import net.jadenxgamer.netherexp.core.item.NonConsumableItem;
+import net.jadenxgamer.netherexp.core.item.PumpChargeShotgunItem;
+import net.jadenxgamer.netherexp.core.item.SanctumCompassItem;
+import net.jadenxgamer.netherexp.core.item.ShotgunFistItem;
+import net.jadenxgamer.netherexp.core.item.ShotgunShellItem;
+import net.jadenxgamer.netherexp.core.item.SkullOnAStick;
+import net.jadenxgamer.netherexp.core.item.UpwardsStackingBlockItem;
+import net.jadenxgamer.netherexp.core.item.WillOWispItem;
+import net.jadenxgamer.netherexp.core.item.components.AntidoteContents;
+import net.jadenxgamer.netherexp.core.keys.JNEJukeboxSongs;
+import net.jadenxgamer.netherexp.core.keys.JNETrimPatterns;
+import net.jadenxgamer.netherexp.core.misc.JNEFoods;
+import net.jadenxgamer.netherexp.registry.compat.CavernsAndChasmsCompat;
+import net.jadenxgamer.netherexp.registry.compat.GardensOfTheDeadCompat;
+import net.jadenxgamer.netherexp.util.CompatUtil;
+import net.jadenxgamer.netherexp.util.RegistryHelper;
+import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.world.entity.projectile.AbstractArrow.Pickup;
+import net.minecraft.world.flag.FeatureFlag;
+import net.minecraft.world.item.HangingSignItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.PlaceOnWaterBlockItem;
+import net.minecraft.world.item.Rarity;
+import net.minecraft.world.item.SignItem;
+import net.minecraft.world.item.SmithingTemplateItem;
+import net.minecraft.world.item.StandingAndWallBlockItem;
+import net.minecraft.world.item.Item.Properties;
+import net.minecraft.world.level.ItemLike;
+import net.minecraft.world.level.block.DispenserBlock;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.neoforge.common.DeferredSpawnEggItem;
+import net.neoforged.neoforge.fluids.DispenseFluidContainer;
+import net.neoforged.neoforge.registries.DeferredRegister;
+import net.neoforged.neoforge.registries.RegisterEvent;
+
+public class JNEItems {
+   public static final DeferredRegister<Item> ITEMS = DeferredRegister.create(BuiltInRegistries.ITEM, "netherexp");
+   public static final Supplier<Item> HOGHAM = ITEMS.register("hogham", () -> new Item(new Properties().food(JNEFoods.HOGHAM)));
+   public static final Supplier<Item> COOKED_HOGHAM = ITEMS.register("cooked_hogham", () -> new Item(new Properties().food(JNEFoods.COOKED_HOGHAM)));
+   public static final Supplier<Item> FOSSIL_FUEL = ITEMS.register("fossil_fuel", () -> new Item(new Properties()));
+   public static final Supplier<Item> RIFT_ARMOR_TRIM_SMITHING_TEMPLATE = ITEMS.register(
+      "rift_armor_trim_smithing_template", () -> SmithingTemplateItem.createArmorTrimTemplate(JNETrimPatterns.RIFT, new FeatureFlag[0])
+   );
+   public static final Supplier<Item> SPIRIT_ARMOR_TRIM_SMITHING_TEMPLATE = ITEMS.register(
+      "spirit_armor_trim_smithing_template", () -> SmithingTemplateItem.createArmorTrimTemplate(JNETrimPatterns.SPIRIT, new FeatureFlag[0])
+   );
+   public static final Supplier<Item> VALOR_ARMOR_TRIM_SMITHING_TEMPLATE = ITEMS.register(
+      "valor_armor_trim_smithing_template", () -> SmithingTemplateItem.createArmorTrimTemplate(JNETrimPatterns.VALOR, new FeatureFlag[0])
+   );
+   public static final Supplier<Item> PUMP_CHARGE_UPGRADE_SMITHING_TEMPLATE = ITEMS.register(
+      "pump_charge_upgrade_smithing_template", () -> new Item(new Properties())
+   );
+   public static final Supplier<Item> LIGHTSPORES = ITEMS.register("lightspores", () -> new GlowsporesItem(JNEParticleTypes.LIGHTSPORE, new Properties()));
+   public static final Supplier<Item> NIGHTSPORES = ITEMS.register("nightspores", () -> new GlowsporesItem(JNEParticleTypes.NIGHTSPORE, new Properties()));
+   public static final Supplier<Item> ANTIDOTE = ITEMS.register(
+      "antidote", () -> new AntidoteItem(new Properties().stacksTo(1).component(JNEDataComponents.ANTIDOTE_CONTENTS.get(), AntidoteContents.EMPTY))
+   );
+   public static final Supplier<Item> GRENADE_ANTIDOTE = ITEMS.register(
+      "grenade_antidote",
+      () -> new GrenadeAntidoteItem(new Properties().stacksTo(1).component(JNEDataComponents.ANTIDOTE_CONTENTS.get(), AntidoteContents.EMPTY))
+   );
+   public static final Supplier<Item> GLOWCHEESE = ITEMS.register("glowcheese", () -> new Item(new Properties().food(JNEFoods.GLOWCHEESE)));
+   public static final Supplier<Item> NETHER_PIZZA_SLICE = ITEMS.register(
+      "nether_pizza_slice", () -> new Item(new Properties().food(JNEFoods.PIZZA_SLICE).rarity(Rarity.RARE))
+   );
+   public static final Supplier<Item> WISP_BOTTLE = ITEMS.register(
+      "wisp_bottle",
+      () -> new MobBottleItem(JNEEntityType.WISP, JNESoundEvents.WISP_BOTTLE_EMPTY, new Properties().stacksTo(1).craftRemainder(Items.GLASS_BOTTLE))
+   );
+   public static final Supplier<Item> SANCTUM_COMPASS = ITEMS.register(
+      "sanctum_compass", () -> new SanctumCompassItem(new Properties().stacksTo(1).rarity(Rarity.RARE))
+   );
+   public static final Supplier<Item> WRAITHING_FLESH = ITEMS.register("wraithing_flesh", () -> new Item(new Properties().food(JNEFoods.WRAITHING_FLESH)));
+   public static final Supplier<Item> PHASMO_SHARD = ITEMS.register("phasmo_shard", () -> new Item(new Properties()));
+   public static final Supplier<Item> PHASMO_ARROW = ITEMS.register(
+      "phasmo_arrow", () -> new ElysiumArrowItem(PhasmoArrow.class, Pickup.ALLOWED, new Properties())
+   );
+   public static final Supplier<Item> BANSHEE_ROD = ITEMS.register("banshee_rod", () -> new Item(new Properties()));
+   public static final Supplier<Item> BANSHEE_POWDER = ITEMS.register("banshee_powder", () -> new Item(new Properties()));
+   public static final Supplier<Item> WILL_O_WISP = ITEMS.register("will_o_wisp", () -> new WillOWispItem(new Properties()));
+   public static final Supplier<Item> STRIDITE = ITEMS.register("stridite", () -> new Item(new Properties().fireResistant()));
+   public static final Supplier<Item> NETHERITE_PLATING = ITEMS.register("netherite_plating", () -> new Item(new Properties().fireResistant()));
+   public static final Supplier<Item> SPARK_OF_TREACHERY = ITEMS.register(
+      "spark_of_treachery", () -> new Item(new Properties().rarity(Rarity.RARE).fireResistant())
+   );
+   public static final Supplier<Item> SHOTGUN_FIST = ITEMS.register(
+      "shotgun_fist", () -> new ShotgunFistItem(new Properties().stacksTo(1).durability(512).fireResistant().rarity(Rarity.RARE))
+   );
+   public static final Supplier<Item> PUMP_CHARGE_SHOTGUN = ITEMS.register(
+      "pump_charge_shotgun", () -> new PumpChargeShotgunItem(new Properties().stacksTo(1).durability(640).fireResistant().rarity(Rarity.EPIC))
+   );
+   public static final Supplier<Item> CLARET_SIGN = ITEMS.register(
+      "claret_sign", () -> new SignItem(new Properties().stacksTo(16), JNEBlocks.CLARET_SIGN.get(), JNEBlocks.CLARET_WALL_SIGN.get())
+   );
+   public static final Supplier<Item> CLARET_HANGING_SIGN = ITEMS.register(
+      "claret_hanging_sign",
+      () -> new HangingSignItem(JNEBlocks.CLARET_HANGING_SIGN.get(), JNEBlocks.CLARET_WALL_HANGING_SIGN.get(), new Properties().stacksTo(16))
+   );
+   public static final Supplier<Item> MUSIC_DISC_CRICKET = ITEMS.register(
+      "music_disc_cricket", () -> new Item(new Properties().stacksTo(1).rarity(Rarity.RARE))
+   );
+   public static final Supplier<Item> MUSIC_DISC_BUCKSHOT_WONDERLAND = ITEMS.register(
+      "music_disc_buckshot_wonderland", () -> new Item(new Properties().stacksTo(1).rarity(Rarity.RARE).jukeboxPlayable(JNEJukeboxSongs.PATIENCE))
+   );
+   public static final Supplier<Item> SKULL_ON_A_STICK = ITEMS.register(
+      "skull_on_a_stick", () -> new SkullOnAStick(new Properties().stacksTo(1).rarity(Rarity.UNCOMMON).durability(100))
+   );
+   public static final Supplier<Item> WISP_SPAWN_EGG = ITEMS.register(
+      "wisp_spawn_egg", () -> new DeferredSpawnEggItem(JNEEntityType.WISP, 6022120, 699311, new Properties())
+   );
+   public static final Supplier<Item> APPARITION_SPAWN_EGG = ITEMS.register(
+      "apparition_spawn_egg", () -> new DeferredSpawnEggItem(JNEEntityType.APPARITION, 4864303, 699311, new Properties())
+   );
+   public static final Supplier<Item> VESSEL_SPAWN_EGG = ITEMS.register(
+      "vessel_spawn_egg", () -> new DeferredSpawnEggItem(JNEEntityType.VESSEL, 4864303, 12698049, new Properties())
+   );
+   public static final Supplier<Item> ECTO_SLAB_SPAWN_EGG = ITEMS.register(
+      "ecto_slab_spawn_egg", () -> new DeferredSpawnEggItem(JNEEntityType.ECTO_SLAB, 4864303, 1788232, new Properties())
+   );
+   public static final Supplier<Item> BANSHEE_SPAWN_EGG = ITEMS.register(
+      "banshee_spawn_egg", () -> new DeferredSpawnEggItem(JNEEntityType.BANSHEE, 1985382, 1788232, new Properties())
+   );
+   public static final Supplier<Item> STAMPEDE_SPAWN_EGG = ITEMS.register(
+      "stampede_spawn_egg", () -> new DeferredSpawnEggItem(JNEEntityType.STAMPEDE, 4864303, 10236982, new Properties())
+   );
+   public static final Supplier<Item> CARCASS_SPAWN_EGG = ITEMS.register(
+      "carcass_spawn_egg", () -> new DeferredSpawnEggItem(JNEEntityType.CARCASS, 8263192, 4066060, new Properties())
+   );
+   public static final Supplier<Item> SEALED_POTTERY_SHERD = ITEMS.register("sealed_pottery_sherd", () -> new Item(new Properties()));
+   public static final Supplier<Item> SPECTRE_POTTERY_SHERD = ITEMS.register("spectre_pottery_sherd", () -> new Item(new Properties()));
+   public static final Supplier<Item> MARIONETTE_POTTERY_SHERD = ITEMS.register("marionette_pottery_sherd", () -> new Item(new Properties()));
+   public static final Supplier<Item> ELDRITCH_POTTERY_SHERD = ITEMS.register("eldritch_pottery_sherd", () -> new Item(new Properties()));
+   public static final Supplier<Item> DECEPTION_POTTERY_SHERD = ITEMS.register("deception_pottery_sherd", () -> new Item(new Properties()));
+   public static final Supplier<Item> FIREARM_POTTERY_SHERD = ITEMS.register("firearm_pottery_sherd", () -> new Item(new Properties()));
+   public static final Supplier<Item> BOTANICAL_POTTERY_SHERD = ITEMS.register("botanical_pottery_sherd", () -> new Item(new Properties()));
+   public static final Supplier<Item> CEREBRAGE = ITEMS.register("cerebrage", () -> new Item(new Properties().food(JNEFoods.CEREBRAGE)));
+   public static final Supplier<Item> CEREBRAGE_SEEDS = ITEMS.register("cerebrage_seeds", () -> new CerebrageSeedItem(new Properties()));
+   public static final Supplier<Item> ROASTED_BONE = ITEMS.register("roasted_bone", () -> new Item(new Properties().food(JNEFoods.ROASTED_BONE).stacksTo(16)));
+   public static final Supplier<Item> WEEPING_HELIX = ITEMS.register("weeping_helix", () -> new Item(new Properties()));
+   public static final Supplier<Item> TWISTING_HELIX = ITEMS.register("twisting_helix", () -> new Item(new Properties()));
+   public static final Supplier<Item> TREACHEROUS_WAX = ITEMS.register("treacherous_wax", () -> new Item(new Properties()));
+   public static final Supplier<Item> TREACHEROUS_TORCH = ITEMS.register(
+      "treacherous_torch",
+      () -> new StandingAndWallBlockItem(JNEBlocks.TREACHEROUS_TORCH.get(), JNEBlocks.TREACHEROUS_WALL_TORCH.get(), new Properties(), Direction.DOWN)
+   );
+   public static final Supplier<Item> TREACHEROUS_CANDLE = ITEMS.register(
+      "treacherous_candle", () -> new UpwardsStackingBlockItem(JNEBlocks.TREACHEROUS_CANDLE.get(), new Properties())
+   );
+   public static final Supplier<Item> OCHRE_FROGMIST = ITEMS.register(
+      "ochre_frogmist", () -> new PlaceOnWaterBlockItem(JNEBlocks.OCHRE_FROGMIST.get(), new Properties())
+   );
+   public static final Supplier<Item> PEARLESCENT_FROGMIST = ITEMS.register(
+      "pearlescent_frogmist", () -> new PlaceOnWaterBlockItem(JNEBlocks.PEARLESCENT_FROGMIST.get(), new Properties())
+   );
+   public static final Supplier<Item> VERDANT_FROGMIST = ITEMS.register(
+      "verdant_frogmist", () -> new PlaceOnWaterBlockItem(JNEBlocks.VERDANT_FROGMIST.get(), new Properties())
+   );
+   public static final Supplier<Item> PYROCLAST_CRUSTS = ITEMS.register(
+      "pyroclast_crusts", () -> new PlaceOnWaterBlockItem(JNEBlocks.PYROCLAST_CRUSTS.get(), new Properties())
+   );
+   public static final Supplier<Item> SHOTGUN_SHELL = ITEMS.register("shotgun_shell", () -> new ShotgunShellItem(ShotgunPellet.class, new Properties()));
+   public static final Supplier<Item> SLUG_SHOTGUN_SHELL = ITEMS.register("slug_shotgun_shell", () -> new ShotgunShellItem(SlugPellet.class, new Properties()));
+   public static final Supplier<Item> PHASMO_SHOTGUN_SHELL = ITEMS.register(
+      "phasmo_shotgun_shell", () -> new ShotgunShellItem(PhasmoPellet.class, new Properties())
+   );
+   public static final Supplier<Item> BLANK_SHOTGUN_SHELL = ITEMS.register("blank_shotgun_shell", () -> new Item(new Properties()));
+   public static final Supplier<Item> SHOTGUN_CORE = ITEMS.register("shotgun_core", () -> new NonConsumableItem(new Properties().fireResistant().stacksTo(1)));
+
+   public static void init(IEventBus eventBus) {
+      registerAliases();
+      if (CompatUtil.GARDENS_OF_THE_DEAD) {
+         GardensOfTheDeadCompat.Items.init();
+      }
+
+      if (CompatUtil.CAVERNS_AND_CHASMS) {
+         CavernsAndChasmsCompat.Items.init();
+      }
+
+      ITEMS.register(eventBus);
+   }
+
+   public static void backportRegistries(RegisterEvent event) {
+      event.register(
+         Registries.ITEM,
+         registry -> {
+            if (!BuiltInRegistries.ITEM.containsKey(NetherExp.minecraftPath("music_disc_tears"))) {
+               RegistryHelper.vanillaRegister(
+                  registry, "music_disc_tears", () -> new Item(new Properties().stacksTo(1).rarity(Rarity.RARE).jukeboxPlayable(JNEJukeboxSongs.TEARS))
+               );
+            }
+         }
+      );
+   }
+
+   private static void registerAliases() {
+      ITEMS.addAlias(NetherExp.netherexpPath("ancient_wax"), NetherExp.netherexpPath("treacherous_wax"));
+      ITEMS.addAlias(NetherExp.netherexpPath("treacherous_flame"), NetherExp.netherexpPath("spark_of_treachery"));
+   }
+
+   public static void setup() {
+      DispenserBlock.registerProjectileBehavior((ItemLike)PHASMO_ARROW.get());
+      DispenserBlock.registerProjectileBehavior((ItemLike)GRENADE_ANTIDOTE.get());
+      DispenserBlock.registerBehavior((ItemLike)JNEFluids.ECTOPLASM_BUCKET.get(), DispenseFluidContainer.getInstance());
+      DispenserBlock.registerBehavior((ItemLike)JNEFluids.ECTOPLASM_BUCKET.get(), DispenseFluidContainer.getInstance());
+   }
+}

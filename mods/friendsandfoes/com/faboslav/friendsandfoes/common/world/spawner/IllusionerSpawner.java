@@ -1,0 +1,87 @@
+package com.faboslav.friendsandfoes.common.world.spawner;
+
+import com.faboslav.friendsandfoes.common.FriendsAndFoes;
+import com.faboslav.friendsandfoes.common.entity.IllusionerEntity;
+import com.faboslav.friendsandfoes.common.init.FriendsAndFoesEntityTypes;
+import com.faboslav.friendsandfoes.common.tag.FriendsAndFoesTags;
+import com.faboslav.friendsandfoes.common.versions.VersionedEntitySpawnReason;
+import net.minecraft.core.BlockPos.MutableBlockPos;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.monster.PatrollingMonster;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.CustomSpawner;
+import net.minecraft.world.level.NaturalSpawner;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.Heightmap.Types;
+
+public final class IllusionerSpawner implements CustomSpawner {
+   private int cooldown;
+
+   public int tick(ServerLevel world, boolean spawnMonsters, boolean spawnAnimals) {
+      if (spawnMonsters && FriendsAndFoes.getConfig().enableIllusioner && FriendsAndFoes.getConfig().enableIllusionerSpawn) {
+         RandomSource random = world.getRandom();
+         this.cooldown--;
+         if (this.cooldown > 0) {
+            return 0;
+         }
+
+         this.cooldown = this.cooldown + 12000 + random.nextInt(1000);
+         long l = world.getDayTime() / 24000L;
+         if (l >= 5L && !world.isNight() && random.nextIntBetweenInclusive(0, 1) == 0) {
+            int playerCount = world.players().size();
+            if (playerCount == 0) {
+               return 0;
+            }
+
+            Player playerEntity = (Player)world.players().get(random.nextInt(playerCount));
+            if (!playerEntity.isSpectator() && !world.isCloseToVillage(playerEntity.blockPosition(), 2)) {
+               int j = (24 + random.nextInt(24)) * (random.nextBoolean() ? -1 : 1);
+               int k = (24 + random.nextInt(24)) * (random.nextBoolean() ? -1 : 1);
+               MutableBlockPos mutable = playerEntity.blockPosition().mutable().move(j, 0, k);
+               int minX = mutable.getX() - 10;
+               int minZ = mutable.getZ() - 10;
+               int maxX = mutable.getX() + 10;
+               int maxZ = mutable.getZ() + 10;
+               if (!world.hasChunksAt(minX, minZ, maxX, maxZ)) {
+                  return 0;
+               }
+
+               if (!world.getBiome(mutable).is(FriendsAndFoesTags.HAS_ILLUSIONER)) {
+                  return 0;
+               }
+
+               mutable.setY(world.getHeightmapPos(Types.MOTION_BLOCKING_NO_LEAVES, mutable).getY());
+               BlockState blockState = world.getBlockState(mutable);
+               if (NaturalSpawner.isValidEmptySpawnBlock(
+                     world, mutable, blockState, blockState.getFluidState(), (EntityType)FriendsAndFoesEntityTypes.ILLUSIONER.get()
+                  )
+                  && PatrollingMonster.checkPatrollingMonsterSpawnRules(
+                     (EntityType)FriendsAndFoesEntityTypes.ILLUSIONER.get(), world, VersionedEntitySpawnReason.PATROL, mutable, random
+                  )) {
+                  IllusionerEntity illusioner = (IllusionerEntity)((EntityType)FriendsAndFoesEntityTypes.ILLUSIONER.get()).create(world);
+                  if (illusioner == null) {
+                     return 0;
+                  }
+
+                  illusioner.setPatrolLeader(false);
+                  illusioner.findPatrolTarget();
+                  illusioner.setPos(mutable.getX(), mutable.getY(), mutable.getZ());
+                  illusioner.finalizeSpawn(world, world.getCurrentDifficultyAt(mutable), VersionedEntitySpawnReason.PATROL, null);
+                  world.addFreshEntityWithPassengers(illusioner);
+                  return 1;
+               } else {
+                  return 0;
+               }
+            } else {
+               return 0;
+            }
+         } else {
+            return 0;
+         }
+      } else {
+         return 0;
+      }
+   }
+}

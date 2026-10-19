@@ -1,0 +1,16 @@
+package org.openzen.zencode.shared;
+
+import java.io.IOException;
+import java.io.Reader;
+
+public interface SourceFile {
+   String getFilename();
+
+   Reader open() throws IOException;
+
+   void update(String var1) throws IOException;
+
+   default int getOrder() {
+      return 0;
+   }
+}

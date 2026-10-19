@@ -1,0 +1,573 @@
+package team.creative.creativecore.common.gui.control.simple;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+import java.util.Objects;
+import java.util.function.BiFunction;
+import java.util.function.Predicate;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
+import net.minecraft.Util;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.network.chat.Style;
+import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.util.Mth;
+import net.minecraft.util.StringUtil;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.api.distmarker.OnlyIn;
+import org.jetbrains.annotations.Nullable;
+import org.joml.Matrix4f;
+import team.creative.creativecore.client.render.GuiRenderHelper;
+import team.creative.creativecore.common.gui.control.GuiFocusControl;
+import team.creative.creativecore.common.gui.event.GuiTextUpdateEvent;
+import team.creative.creativecore.common.gui.style.ControlFormatting;
+import team.creative.creativecore.common.gui.style.GuiStyle;
+
+public class GuiTextfield extends GuiFocusControl {
+   private String text = "";
+   private String suggestion = "";
+   private int maxStringLength = 128;
+   private int frame;
+   private boolean shift;
+   private int lineScrollOffset;
+   private int cursorPosition;
+   private int selectionEnd;
+   private Predicate<String> validator = Objects::nonNull;
+   private final BiFunction<String, Integer, FormattedCharSequence> textFormatter = (text, pos) -> FormattedCharSequence.forward(text, Style.EMPTY);
+   private int cachedWidth;
+
+   public GuiTextfield(String name) {
+      super(name);
+      this.setText("");
+   }
+
+   public GuiTextfield(String name, String text) {
+      super(name);
+      this.setText(text);
+   }
+
+   public GuiTextfield(String name, String text, int maxStringLength) {
+      super(name);
+      this.maxStringLength = maxStringLength;
+      this.setText(text);
+   }
+
+   public GuiTextfield setDim(int width, int height) {
+      return (GuiTextfield)super.setDim(width, height);
+   }
+
+   public GuiTextfield setDim(int width) {
+      return (GuiTextfield)super.setDim(width, 10);
+   }
+
+   public GuiTextfield setFloatOnly() {
+      this.validator = x -> {
+         if (!x.isEmpty() && !x.equalsIgnoreCase("-")) {
+            try {
+               Float.parseFloat(x);
+               return true;
+            } catch (NumberFormatException e) {
+               return false;
+            }
+         } else {
+            return true;
+         }
+      };
+      return this;
+   }
+
+   public GuiTextfield setNumbersIncludingNegativeOnly() {
+      this.validator = x -> {
+         if (!x.isEmpty() && !x.equalsIgnoreCase("-")) {
+            try {
+               Integer.parseInt(x);
+               return true;
+            } catch (NumberFormatException e) {
+               return false;
+            }
+         } else {
+            return true;
+         }
+      };
+      return this;
+   }
+
+   public GuiTextfield setNumbersOnly() {
+      this.validator = x -> {
+         if (x.isEmpty()) {
+            return true;
+         }
+
+         try {
+            return Integer.parseInt(x) >= 0;
+         } catch (NumberFormatException e) {
+            return false;
+         }
+      };
+      return this;
+   }
+
+   public float parseFloat() {
+      try {
+         return Float.parseFloat(this.text);
+      } catch (NumberFormatException e) {
+         return 0.0F;
+      }
+   }
+
+   public double parseDouble() {
+      try {
+         return Double.parseDouble(this.text);
+      } catch (NumberFormatException e) {
+         return 0.0;
+      }
+   }
+
+   public int parseInteger() {
+      try {
+         return Integer.parseInt(this.text);
+      } catch (NumberFormatException e) {
+         return 0;
+      }
+   }
+
+   @Override
+   public void init() {
+   }
+
+   @Override
+   public void closed() {
+   }
+
+   @Override
+   public void tick() {
+      this.frame++;
+   }
+
+   @Override
+   public ControlFormatting getControlFormatting() {
+      return ControlFormatting.NESTED;
+   }
+
+   @OnlyIn(Dist.CLIENT)
+   @Environment(EnvType.CLIENT)
+   @Override
+   protected void renderContent(GuiGraphics graphics, int mouseX, int mouseY) {
+      PoseStack pose = graphics.pose();
+      Font font = GuiRenderHelper.getFont();
+      int j = this.cursorPosition - this.lineScrollOffset;
+      int k = this.selectionEnd - this.lineScrollOffset;
+      GuiStyle style = this.getStyle();
+      int color = this.enabled ? style.fontColor.toInt() : style.fontColorDisabled.toInt();
+      String s = font.plainSubstrByWidth(this.text.substring(this.lineScrollOffset), this.rect.getContentWidth());
+      boolean flag = j >= 0 && j <= s.length();
+      boolean flag1 = this.isFocused() && this.frame / 6 % 2 == 0 && flag;
+      int yOffset = 0;
+      int xOffset = 0;
+      if (k > s.length()) {
+         k = s.length();
+      }
+
+      if (!s.isEmpty()) {
+         String s1 = flag ? s.substring(0, j) : s;
+         xOffset = graphics.drawString(font, this.textFormatter.apply(s1, this.lineScrollOffset), xOffset, yOffset, color, false) + 1;
+      }
+
+      boolean flag2 = this.cursorPosition < this.text.length() || this.text.length() >= this.getMaxStringLength();
+      int k1 = xOffset;
+      if (!flag) {
+         k1 = j > 0 ? this.rect.getContentWidth() : 0;
+      } else if (flag2) {
+         k1 = xOffset - 1;
+         xOffset--;
+      }
+
+      if (!s.isEmpty() && flag && j < s.length()) {
+         graphics.drawString(font, this.textFormatter.apply(s.substring(j), this.cursorPosition), xOffset, yOffset, color, false);
+      }
+
+      if (this.text.isEmpty() && !this.suggestion.isEmpty()) {
+         graphics.drawString(font, this.suggestion, k1 - 1, yOffset, -8355712);
+      }
+
+      if (flag1) {
+         if (flag2) {
+            graphics.fill(k1, yOffset - 1, k1 + 1, yOffset + 1 + 9, -3092272);
+         } else {
+            graphics.drawString(font, "_", k1, yOffset, color);
+         }
+      }
+
+      if (k != j) {
+         int l1 = font.width(s.substring(0, k));
+         this.drawSelectionBox(graphics, pose.last().pose(), k1, yOffset - 1, l1 - 1, yOffset + 1 + 9);
+      }
+   }
+
+   public GuiTextfield setText(String textIn) {
+      if (this.validator.test(textIn)) {
+         if (textIn.length() > this.maxStringLength) {
+            this.text = textIn.substring(0, this.maxStringLength);
+         } else {
+            this.text = textIn;
+         }
+
+         this.setCursorPositionZero();
+         this.setSelectionPos(this.cursorPosition);
+         this.onTextChanged(textIn);
+      }
+
+      return this;
+   }
+
+   public String getText() {
+      return this.text;
+   }
+
+   public String getSelectedText() {
+      int i = Math.min(this.cursorPosition, this.selectionEnd);
+      int j = Math.max(this.cursorPosition, this.selectionEnd);
+      return this.text.substring(i, j);
+   }
+
+   public void setValidator(Predicate<String> validatorIn) {
+      this.validator = validatorIn;
+   }
+
+   public void writeText(String textToWrite) {
+      int i = Math.min(this.cursorPosition, this.selectionEnd);
+      int j = Math.max(this.cursorPosition, this.selectionEnd);
+      int k = this.maxStringLength - this.text.length() - (i - j);
+      String s = StringUtil.filterText(textToWrite);
+      int l = s.length();
+      if (k < l) {
+         s = s.substring(0, k);
+         l = k;
+      }
+
+      String s1 = new StringBuilder(this.text).replace(i, j, s).toString();
+      if (this.validator.test(s1)) {
+         this.text = s1;
+         this.clampCursorPosition(i + l);
+         this.setSelectionPos(this.cursorPosition);
+         this.onTextChanged(this.text);
+      }
+   }
+
+   private void onTextChanged(String newText) {
+      this.raiseEvent(new GuiTextUpdateEvent(this));
+   }
+
+   private void delete(int p_212950_1_) {
+      if (Screen.hasControlDown()) {
+         this.deleteWords(p_212950_1_);
+      } else {
+         this.deleteFromCursor(p_212950_1_);
+      }
+
+      this.onTextChanged(this.text);
+   }
+
+   public void deleteWords(int num) {
+      if (!this.text.isEmpty()) {
+         if (this.selectionEnd != this.cursorPosition) {
+            this.writeText("");
+         } else {
+            this.deleteFromCursor(this.getNthWordFromCursor(num) - this.cursorPosition);
+         }
+      }
+   }
+
+   public void deleteFromCursor(int num) {
+      if (!this.text.isEmpty()) {
+         if (this.selectionEnd != this.cursorPosition) {
+            this.writeText("");
+         } else {
+            int i = this.getCursorPos(num);
+            int j = Math.min(i, this.cursorPosition);
+            int k = Math.max(i, this.cursorPosition);
+            if (j != k) {
+               String s = new StringBuilder(this.text).delete(j, k).toString();
+               if (this.validator.test(s)) {
+                  this.text = s;
+                  this.setCursorPosition(j);
+               }
+            }
+         }
+      }
+   }
+
+   public int getNthWordFromCursor(int numWords) {
+      return this.getNthWordFromPos(numWords, this.getCursorPosition());
+   }
+
+   private int getNthWordFromPos(int n, int pos) {
+      return this.getNthWordFromPosWS(n, pos, true);
+   }
+
+   private int getNthWordFromPosWS(int n, int pos, boolean skipWs) {
+      int i = pos;
+      boolean flag = n < 0;
+      int j = Math.abs(n);
+
+      for (int k = 0; k < j; k++) {
+         if (!flag) {
+            int l = this.text.length();
+            i = this.text.indexOf(32, i);
+            if (i == -1) {
+               i = l;
+            } else {
+               while (skipWs && i < l && this.text.charAt(i) == ' ') {
+                  i++;
+               }
+            }
+         } else {
+            while (skipWs && i > 0 && this.text.charAt(i - 1) == ' ') {
+               i--;
+            }
+
+            while (i > 0 && this.text.charAt(i - 1) != ' ') {
+               i--;
+            }
+         }
+      }
+
+      return i;
+   }
+
+   public void moveCursorBy(int num) {
+      this.setCursorPosition(this.getCursorPos(num));
+   }
+
+   private int getCursorPos(int p_238516_1_) {
+      return Util.offsetByCodepoints(this.text, this.cursorPosition, p_238516_1_);
+   }
+
+   public void setCursorPosition(int pos) {
+      this.clampCursorPosition(pos);
+      if (!this.shift) {
+         this.setSelectionPos(this.cursorPosition);
+      }
+   }
+
+   public void clampCursorPosition(int pos) {
+      this.cursorPosition = Mth.clamp(pos, 0, this.text.length());
+   }
+
+   public void setCursorPositionZero() {
+      this.setCursorPosition(0);
+   }
+
+   public void setCursorPositionEnd() {
+      this.setCursorPosition(this.text.length());
+   }
+
+   @Override
+   public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+      if (!this.canWrite()) {
+         return false;
+      }
+
+      this.shift = Screen.hasShiftDown();
+      if (Screen.isSelectAll(keyCode)) {
+         this.setCursorPositionEnd();
+         this.setSelectionPos(0);
+         return true;
+      }
+
+      if (Screen.isCopy(keyCode)) {
+         Minecraft.getInstance().keyboardHandler.setClipboard(this.getSelectedText());
+         return true;
+      }
+
+      if (Screen.isPaste(keyCode)) {
+         this.writeText(Minecraft.getInstance().keyboardHandler.getClipboard());
+         return true;
+      }
+
+      if (Screen.isCut(keyCode)) {
+         Minecraft.getInstance().keyboardHandler.setClipboard(this.getSelectedText());
+         this.writeText("");
+         return true;
+      }
+
+      switch (keyCode) {
+         case 258:
+         case 260:
+         case 264:
+         case 265:
+         case 266:
+         case 267:
+            return false;
+         case 259:
+            this.shift = false;
+            this.delete(-1);
+            this.shift = Screen.hasShiftDown();
+            return true;
+         case 261:
+            this.shift = false;
+            this.delete(1);
+            this.shift = Screen.hasShiftDown();
+            return true;
+         case 262:
+            if (Screen.hasControlDown()) {
+               this.setCursorPosition(this.getNthWordFromCursor(1));
+            } else {
+               this.moveCursorBy(1);
+            }
+
+            return true;
+         case 263:
+            if (Screen.hasControlDown()) {
+               this.setCursorPosition(this.getNthWordFromCursor(-1));
+            } else {
+               this.moveCursorBy(-1);
+            }
+
+            return true;
+         case 268:
+            this.setCursorPositionZero();
+            return true;
+         case 269:
+            this.setCursorPositionEnd();
+            return true;
+         default:
+            return StringUtil.isAllowedChatCharacter((char)keyCode);
+      }
+   }
+
+   public boolean canWrite() {
+      return this.isFocused();
+   }
+
+   @Override
+   public boolean charTyped(char codePoint, int modifiers) {
+      if (!this.canWrite()) {
+         return false;
+      } else if (StringUtil.isAllowedChatCharacter(codePoint)) {
+         this.writeText(Character.toString(codePoint));
+         return true;
+      } else {
+         return false;
+      }
+   }
+
+   @Override
+   public boolean mouseClicked(double mouseX, double mouseY, int button) {
+      super.mouseClicked(mouseX, mouseY, button);
+      if (button == 0) {
+         int i = Mth.floor(mouseX);
+         Font fontRenderer = GuiRenderHelper.getFont();
+         String s = fontRenderer.plainSubstrByWidth(this.text.substring(this.lineScrollOffset), this.rect.getContentWidth());
+         this.shift = Screen.hasShiftDown();
+         this.setCursorPosition(fontRenderer.plainSubstrByWidth(s, i).length() + this.lineScrollOffset);
+         return true;
+      } else {
+         return false;
+      }
+   }
+
+   private void drawSelectionBox(GuiGraphics graphics, Matrix4f matrix, int startX, int startY, int endX, int endY) {
+      if (startX < endX) {
+         int i = startX;
+         startX = endX;
+         endX = i;
+      }
+
+      if (startY < endY) {
+         int j = startY;
+         startY = endY;
+         endY = j;
+      }
+
+      if (endX > this.rect.getRight()) {
+         endX = this.rect.getRight();
+      }
+
+      if (startX > this.rect.getRight()) {
+         startX = this.rect.getRight();
+      }
+
+      graphics.fill(RenderType.guiTextHighlight(), startX, startY, endX, endY, -16776961);
+   }
+
+   public GuiTextfield setMaxStringLength(int length) {
+      this.maxStringLength = length;
+      if (this.text.length() > length) {
+         this.text = this.text.substring(0, length);
+         this.onTextChanged(this.text);
+      }
+
+      return this;
+   }
+
+   private int getMaxStringLength() {
+      return this.maxStringLength;
+   }
+
+   public int getCursorPosition() {
+      return this.cursorPosition;
+   }
+
+   @Override
+   protected void focusChanged() {
+      if (this.isFocused()) {
+         this.frame = 0;
+      }
+   }
+
+   @Override
+   public void flowX(int width, int preferred) {
+      this.cachedWidth = width - this.getContentOffset() * 2;
+   }
+
+   @Override
+   public void flowY(int width, int height, int preferred) {
+   }
+
+   @Override
+   protected int preferredHeight(int width, int availableHeight) {
+      return 10;
+   }
+
+   @Override
+   protected int preferredWidth(int availableWidth) {
+      return 40;
+   }
+
+   public void setSelectionPos(int position) {
+      int textLength = this.text.length();
+      this.selectionEnd = Mth.clamp(position, 0, textLength);
+      if (this.getParent() != null && this.hasLayer() && this.isClient()) {
+         Font fontRenderer = GuiRenderHelper.getFont();
+         if (fontRenderer != null) {
+            if (this.lineScrollOffset > textLength) {
+               this.lineScrollOffset = textLength;
+            }
+
+            int j = this.cachedWidth;
+            String s = fontRenderer.plainSubstrByWidth(this.text.substring(this.lineScrollOffset), j);
+            int k = s.length() + this.lineScrollOffset;
+            if (this.selectionEnd == this.lineScrollOffset) {
+               this.lineScrollOffset = this.lineScrollOffset - fontRenderer.plainSubstrByWidth(this.text, j, true).length();
+            }
+
+            if (this.selectionEnd > k) {
+               this.lineScrollOffset = this.lineScrollOffset + (this.selectionEnd - k);
+            } else if (this.selectionEnd <= this.lineScrollOffset) {
+               this.lineScrollOffset = this.lineScrollOffset - (this.lineScrollOffset - this.selectionEnd);
+            }
+
+            this.lineScrollOffset = Mth.clamp(this.lineScrollOffset, 0, textLength);
+         }
+      }
+   }
+
+   public GuiTextfield setSuggestion(@Nullable String p_195612_1_) {
+      this.suggestion = p_195612_1_;
+      return this;
+   }
+}

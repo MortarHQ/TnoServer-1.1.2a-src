@@ -1,0 +1,86 @@
+package net.jadenxgamer.netherexp.core.block;
+
+import net.jadenxgamer.netherexp.core.block.enums.Liquidlogged;
+import net.jadenxgamer.netherexp.core.block.interfaces.LiquidloggedBlock;
+import net.jadenxgamer.netherexp.registry.JNEFluids;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.LevelAccessor;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.TransparentBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.BlockBehaviour.Properties;
+import net.minecraft.world.level.block.state.StateDefinition.Builder;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.level.block.state.properties.Property;
+import net.minecraft.world.level.material.FlowingFluid;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.level.material.Fluids;
+import org.jetbrains.annotations.Nullable;
+
+public class LiquidloggedTransparentBlock extends TransparentBlock implements LiquidloggedBlock {
+   public static final EnumProperty<Liquidlogged.AllFluids> LIQUIDLOGGED = EnumProperty.create("liquidlogged", Liquidlogged.AllFluids.class);
+
+   public LiquidloggedTransparentBlock(Properties properties) {
+      super(properties);
+      this.registerDefaultState((BlockState)this.defaultBlockState().setValue(LIQUIDLOGGED, Liquidlogged.AllFluids.AIR));
+   }
+
+   public static int stateToProperty(BlockState state) {
+      return switch ((Liquidlogged.AllFluids)state.getValue(LIQUIDLOGGED)) {
+         case LAVA -> 15;
+         case ECTOPLASM -> 12;
+         default -> 0;
+      };
+   }
+
+   @Nullable
+   public BlockState getStateForPlacement(BlockPlaceContext context) {
+      FluidState fluidState = context.getLevel().getFluidState(context.getClickedPos());
+      Liquidlogged.AllFluids liquidlogged = Liquidlogged.AllFluids.AIR;
+      if (fluidState.getType() == Fluids.WATER) {
+         liquidlogged = Liquidlogged.AllFluids.WATER;
+      } else if (fluidState.getType() == Fluids.LAVA) {
+         liquidlogged = Liquidlogged.AllFluids.LAVA;
+      } else if (fluidState.getType() == JNEFluids.ECTOPLASM_SOURCE.get()) {
+         liquidlogged = Liquidlogged.AllFluids.ECTOPLASM;
+      }
+
+      return (BlockState)this.defaultBlockState().setValue(LIQUIDLOGGED, liquidlogged);
+   }
+
+   protected BlockState updateShape(BlockState state, Direction direction, BlockState neighborState, LevelAccessor level, BlockPos pos, BlockPos neighborPos) {
+      if (state.getValue(LIQUIDLOGGED) == Liquidlogged.AllFluids.WATER) {
+         level.scheduleTick(pos, Fluids.WATER, Fluids.WATER.getTickDelay(level));
+      } else if (state.getValue(LIQUIDLOGGED) == Liquidlogged.AllFluids.LAVA) {
+         level.scheduleTick(pos, Fluids.LAVA, Fluids.LAVA.getTickDelay(level));
+      } else if (state.getValue(LIQUIDLOGGED) == Liquidlogged.AllFluids.ECTOPLASM) {
+         level.scheduleTick(pos, (Fluid)JNEFluids.ECTOPLASM_SOURCE.get(), ((FlowingFluid)JNEFluids.ECTOPLASM_SOURCE.get()).getTickDelay(level));
+      }
+
+      return state;
+   }
+
+   public FluidState getFluidState(BlockState state) {
+      if (state.getValue(LIQUIDLOGGED) == Liquidlogged.AllFluids.WATER) {
+         return Fluids.WATER.getSource(true);
+      } else if (state.getValue(LIQUIDLOGGED) == Liquidlogged.AllFluids.LAVA) {
+         return Fluids.LAVA.getSource(true);
+      } else {
+         return state.getValue(LIQUIDLOGGED) == Liquidlogged.AllFluids.ECTOPLASM
+            ? ((FlowingFluid)JNEFluids.ECTOPLASM_SOURCE.get()).getSource(true)
+            : Fluids.EMPTY.defaultFluidState();
+      }
+   }
+
+   protected void createBlockStateDefinition(Builder<Block, BlockState> builder) {
+      builder.add(new Property[]{LIQUIDLOGGED});
+   }
+
+   @Override
+   public EnumProperty<Liquidlogged.AllFluids> getLiquidloggedBlockState() {
+      return LIQUIDLOGGED;
+   }
+}

@@ -1,0 +1,141 @@
+package de.ellpeck.naturesaura.items;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+import de.ellpeck.naturesaura.api.NaturesAuraAPI;
+import de.ellpeck.naturesaura.api.render.ITrinketItem;
+import de.ellpeck.naturesaura.items.tools.ItemArmor;
+import de.ellpeck.naturesaura.packet.PacketHandler;
+import de.ellpeck.naturesaura.packet.PacketParticles;
+import de.ellpeck.naturesaura.reg.ModArmorMaterial;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponentType;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemDisplayContext;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Item.Properties;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.api.distmarker.OnlyIn;
+
+public class ItemShockwaveCreator extends ItemImpl implements ITrinketItem {
+   public ItemShockwaveCreator() {
+      super("shockwave_creator", new Properties().stacksTo(1));
+   }
+
+   public void inventoryTick(ItemStack stack, Level levelIn, Entity entityIn, int itemSlot, boolean isSelected) {
+      if (!levelIn.isClientSide && entityIn instanceof LivingEntity living) {
+         if (!living.onGround()) {
+            if (stack.has(ItemShockwaveCreator.Data.TYPE) && ((ItemShockwaveCreator.Data)stack.get(ItemShockwaveCreator.Data.TYPE)).air) {
+               return;
+            }
+
+            stack.set(ItemShockwaveCreator.Data.TYPE, new ItemShockwaveCreator.Data(true, living.getX(), living.getY(), living.getZ()));
+         } else {
+            if (!stack.has(ItemShockwaveCreator.Data.TYPE)) {
+               return;
+            }
+
+            ItemShockwaveCreator.Data data = (ItemShockwaveCreator.Data)stack.get(ItemShockwaveCreator.Data.TYPE);
+            if (!data.air) {
+               return;
+            }
+
+            stack.remove(ItemShockwaveCreator.Data.TYPE);
+            if (!living.isShiftKeyDown()) {
+               return;
+            }
+
+            if (living.distanceToSqr(data.x, data.y, data.z) > 0.75) {
+               return;
+            }
+
+            if (living instanceof Player && !NaturesAuraAPI.instance().extractAuraFromPlayer((Player)living, 1000, false)) {
+               return;
+            }
+
+            boolean infusedSet = ItemArmor.isFullSetEquipped(living, ModArmorMaterial.INFUSED);
+            int range = 5;
+
+            for (LivingEntity mob : levelIn.getEntitiesOfClass(
+               LivingEntity.class,
+               new AABB(living.getX() - range, living.getY() - 0.5, living.getZ() - range, living.getX() + range, living.getY() + 0.5, living.getZ() + range)
+            )) {
+               if (mob.isAlive() && mob != living && !(living.distanceToSqr(mob) > range * range)) {
+                  if (living instanceof Player && !NaturesAuraAPI.instance().extractAuraFromPlayer((Player)living, 500, false)) {
+                     break;
+                  }
+
+                  DamageSource source;
+                  if (living instanceof Player) {
+                     source = mob.damageSources().playerAttack((Player)living);
+                  } else {
+                     source = mob.damageSources().magic();
+                  }
+
+                  mob.hurt(source, 4.0F);
+                  if (infusedSet) {
+                     mob.addEffect(new MobEffectInstance(MobEffects.WITHER, 120));
+                  }
+               }
+            }
+
+            BlockPos pos = living.blockPosition();
+            BlockPos down = pos.below();
+            BlockState downState = levelIn.getBlockState(down);
+            if (!downState.isAir()) {
+               SoundType type = downState.getBlock().getSoundType(downState, levelIn, down, null);
+               levelIn.playSound(null, pos, type.getBreakSound(), SoundSource.BLOCKS, type.getVolume() * 0.5F, type.getPitch() * 0.8F);
+            }
+
+            PacketHandler.sendToAllAround(
+               levelIn, pos, 32, new PacketParticles((float)living.getX(), (float)living.getY(), (float)living.getZ(), PacketParticles.Type.SHOCKWAVE_CREATOR)
+            );
+         }
+      }
+   }
+
+   @OnlyIn(Dist.CLIENT)
+   @Override
+   public void render(
+      ItemStack stack, Player player, ITrinketItem.RenderType type, PoseStack matrices, MultiBufferSource buffer, int packedLight, boolean isHolding
+   ) {
+      if (type == ITrinketItem.RenderType.BODY && !isHolding) {
+         boolean armor = !((ItemStack)player.getInventory().armor.get(EquipmentSlot.CHEST.getIndex())).isEmpty();
+         matrices.translate(0.0F, 0.125F, armor ? -0.195F : -0.1475F);
+         matrices.scale(0.3F, 0.3F, 0.3F);
+         matrices.mulPose(Axis.XP.rotationDegrees(180.0F));
+         Minecraft.getInstance()
+            .getItemRenderer()
+            .renderStatic(stack, ItemDisplayContext.GROUND, packedLight, OverlayTexture.NO_OVERLAY, matrices, buffer, player.level(), 0);
+      }
+   }
+
+   public record Data(boolean air, double x, double y, double z) {
+      public static final Codec<ItemShockwaveCreator.Data> CODEC = RecordCodecBuilder.create(
+         i -> i.group(
+               Codec.BOOL.fieldOf("air").forGetter(d -> d.air),
+               Codec.DOUBLE.fieldOf("x").forGetter(d -> d.x),
+               Codec.DOUBLE.fieldOf("y").forGetter(d -> d.y),
+               Codec.DOUBLE.fieldOf("z").forGetter(d -> d.z)
+            )
+            .apply(i, ItemShockwaveCreator.Data::new)
+      );
+      public static final DataComponentType<ItemShockwaveCreator.Data> TYPE = DataComponentType.builder().persistent(CODEC).cacheEncoding().build();
+   }
+}

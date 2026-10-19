@@ -1,0 +1,116 @@
+package artifacts.neoforge.event;
+
+import artifacts.component.ability.ToolTierUpgrade;
+import artifacts.equipment.EquipmentHelper;
+import artifacts.event.ArtifactHooks;
+import artifacts.registry.ModDataComponents;
+import artifacts.registry.ModTags;
+import artifacts.util.TooltipHelper;
+import be.florens.expandability.api.EventResult;
+import be.florens.expandability.api.forge.LivingFluidCollisionEvent;
+import be.florens.expandability.api.forge.PlayerSwimEvent;
+import java.util.List;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.neoforged.bus.api.EventPriority;
+import net.neoforged.fml.ModList;
+import net.neoforged.neoforge.client.event.AddAttributeTooltipsEvent;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
+import net.neoforged.neoforge.event.entity.living.LivingChangeTargetEvent;
+import net.neoforged.neoforge.event.entity.living.LivingExperienceDropEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDamageEvent.Pre;
+import net.neoforged.neoforge.event.entity.living.LivingEntityUseItemEvent.Start;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent.HarvestCheck;
+import net.neoforged.neoforge.event.level.BlockDropsEvent;
+import net.neoforged.neoforge.event.tick.EntityTickEvent.Post;
+import org.apache.commons.lang3.mutable.MutableInt;
+
+public class ArtifactHooksNeoForge {
+   public static void register() {
+      if (ModList.get().isLoaded("expandability")) {
+         NeoForge.EVENT_BUS.addListener(ArtifactHooksNeoForge::onPlayerSwim);
+         NeoForge.EVENT_BUS.addListener(ArtifactHooksNeoForge::onAquaDashersFluidCollision);
+      }
+
+      NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, ArtifactHooksNeoForge::onLivingDamage);
+      NeoForge.EVENT_BUS.addListener(ArtifactHooksNeoForge::onEntityAdded);
+      NeoForge.EVENT_BUS.addListener(ArtifactHooksNeoForge::onLivingUpdate);
+      NeoForge.EVENT_BUS.addListener(ArtifactHooksNeoForge::onDrinkingHatItemUse);
+      NeoForge.EVENT_BUS.addListener(ArtifactHooksNeoForge::onGoldenHookExperienceDrop);
+      NeoForge.EVENT_BUS.addListener(ArtifactHooksNeoForge::onKittySlippersChangeTarget);
+      NeoForge.EVENT_BUS.addListener(ArtifactHooksNeoForge::onDiggingClawsHarvestCheck);
+      NeoForge.EVENT_BUS.addListener(ArtifactHooksNeoForge::onBlockDrops);
+      NeoForge.EVENT_BUS.addListener(ArtifactHooksNeoForge::addAttributeTooltips);
+   }
+
+   private static void onEntityAdded(EntityJoinLevelEvent event) {
+      ArtifactHooks.onEntityAdded(event.getEntity());
+   }
+
+   private static void onLivingDamage(Pre event) {
+      ArtifactHooks.onLivingDamaged(event.getEntity(), event.getSource(), event.getNewDamage());
+   }
+
+   private static void onLivingUpdate(Post event) {
+      if (event.getEntity() instanceof LivingEntity entity) {
+         onKittySlippersLivingUpdate(entity);
+         ArtifactHooks.livingUpdate(entity);
+      }
+   }
+
+   private static void onDrinkingHatItemUse(Start event) {
+      event.setDuration(ArtifactHooks.modifyUseDuration(event.getDuration(), event.getItem(), event.getEntity()));
+   }
+
+   private static void onGoldenHookExperienceDrop(LivingExperienceDropEvent event) {
+      int droppedXp = event.getDroppedExperience();
+      int modifiedXp = ArtifactHooks.modifyExperience(droppedXp, event.getEntity(), event.getAttackingPlayer());
+      event.setDroppedExperience(modifiedXp);
+   }
+
+   private static void onKittySlippersChangeTarget(LivingChangeTargetEvent event) {
+      LivingEntity target = event.getNewAboutToBeSetTarget();
+      if (event.getEntity().getType().is(ModTags.CREEPERS) && EquipmentHelper.hasAbilityActive(ModDataComponents.CREEPER_REPELLENT.get(), target, true)) {
+         event.setCanceled(true);
+      }
+   }
+
+   private static void onKittySlippersLivingUpdate(LivingEntity entity) {
+      if (entity.getLastHurtByMob() != null
+         && EquipmentHelper.hasAbilityActive(ModDataComponents.CREEPER_REPELLENT.get(), entity.getLastHurtByMob(), true)
+         && entity.getType().is(ModTags.CREEPERS)) {
+         entity.setLastHurtByMob(null);
+      }
+   }
+
+   private static void onDiggingClawsHarvestCheck(HarvestCheck event) {
+      event.setCanHarvest(event.canHarvest() || ToolTierUpgrade.canHarvestWithTier(event.getEntity(), event.getTargetBlock()));
+   }
+
+   private static void onBlockDrops(BlockDropsEvent event) {
+      List<ItemEntity> drops = event.getDrops();
+      MutableInt experience = new MutableInt(0);
+      drops.forEach(
+         itemEntity -> itemEntity.setItem(ArtifactHooks.applySmeltOresAbility(itemEntity.getItem(), event.getBreaker(), event.getState(), experience::add))
+      );
+      event.setDroppedExperience(event.getDroppedExperience() + experience.getValue());
+   }
+
+   private static void addAttributeTooltips(AddAttributeTooltipsEvent event) {
+      TooltipHelper.addAttributeTooltips(xva$0 -> event.addTooltipLines(new Component[]{xva$0}), event.getStack(), event.getContext());
+   }
+
+   public static void onPlayerSwim(PlayerSwimEvent event) {
+      if (event.getResult() == EventResult.PASS) {
+         event.setResult(ArtifactHooks.onPlayerSwim(event.getEntity()));
+      }
+   }
+
+   private static void onAquaDashersFluidCollision(LivingFluidCollisionEvent event) {
+      if (ArtifactHooks.onFluidCollision(event.getEntity(), event.getFluidState())) {
+         event.setColliding(true);
+      }
+   }
+}

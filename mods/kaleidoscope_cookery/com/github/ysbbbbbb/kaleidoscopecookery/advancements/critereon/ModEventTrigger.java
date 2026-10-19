@@ -1,0 +1,46 @@
+package com.github.ysbbbbbb.kaleidoscopecookery.advancements.critereon;
+
+import com.github.ysbbbbbb.kaleidoscopecookery.init.ModTrigger;
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+import java.util.Optional;
+import net.minecraft.advancements.Criterion;
+import net.minecraft.advancements.critereon.ContextAwarePredicate;
+import net.minecraft.advancements.critereon.EntityPredicate;
+import net.minecraft.advancements.critereon.SimpleCriterionTrigger;
+import net.minecraft.advancements.critereon.SimpleCriterionTrigger.SimpleInstance;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.LivingEntity;
+
+public class ModEventTrigger extends SimpleCriterionTrigger<ModEventTrigger.Instance> {
+   public static final ResourceLocation ID = ResourceLocation.fromNamespaceAndPath("kaleidoscope_cookery", "mod_event");
+
+   public static Criterion<ModEventTrigger.Instance> create(String eventName) {
+      return ((ModEventTrigger)ModTrigger.EVENT.get()).createCriterion(new ModEventTrigger.Instance(Optional.empty(), eventName));
+   }
+
+   public void trigger(LivingEntity user, String eventName) {
+      if (user instanceof ServerPlayer serverPlayer) {
+         super.trigger(serverPlayer, instance -> instance.matches(eventName));
+      }
+   }
+
+   public Codec<ModEventTrigger.Instance> codec() {
+      return ModEventTrigger.Instance.CODEC;
+   }
+
+   public record Instance(Optional<ContextAwarePredicate> player, String eventName) implements SimpleInstance {
+      public static final Codec<ModEventTrigger.Instance> CODEC = RecordCodecBuilder.create(
+         instance -> instance.group(
+               EntityPredicate.ADVANCEMENT_CODEC.optionalFieldOf("player").forGetter(ModEventTrigger.Instance::player),
+               Codec.STRING.fieldOf("event").forGetter(ModEventTrigger.Instance::eventName)
+            )
+            .apply(instance, ModEventTrigger.Instance::new)
+      );
+
+      public boolean matches(String eventNameIn) {
+         return this.eventName.equals(eventNameIn);
+      }
+   }
+}

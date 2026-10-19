@@ -1,0 +1,121 @@
+package org.openzen.zenscript.formatter;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.openzen.zenscript.codemodel.HighLevelDefinition;
+import org.openzen.zenscript.codemodel.ScriptBlock;
+import org.openzen.zenscript.codemodel.WhitespacePostComment;
+import org.openzen.zenscript.codemodel.definition.ZSPackage;
+import org.openzen.zenscript.codemodel.statement.Statement;
+import org.openzen.zenscript.formattershared.Importer;
+
+public class FileFormatter {
+   private final ScriptFormattingSettings settings;
+
+   public FileFormatter(ScriptFormattingSettings settings) {
+      this.settings = settings;
+   }
+
+   public String format(ZSPackage pkg, ScriptBlock script, List<HighLevelDefinition> definitions) {
+      FileFormatter.FileImporter importer = new FileFormatter.FileImporter(pkg);
+      TypeFormatter typeFormatter = new TypeFormatter(this.settings, importer);
+      ExpressionFormatter expressionFormatter = new ExpressionFormatter(this.settings, typeFormatter, "");
+      List<DefinitionFormatter> definitionFormatters = new ArrayList<>();
+
+      for (HighLevelDefinition definition : definitions) {
+         DefinitionFormatter definitionFormatter = new DefinitionFormatter(this.settings, typeFormatter, "");
+         definition.accept(definitionFormatter);
+         definitionFormatters.add(definitionFormatter);
+      }
+
+      StringBuilder scriptOutput = new StringBuilder();
+      if (script != null) {
+         StatementFormatter scriptFormatter = new StatementFormatter(scriptOutput, "", this.settings, expressionFormatter);
+
+         for (Statement statement : script.statements) {
+            statement.accept(scriptFormatter);
+         }
+      }
+
+      StringBuilder output = new StringBuilder();
+      importer.write(output);
+      boolean first = true;
+
+      for (DefinitionFormatter definition : definitionFormatters) {
+         if (first) {
+            first = false;
+         } else {
+            output.append("\n");
+         }
+
+         output.append(definition.toString());
+      }
+
+      if (script != null && script.statements.size() > 0) {
+         if (definitionFormatters.size() > 0) {
+            output.append("\n");
+         }
+
+         output.append(scriptOutput.toString().trim());
+         WhitespacePostComment postComment = script.getTag(WhitespacePostComment.class);
+         if (postComment != null) {
+            for (String comment : CommentFormatter.format(postComment.comments)) {
+               output.append("\n").append(comment);
+            }
+         }
+      }
+
+      return output.toString();
+   }
+
+   private class FileImporter implements Importer {
+      private final ZSPackage pkg;
+      private final Map<String, HighLevelDefinition> imports = new HashMap<>();
+
+      public FileImporter(ZSPackage pkg) {
+         this.pkg = pkg;
+      }
+
+      public void write(StringBuilder output) {
+         Map<ZSPackage, List<HighLevelDefinition>> importsByPackage = new HashMap<>();
+
+         for (HighLevelDefinition definition : this.imports.values()) {
+            if (!importsByPackage.containsKey(definition.pkg)) {
+               importsByPackage.put(definition.pkg, new ArrayList<>());
+            }
+
+            importsByPackage.get(definition.pkg).add(definition);
+         }
+
+         List<ZSPackage> sortedPackages = new ArrayList<>(importsByPackage.keySet());
+         Collections.sort(sortedPackages, (a, b) -> a.fullName.compareTo(b.fullName));
+
+         for (ZSPackage pkg : sortedPackages) {
+            for (HighLevelDefinition definition : importsByPackage.get(pkg)) {
+               output.append("import ").append(pkg.fullName).append('.').append(definition.name).append(";\n");
+            }
+         }
+
+         if (this.imports.size() > 0) {
+            output.append("\n");
+         }
+      }
+
+      @Override
+      public String importDefinition(HighLevelDefinition definition) {
+         if (definition.pkg == this.pkg) {
+            return definition.name;
+         } else if (this.imports.get(definition.name) == definition) {
+            return definition.name;
+         } else if (!this.imports.containsKey(definition.name) && !this.pkg.contains(definition.name)) {
+            this.imports.put(definition.name, definition);
+            return definition.name;
+         } else {
+            return definition.pkg.fullName + "." + definition.name;
+         }
+      }
+   }
+}

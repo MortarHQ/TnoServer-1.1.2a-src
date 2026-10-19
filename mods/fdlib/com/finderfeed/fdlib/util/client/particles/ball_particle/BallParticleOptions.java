@@ -1,0 +1,162 @@
+package com.finderfeed.fdlib.util.client.particles.ball_particle;
+
+import com.finderfeed.fdlib.init.FDParticles;
+import com.finderfeed.fdlib.systems.particle.EmptyParticleProcessor;
+import com.finderfeed.fdlib.systems.particle.ParticleProcessor;
+import com.finderfeed.fdlib.util.FDByteBufCodecs;
+import com.finderfeed.fdlib.util.FDCodecs;
+import com.finderfeed.fdlib.util.FDColor;
+import com.finderfeed.fdlib.util.client.particles.options.AlphaOptions;
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+import net.minecraft.core.particles.ParticleOptions;
+import net.minecraft.core.particles.ParticleType;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+
+public class BallParticleOptions implements ParticleOptions {
+   public static final Codec<BallParticleOptions> CODEC = RecordCodecBuilder.create(
+      p -> p.group(
+            ParticleProcessor.CODEC.fieldOf("processor").forGetter(v -> v.particleProcessor),
+            AlphaOptions.CODEC.fieldOf("scalingOptions").forGetter(v -> v.scalingOptions),
+            FDCodecs.COLOR.fieldOf("color").forGetter(v -> v.color),
+            Codec.FLOAT.fieldOf("friction").forGetter(v -> v.friction),
+            Codec.BOOL.fieldOf("hasPhysics").forGetter(v -> v.hasPhysics),
+            Codec.FLOAT.fieldOf("size").forGetter(v -> v.size),
+            Codec.INT.fieldOf("brightness").forGetter(v -> v.brightness)
+         )
+         .apply(p, (processor, scaling, color, friction, physics, size, brightness) -> {
+            BallParticleOptions ballParticleOptions = new BallParticleOptions();
+            ballParticleOptions.size = size;
+            ballParticleOptions.particleProcessor = processor;
+            ballParticleOptions.color = color;
+            ballParticleOptions.friction = friction;
+            ballParticleOptions.hasPhysics = physics;
+            ballParticleOptions.scalingOptions = scaling;
+            ballParticleOptions.brightness = brightness;
+            return ballParticleOptions;
+         })
+   );
+   public static final MapCodec<BallParticleOptions> MAP_CODEC = CODEC.fieldOf("options");
+   public static final StreamCodec<FriendlyByteBuf, BallParticleOptions> STREAM_CODEC = FDByteBufCodecs.composite(
+      ParticleProcessor.STREAM_CODEC,
+      v -> v.particleProcessor,
+      AlphaOptions.STREAM_CODEC,
+      v -> v.scalingOptions,
+      FDByteBufCodecs.COLOR,
+      v -> v.color,
+      ByteBufCodecs.FLOAT,
+      v -> v.friction,
+      ByteBufCodecs.BOOL,
+      v -> v.hasPhysics,
+      ByteBufCodecs.FLOAT,
+      v -> v.size,
+      ByteBufCodecs.INT,
+      v -> v.brightness,
+      (processor, scaling, color, friction, physics, size, brightness) -> {
+         BallParticleOptions ballParticleOptions = new BallParticleOptions();
+         ballParticleOptions.size = size;
+         ballParticleOptions.particleProcessor = processor;
+         ballParticleOptions.color = color;
+         ballParticleOptions.friction = friction;
+         ballParticleOptions.hasPhysics = physics;
+         ballParticleOptions.brightness = brightness;
+         ballParticleOptions.scalingOptions = scaling;
+         return ballParticleOptions;
+      }
+   );
+   public ParticleProcessor<?> particleProcessor = new EmptyParticleProcessor();
+   public AlphaOptions scalingOptions = new AlphaOptions();
+   public FDColor color = new FDColor(1.0F, 1.0F, 1.0F, 1.0F);
+   public float friction = 1.0F;
+   public boolean hasPhysics = false;
+   public float size = 0.25F;
+   public int brightness = 1;
+
+   public static BallParticleOptions.Builder builder() {
+      return new BallParticleOptions.Builder();
+   }
+
+   public ParticleType<?> getType() {
+      return FDParticles.BALL_PARTICLE.get();
+   }
+
+   public static class Builder {
+      private BallParticleOptions options = new BallParticleOptions();
+
+      public BallParticleOptions.Builder particleProcessor(ParticleProcessor<?> particleProcessor) {
+         this.options.particleProcessor = particleProcessor;
+         return this;
+      }
+
+      public BallParticleOptions.Builder brightness(int brightness) {
+         this.options.brightness = brightness;
+         return this;
+      }
+
+      public BallParticleOptions.Builder scalingOptions(int in, int stay, int out) {
+         this.options.scalingOptions.stayTime = stay;
+         this.options.scalingOptions.inTime = in;
+         this.options.scalingOptions.outTime = out;
+         return this;
+      }
+
+      public BallParticleOptions.Builder in(int in) {
+         this.options.scalingOptions.inTime = in;
+         return this;
+      }
+
+      public BallParticleOptions.Builder out(int out) {
+         this.options.scalingOptions.outTime = out;
+         return this;
+      }
+
+      public BallParticleOptions.Builder stay(int stay) {
+         this.options.scalingOptions.stayTime = stay;
+         return this;
+      }
+
+      public BallParticleOptions.Builder friction(float fricton) {
+         this.options.friction = fricton;
+         return this;
+      }
+
+      public BallParticleOptions.Builder size(float size) {
+         this.options.size = size;
+         return this;
+      }
+
+      public BallParticleOptions.Builder physics(boolean physcis) {
+         this.options.hasPhysics = physcis;
+         return this;
+      }
+
+      public BallParticleOptions.Builder color(float r, float g, float b) {
+         this.options.color.r = r;
+         this.options.color.g = g;
+         this.options.color.b = b;
+         return this;
+      }
+
+      public BallParticleOptions.Builder color(int r, int g, int b) {
+         this.options.color.r = r / 255.0F;
+         this.options.color.g = g / 255.0F;
+         this.options.color.b = b / 255.0F;
+         return this;
+      }
+
+      public BallParticleOptions.Builder color(float r, float g, float b, float a) {
+         this.options.color.r = r;
+         this.options.color.g = g;
+         this.options.color.b = b;
+         this.options.color.a = a;
+         return this;
+      }
+
+      public BallParticleOptions build() {
+         return this.options;
+      }
+   }
+}

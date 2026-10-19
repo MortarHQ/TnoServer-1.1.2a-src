@@ -1,0 +1,24 @@
+package it.hurts.octostudios.octolib.module.config.cfgbuilder;
+
+public class ObjectEntry extends ConfigEntry {
+   Object object;
+
+   public ObjectEntry(Object object) {
+      this(new CfgTag(object.getClass()), object);
+   }
+
+   public ObjectEntry(CfgTag type, Object object) {
+      super(type, EntryId.OBJECT);
+      this.object = object;
+   }
+
+   @Override
+   public Object getData() {
+      return this.object;
+   }
+
+   @Override
+   public String toString() {
+      return "ObjectEntry!!" + this.getTag() + ">" + this.getData();
+   }
+}

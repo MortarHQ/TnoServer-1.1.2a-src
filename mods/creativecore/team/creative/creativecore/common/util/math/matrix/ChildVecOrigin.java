@@ -1,0 +1,58 @@
+package team.creative.creativecore.common.util.math.matrix;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+import team.creative.creativecore.common.util.math.base.Axis;
+import team.creative.creativecore.common.util.math.vec.Vec3d;
+
+public class ChildVecOrigin extends VecOrigin {
+   public IVecOrigin parent;
+
+   public ChildVecOrigin(IVecOrigin parent, Vec3d center) {
+      super(center);
+      this.parent = parent;
+   }
+
+   @Override
+   public void onlyRotateWithoutCenter(Vec3d vec) {
+      super.onlyRotateWithoutCenter(vec);
+      this.parent.onlyRotateWithoutCenter(vec);
+   }
+
+   @Override
+   public void transformPointToWorld(Vec3d vec) {
+      super.transformPointToWorld(vec);
+      this.parent.transformPointToWorld(vec);
+   }
+
+   @Override
+   public void transformPointToFakeWorld(Vec3d vec) {
+      this.parent.transformPointToFakeWorld(vec);
+      super.transformPointToFakeWorld(vec);
+   }
+
+   @Override
+   public void setupRenderingInternal(PoseStack matrixStack, double camX, double camY, double camZ, float partialTicks) {
+      this.parent.setupRenderingInternal(matrixStack, camX, camY, camZ, partialTicks);
+      super.setupRenderingInternal(matrixStack, camX, camY, camZ, partialTicks);
+   }
+
+   @Override
+   public double translationCombined(Axis axis) {
+      return this.parent.translationCombined(axis) + super.translationCombined(axis);
+   }
+
+   @Override
+   public boolean hasChanged() {
+      return super.hasChanged() || this.parent.hasChanged();
+   }
+
+   @Override
+   public IVecOrigin getParent() {
+      return this.parent;
+   }
+
+   @Override
+   protected VecOrigin createInternalCopy() {
+      return new ChildVecOrigin(this.parent, new Vec3d(this.center()));
+   }
+}

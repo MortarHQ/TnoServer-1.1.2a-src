@@ -1,0 +1,88 @@
+package twilightforest.data;
+
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import net.minecraft.DetectedVersion;
+import net.minecraft.core.HolderLookup.Provider;
+import net.minecraft.data.DataGenerator;
+import net.minecraft.data.PackOutput;
+import net.minecraft.data.metadata.PackMetadataGenerator;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.packs.PackType;
+import net.minecraft.server.packs.metadata.pack.PackMetadataSection;
+import net.minecraft.util.InclusiveRange;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.common.data.DatapackBuiltinEntriesProvider;
+import net.neoforged.neoforge.common.data.ExistingFileHelper;
+import net.neoforged.neoforge.data.event.GatherDataEvent;
+import twilightforest.data.custom.QuestGenerator;
+import twilightforest.data.custom.stalactites.StalactiteGenerator;
+import twilightforest.data.custom.structuredefinitions.CampStructureDefinitionGenerator;
+import twilightforest.data.custom.structuredefinitions.FinalCastleStructureDefinitionGenerator;
+import twilightforest.data.custom.structuredefinitions.LichTowerStructureDefinitionGenerator;
+import twilightforest.data.custom.structuredefinitions.NagaCourtyardStructureDefinitionGenerator;
+import twilightforest.data.tags.BiomeTagGenerator;
+import twilightforest.data.tags.BlockTagGenerator;
+import twilightforest.data.tags.CustomTagGenerator;
+import twilightforest.data.tags.DamageTypeTagGenerator;
+import twilightforest.data.tags.EntityTagGenerator;
+import twilightforest.data.tags.FluidTagGenerator;
+import twilightforest.data.tags.ItemTagGenerator;
+import twilightforest.data.tags.StructureTagGenerator;
+
+@EventBusSubscriber(modid = "twilightforest")
+public class DataGenerators {
+   @SubscribeEvent
+   public static void gatherData(GatherDataEvent event) {
+      DataGenerator generator = event.getGenerator();
+      PackOutput output = event.getGenerator().getPackOutput();
+      ExistingFileHelper helper = event.getExistingFileHelper();
+      generator.addProvider(event.includeClient(), new BlockstateGenerator(output, helper));
+      generator.addProvider(event.includeClient(), new ItemModelGenerator(output, helper));
+      generator.addProvider(event.includeClient(), new ParticleGenerator(output, helper));
+      generator.addProvider(event.includeClient(), new SoundGenerator(output, helper));
+      DatapackBuiltinEntriesProvider datapackProvider = new RegistryDataGenerator(output, event.getLookupProvider());
+      CompletableFuture<Provider> lookupProvider = datapackProvider.getRegistryProvider();
+      generator.addProvider(event.includeServer(), datapackProvider);
+      generator.addProvider(event.includeServer(), new BiomeTagGenerator(output, lookupProvider, helper));
+      generator.addProvider(event.includeServer(), new CustomTagGenerator.BannerPatternTagGenerator(output, lookupProvider, helper));
+      generator.addProvider(event.includeServer(), new CustomTagGenerator.DimensionTypeTagGenerator(output, lookupProvider, helper));
+      generator.addProvider(event.includeServer(), new CustomTagGenerator.WoodPaletteTagGenerator(output, lookupProvider, helper));
+      generator.addProvider(event.includeServer(), new CustomTagGenerator.PaintingVariantTagGenerator(output, lookupProvider, helper));
+      generator.addProvider(event.includeServer(), new DamageTypeTagGenerator(output, lookupProvider, helper));
+      generator.addProvider(event.includeServer(), new StructureTagGenerator(output, lookupProvider, helper));
+      generator.addProvider(event.includeServer(), new TFAdvancementProvider(output, lookupProvider, helper));
+      generator.addProvider(event.includeServer(), new LootGenerator(output, lookupProvider));
+      generator.addProvider(event.includeServer(), new DataMapGenerator(output, lookupProvider));
+      generator.addProvider(event.includeServer(), new StalactiteGenerator(output));
+      generator.addProvider(event.includeServer(), new TFStructureUpdater("structures", output, helper));
+      BlockTagGenerator blocktags = new BlockTagGenerator(output, lookupProvider, helper);
+      generator.addProvider(event.includeServer(), blocktags);
+      generator.addProvider(event.includeServer(), new CustomTagGenerator.BlockEntityTagGenerator(output, lookupProvider, helper));
+      generator.addProvider(event.includeServer(), new FluidTagGenerator(output, lookupProvider, helper));
+      generator.addProvider(event.includeServer(), new ItemTagGenerator(output, lookupProvider, blocktags.contentsGetter(), helper));
+      generator.addProvider(event.includeServer(), new EntityTagGenerator(output, lookupProvider, helper));
+      generator.addProvider(event.includeServer(), new CraftingGenerator(output, lookupProvider));
+      generator.addProvider(event.includeServer(), new LootModifierGenerator(output, lookupProvider));
+      generator.addProvider(event.includeServer(), new CampStructureDefinitionGenerator(output, lookupProvider, helper));
+      generator.addProvider(event.includeServer(), new FinalCastleStructureDefinitionGenerator(output, lookupProvider, helper));
+      generator.addProvider(event.includeServer(), new LichTowerStructureDefinitionGenerator(output, lookupProvider, helper));
+      generator.addProvider(event.includeServer(), new NagaCourtyardStructureDefinitionGenerator(output, lookupProvider, helper));
+      generator.addProvider(event.includeClient(), new AtlasGenerator(output, lookupProvider, helper));
+      generator.addProvider(event.includeClient(), new LangGenerator(output, lookupProvider));
+      generator.addProvider(event.includeServer(), new QuestGenerator(output));
+      generator.addProvider(
+         true,
+         new PackMetadataGenerator(output)
+            .add(
+               PackMetadataSection.TYPE,
+               new PackMetadataSection(
+                  Component.literal("Resources for Twilight Forest"),
+                  DetectedVersion.BUILT_IN.getPackVersion(PackType.SERVER_DATA),
+                  Optional.of(new InclusiveRange(0, Integer.MAX_VALUE))
+               )
+            )
+      );
+   }
+}

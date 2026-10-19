@@ -1,0 +1,45 @@
+package artifacts.config.value.type;
+
+import artifacts.config.screen.ConfigEntries;
+import com.mojang.serialization.Codec;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+
+public class BooleanValueType extends ValueType<Boolean, Boolean> {
+   @Override
+   protected Codec<Boolean> valueCodec() {
+      return Codec.BOOL;
+   }
+
+   @Override
+   public StreamCodec<ByteBuf, Boolean> valueStreamCodec() {
+      return ByteBufCodecs.BOOL;
+   }
+
+   public boolean isCorrect(Boolean value) {
+      return true;
+   }
+
+   public String makeError(Boolean value) {
+      return "";
+   }
+
+   @Override
+   public String getAllowedValuesComment() {
+      return "Allowed Values: true, false";
+   }
+
+   public Boolean read(Boolean value) {
+      return value;
+   }
+
+   public Boolean write(Boolean value) {
+      return value;
+   }
+
+   @Override
+   public ConfigEntries.ConfigEntryFactory<Boolean> getConfigEntryFactory() {
+      return ConfigEntries.booleanConfigEntryFactory();
+   }
+}

@@ -1,0 +1,138 @@
+package com.finderfeed.fdlib.systems.broken_screen_effect;
+
+import com.finderfeed.fdlib.FDLib;
+import com.finderfeed.fdlib.systems.post_shaders.FDPostShaderInitializeEvent;
+import com.finderfeed.fdlib.systems.post_shaders.FDRenderPostShaderEvent;
+import com.finderfeed.fdlib.util.rendering.FDRenderUtil;
+import com.google.gson.JsonSyntaxException;
+import com.mojang.blaze3d.pipeline.RenderTarget;
+import com.mojang.blaze3d.platform.Window;
+import com.mojang.blaze3d.systems.RenderSystem;
+import java.io.IOException;
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.LayeredDraw.Layer;
+import net.minecraft.client.renderer.EffectInstance;
+import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.client.renderer.PostChain;
+import net.minecraft.client.renderer.PostPass;
+import net.minecraft.client.renderer.texture.TextureManager;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.resources.ResourceProvider;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut;
+import net.neoforged.neoforge.client.event.ClientTickEvent.Pre;
+
+@EventBusSubscriber(modid = "fdlib", value = Dist.CLIENT)
+public class ShatteredScreenEffectHandler implements Layer {
+   private static PostChain shatteredScreenShader;
+   private static ShatteredScreenEffectInstance currentEffect;
+
+   public void render(GuiGraphics graphics, DeltaTracker tracker) {
+      if (currentEffect != null) {
+         ShatteredScreenSettings settings = currentEffect.settings;
+         ResourceLocation texture = settings.shatteredScreenTexture;
+         if (!texture.equals(ShatteredScreenSettings.NULL_LOCATION)) {
+            FDRenderUtil.bindTexture(texture);
+            float alpha = currentEffect.getCurrentPercent(tracker.getGameTimeDeltaPartialTick(false));
+            Window window = Minecraft.getInstance().getWindow();
+            float width = window.getGuiScaledWidth();
+            float height = window.getGuiScaledHeight();
+            FDRenderUtil.blitWithBlend(graphics.pose(), 0.0F, 0.0F, width, height, 0.0F, 0.0F, 1.0F, 1.0F, 1.0F, 1.0F, 0.0F, alpha);
+         }
+      }
+   }
+
+   public static void setCurrentEffect(ShatteredScreenSettings settings) {
+      currentEffect = new ShatteredScreenEffectInstance(settings);
+   }
+
+   @SubscribeEvent
+   public static void renderShatteredScreen(FDRenderPostShaderEvent.Screen event) {
+      if (currentEffect != null && shatteredScreenShader != null) {
+         if (currentEffect.settings.onScreen) {
+            float currentStrength = currentEffect.getCurrentPercent(event.getDeltaTracker().getGameTimeDeltaPartialTick(false))
+               * currentEffect.settings.maxOffset;
+            shatteredScreenShader.setUniform("maxOffset", currentStrength);
+            shatteredScreenShader.setUniform("chromaticAbberationStrength", currentEffect.settings.chromaticAbberationStrength);
+            shatteredScreenShader.process(event.getDeltaTracker().getGameTimeDeltaPartialTick(false));
+         }
+      }
+   }
+
+   @SubscribeEvent
+   public static void renderLevelShatteredScreen(FDRenderPostShaderEvent.Level event) {
+      if (currentEffect != null && shatteredScreenShader != null) {
+         if (!currentEffect.settings.onScreen) {
+            float currentStrength = currentEffect.getCurrentPercent(event.getDeltaTracker().getGameTimeDeltaPartialTick(false))
+               * currentEffect.settings.maxOffset;
+            shatteredScreenShader.setUniform("maxOffset", currentStrength);
+            shatteredScreenShader.setUniform("chromaticAbberationStrength", currentEffect.settings.chromaticAbberationStrength);
+            shatteredScreenShader.process(event.getDeltaTracker().getGameTimeDeltaPartialTick(false));
+         }
+      }
+   }
+
+   @SubscribeEvent
+   public static void clientTick(Pre event) {
+      if (shatteredScreenShader != null) {
+         if (!Minecraft.getInstance().isPaused()) {
+            tickCurrentEffect();
+         }
+      }
+   }
+
+   private static void tickCurrentEffect() {
+      GameRenderer gameRenderer = Minecraft.getInstance().gameRenderer;
+      if (currentEffect != null && currentEffect.hasEnded()) {
+         currentEffect = null;
+      }
+
+      if (currentEffect != null) {
+         currentEffect.tick();
+      }
+   }
+
+   @SubscribeEvent
+   public static void onLogoff(LoggingOut event) {
+      currentEffect = null;
+   }
+
+   @SubscribeEvent
+   public static void registerShader(FDPostShaderInitializeEvent event) {
+      event.registerPostChain(
+         (textureManager, resourceProvider, renderTarget) -> {
+            try {
+               return new ShatteredScreenEffectHandler.BrokenScreenPostChain(
+                  textureManager, resourceProvider, renderTarget, FDLib.location("shaders/post/shattered_screen.json")
+               );
+            } catch (IOException e) {
+               throw new RuntimeException(e);
+            }
+         },
+         chain -> shatteredScreenShader = chain
+      );
+   }
+
+   public static class BrokenScreenPostChain extends PostChain {
+      public BrokenScreenPostChain(TextureManager p_110018_, ResourceProvider p_330592_, RenderTarget p_110020_, ResourceLocation p_110021_) throws IOException, JsonSyntaxException {
+         super(p_110018_, p_330592_, p_110020_, p_110021_);
+      }
+
+      public void process(float pticks) {
+         ResourceLocation dataTexture = ShatteredScreenEffectHandler.currentEffect.settings.shatteredScreenDataTexture;
+         FDRenderUtil.bindTexture(dataTexture);
+         int texture = RenderSystem.getShaderTexture(0);
+
+         for (PostPass pass : this.passes) {
+            EffectInstance effectInstance = pass.getEffect();
+            effectInstance.setSampler("sampler0", () -> texture);
+         }
+
+         super.process(pticks);
+      }
+   }
+}

@@ -1,0 +1,51 @@
+package com.bobmowzie.mowziesmobs.server.entity.umvuthana;
+
+import com.google.common.base.Defaults;
+import java.util.EnumMap;
+import java.util.Locale;
+import net.minecraft.core.Holder;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffects;
+
+public enum MaskType {
+   FURY(MobEffects.DAMAGE_BOOST, 0.9F, 2.0F, true),
+   FEAR(MobEffects.MOVEMENT_SPEED),
+   RAGE(MobEffects.DIG_SPEED),
+   BLISS(MobEffects.JUMP),
+   MISERY(MobEffects.DAMAGE_RESISTANCE),
+   FAITH(MobEffects.HEALTH_BOOST, 0.9F, 2.0F, false);
+
+   public static final int COUNT = values().length;
+   public final Holder<MobEffect> potion;
+   public final float entityWidth;
+   public final float entityHeight;
+   public final boolean canBlock;
+   public final String name;
+
+   MaskType(Holder<MobEffect> potion) {
+      this(potion, 0.8F, 1.8F, false);
+   }
+
+   MaskType(Holder<MobEffect> potion, float entityWidth, float entityHeight, boolean canBlock) {
+      this.potion = potion;
+      this.entityWidth = entityWidth;
+      this.entityHeight = entityHeight;
+      this.canBlock = canBlock;
+      this.name = this.name().toLowerCase(Locale.ENGLISH);
+   }
+
+   public static MaskType from(int id) {
+      return id >= 0 && id < COUNT ? values()[id] : MISERY;
+   }
+
+   public static <T> EnumMap<MaskType, T> newEnumMap(Class<T> type, T... defaultValues) {
+      EnumMap map = new EnumMap<>(MaskType.class);
+      MaskType[] masks = values();
+
+      for (int i = 0; i < masks.length; i++) {
+         map.put(masks[i], i >= 0 && i < defaultValues.length ? defaultValues[i] : Defaults.defaultValue(type));
+      }
+
+      return map;
+   }
+}

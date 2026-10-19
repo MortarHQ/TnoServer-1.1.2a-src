@@ -1,0 +1,152 @@
+package io.github.jodlodi.twilighttweaks.spawner_remnant;
+
+import io.github.jodlodi.twilighttweaks.TwilightTweaks;
+import javax.annotation.Nullable;
+import javax.annotation.ParametersAreNonnullByDefault;
+import net.minecraft.MethodsReturnNonnullByDefault;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup.Provider;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import twilightforest.data.tags.EntityTagGenerator;
+
+@MethodsReturnNonnullByDefault
+@ParametersAreNonnullByDefault
+public class BossSpawnerRemnantBlockEntity extends BlockEntity {
+   @Nullable
+   private String spawnerLocation;
+   public boolean active = false;
+   public int reSpawnerTick = 0;
+
+   public BossSpawnerRemnantBlockEntity(BlockPos pos, BlockState state) {
+      super((BlockEntityType)TwilightTweaks.BOSS_SPAWNER_REMNANT_ENTITY.get(), pos, state);
+   }
+
+   public void setSpawnerLocation(String spawnerLocation) {
+      this.spawnerLocation = spawnerLocation;
+   }
+
+   @Nullable
+   public Block getSpawnerBlock() {
+      return this.spawnerLocation != null && this.level != null
+         ? (Block)this.level.registryAccess().registryOrThrow(Registries.BLOCK).get(ResourceLocation.tryParse(this.spawnerLocation))
+         : null;
+   }
+
+   protected void saveAdditional(CompoundTag tag, Provider registries) {
+      super.saveAdditional(tag, registries);
+      if (this.spawnerLocation != null) {
+         tag.putString("spawnerLocation", this.spawnerLocation);
+      }
+
+      tag.putBoolean("active", this.active);
+      tag.putInt("reSpawnerTick", this.reSpawnerTick);
+   }
+
+   protected void loadAdditional(CompoundTag tag, Provider registries) {
+      super.loadAdditional(tag, registries);
+      if (tag.contains("spawnerLocation")) {
+         this.spawnerLocation = tag.getString("spawnerLocation");
+      } else {
+         this.spawnerLocation = null;
+      }
+
+      this.active = tag.getBoolean("active");
+      this.reSpawnerTick = tag.getInt("reSpawnerTick");
+   }
+
+   public static void shtick(Level level, BlockPos pos, BlockState state, BossSpawnerRemnantBlockEntity te) {
+      if (te.active) {
+         if (te.reSpawnerTick > 0) {
+            te.reSpawnerTick++;
+         }
+
+         if (level.isClientSide) {
+            int tick = Math.min(100, te.reSpawnerTick);
+            double distance = tick * 0.01 * 0.7;
+            Vec3 center = Vec3.atCenterOf(pos);
+            double maxX = center.x + distance;
+            double minX = center.x - distance;
+            double maxY = center.y + distance;
+            double minY = center.y - distance;
+            double maxZ = center.z + distance;
+            double minZ = center.z - distance;
+            te.addRandomStationaryParticle(level, tick, randomOffset(level.random, center.x, distance), maxY, maxZ);
+            te.addRandomStationaryParticle(level, tick, randomOffset(level.random, center.x, distance), maxY, minZ);
+            te.addRandomStationaryParticle(level, tick, randomOffset(level.random, center.x, distance), minY, maxZ);
+            te.addRandomStationaryParticle(level, tick, randomOffset(level.random, center.x, distance), minY, minZ);
+            te.addRandomStationaryParticle(level, tick, maxX, randomOffset(level.random, center.y, distance), maxZ);
+            te.addRandomStationaryParticle(level, tick, maxX, randomOffset(level.random, center.y, distance), minZ);
+            te.addRandomStationaryParticle(level, tick, minX, randomOffset(level.random, center.y, distance), maxZ);
+            te.addRandomStationaryParticle(level, tick, minX, randomOffset(level.random, center.y, distance), minZ);
+            te.addRandomStationaryParticle(level, tick, maxX, maxY, randomOffset(level.random, center.z, distance));
+            te.addRandomStationaryParticle(level, tick, maxX, minY, randomOffset(level.random, center.z, distance));
+            te.addRandomStationaryParticle(level, tick, minX, maxY, randomOffset(level.random, center.z, distance));
+            te.addRandomStationaryParticle(level, tick, minX, minY, randomOffset(level.random, center.z, distance));
+            te.addRandomStationaryParticle(
+               level,
+               tick,
+               randomOffset(level.random, center.x, distance),
+               randomOffset(level.random, center.y, distance),
+               randomOffset(level.random, center.z, distance)
+            );
+            te.addRandomStationaryParticle(
+               level,
+               tick,
+               randomOffset(level.random, center.x, distance),
+               randomOffset(level.random, center.y, distance),
+               randomOffset(level.random, center.z, distance)
+            );
+            te.addRandomStationaryParticle(
+               level,
+               tick,
+               randomOffset(level.random, center.x, distance),
+               randomOffset(level.random, center.y, distance),
+               randomOffset(level.random, center.z, distance)
+            );
+            te.addRandomStationaryParticle(
+               level,
+               tick,
+               randomOffset(level.random, center.x, distance),
+               randomOffset(level.random, center.y, distance),
+               randomOffset(level.random, center.z, distance)
+            );
+         } else if (te.reSpawnerTick >= 120) {
+            Block spawner = te.getSpawnerBlock();
+            if (spawner != null) {
+               level.setBlockAndUpdate(pos, Block.pushEntitiesUp(state, spawner.defaultBlockState(), level, pos));
+               level.destroyBlock(pos.below(), true);
+            }
+         }
+      } else if (level.getEntitiesOfClass(
+            Mob.class, AABB.ofSize(Vec3.atCenterOf(pos), 40.0, 40.0, 40.0), entity -> entity.getType().is(EntityTagGenerator.BOSSES)
+         )
+         .isEmpty()) {
+         te.active = true;
+      }
+   }
+
+   private void addRandomStationaryParticle(Level level, int chance, double x, double y, double z) {
+      if (level.random.nextInt(100 - Math.min(99, chance)) <= chance) {
+         level.addParticle(ParticleTypes.WAX_OFF, x, y, z, 0.0, 0.0, 0.0);
+         if (level.random.nextBoolean()) {
+            level.addParticle(ParticleTypes.SMOKE, x, y, z, 0.0, 0.0, 0.0);
+         }
+      }
+   }
+
+   private static double randomOffset(RandomSource random, double point, double distance) {
+      return point + random.nextDouble() * distance * (random.nextBoolean() ? 1 : -1);
+   }
+}

@@ -1,0 +1,183 @@
+package com.progwml6.ironchest.common.block.regular.entity;
+
+import com.progwml6.ironchest.common.block.IronChestsTypes;
+import com.progwml6.ironchest.common.block.regular.AbstractIronChestBlock;
+import com.progwml6.ironchest.common.inventory.IronChestMenu;
+import java.util.function.Supplier;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.NonNullList;
+import net.minecraft.core.HolderLookup.Provider;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.CompoundContainer;
+import net.minecraft.world.Container;
+import net.minecraft.world.ContainerHelper;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.entity.ChestLidController;
+import net.minecraft.world.level.block.entity.ContainerOpenersCounter;
+import net.minecraft.world.level.block.entity.LidBlockEntity;
+import net.minecraft.world.level.block.entity.RandomizableContainerBlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+
+public abstract class AbstractIronChestBlockEntity extends RandomizableContainerBlockEntity implements LidBlockEntity {
+   private NonNullList<ItemStack> items;
+   private final ContainerOpenersCounter openersCounter = new ContainerOpenersCounter() {
+      protected void onOpen(Level level, BlockPos pos, BlockState blockState) {
+         AbstractIronChestBlockEntity.playSound(level, pos, blockState, SoundEvents.CHEST_OPEN);
+      }
+
+      protected void onClose(Level level, BlockPos pos, BlockState blockState) {
+         AbstractIronChestBlockEntity.playSound(level, pos, blockState, SoundEvents.CHEST_CLOSE);
+      }
+
+      protected void openerCountChanged(Level level, BlockPos pos, BlockState blockState, int previousCount, int newCount) {
+         AbstractIronChestBlockEntity.this.signalOpenCount(level, pos, blockState, previousCount, newCount);
+      }
+
+      protected boolean isOwnContainer(Player player) {
+         if (!(player.containerMenu instanceof IronChestMenu)) {
+            return false;
+         }
+
+         Container container = ((IronChestMenu)player.containerMenu).getContainer();
+         return container instanceof AbstractIronChestBlockEntity
+            || container instanceof CompoundContainer && ((CompoundContainer)container).contains(AbstractIronChestBlockEntity.this);
+      }
+   };
+   private final ChestLidController chestLidController = new ChestLidController();
+   private final IronChestsTypes chestType;
+   private final Supplier<Block> blockToUse;
+
+   protected AbstractIronChestBlockEntity(
+      BlockEntityType<?> blockEntityType, BlockPos blockPos, BlockState blockState, IronChestsTypes chestTypeIn, Supplier<Block> blockToUseIn
+   ) {
+      super(blockEntityType, blockPos, blockState);
+      this.items = NonNullList.withSize(chestTypeIn.size, ItemStack.EMPTY);
+      this.chestType = chestTypeIn;
+      this.blockToUse = blockToUseIn;
+   }
+
+   public int getContainerSize() {
+      return this.getItems().size();
+   }
+
+   protected Component getDefaultName() {
+      return Component.translatable("ironchest.container." + this.chestType.getId() + "_chest");
+   }
+
+   public void loadAdditional(CompoundTag pTag, Provider pRegistries) {
+      super.loadAdditional(pTag, pRegistries);
+      this.items = NonNullList.withSize(this.getContainerSize(), ItemStack.EMPTY);
+      if (!this.tryLoadLootTable(pTag)) {
+         ContainerHelper.loadAllItems(pTag, this.items, pRegistries);
+      }
+   }
+
+   public void saveAdditional(CompoundTag pTag, Provider pRegistries) {
+      super.saveAdditional(pTag, pRegistries);
+      if (!this.trySaveLootTable(pTag)) {
+         ContainerHelper.saveAllItems(pTag, this.items, pRegistries);
+      }
+   }
+
+   public static void lidAnimateTick(Level level, BlockPos blockPos, BlockState blockState, AbstractIronChestBlockEntity chestBlockEntity) {
+      chestBlockEntity.chestLidController.tickLid();
+   }
+
+   static void playSound(Level level, BlockPos blockPos, BlockState blockState, SoundEvent soundEvent) {
+      double d0 = blockPos.getX() + 0.5;
+      double d1 = blockPos.getY() + 0.5;
+      double d2 = blockPos.getZ() + 0.5;
+      level.playSound(null, d0, d1, d2, soundEvent, SoundSource.BLOCKS, 0.5F, level.random.nextFloat() * 0.1F + 0.9F);
+   }
+
+   public boolean triggerEvent(int id, int type) {
+      if (id == 1) {
+         this.chestLidController.shouldBeOpen(type > 0);
+         return true;
+      } else {
+         return super.triggerEvent(id, type);
+      }
+   }
+
+   public void startOpen(Player player) {
+      if (!this.remove && !player.isSpectator()) {
+         this.openersCounter.incrementOpeners(player, this.getLevel(), this.getBlockPos(), this.getBlockState());
+      }
+   }
+
+   public void stopOpen(Player player) {
+      if (!this.remove && !player.isSpectator()) {
+         this.openersCounter.decrementOpeners(player, this.getLevel(), this.getBlockPos(), this.getBlockState());
+      }
+   }
+
+   public NonNullList<ItemStack> getItems() {
+      return this.items;
+   }
+
+   public void setItems(NonNullList<ItemStack> itemsIn) {
+      this.items = NonNullList.withSize(this.getChestType().size, ItemStack.EMPTY);
+
+      for (int i = 0; i < itemsIn.size(); i++) {
+         if (i < this.items.size()) {
+            this.getItems().set(i, (ItemStack)itemsIn.get(i));
+         }
+      }
+   }
+
+   public float getOpenNess(float partialTicks) {
+      return this.chestLidController.getOpenness(partialTicks);
+   }
+
+   public static int getOpenCount(BlockGetter blockGetter, BlockPos blockPos) {
+      BlockState blockstate = blockGetter.getBlockState(blockPos);
+      if (blockstate.hasBlockEntity()) {
+         BlockEntity blockentity = blockGetter.getBlockEntity(blockPos);
+         if (blockentity instanceof AbstractIronChestBlockEntity) {
+            return ((AbstractIronChestBlockEntity)blockentity).openersCounter.getOpenerCount();
+         }
+      }
+
+      return 0;
+   }
+
+   public void recheckOpen() {
+      if (!this.remove) {
+         this.openersCounter.recheckOpeners(this.getLevel(), this.getBlockPos(), this.getBlockState());
+      }
+   }
+
+   protected void signalOpenCount(Level level, BlockPos blockPos, BlockState blockState, int previousCount, int newCount) {
+      Block block = blockState.getBlock();
+      level.blockEvent(blockPos, block, 1, newCount);
+   }
+
+   public void removeAdornments() {
+   }
+
+   public IronChestsTypes getChestType() {
+      IronChestsTypes type = IronChestsTypes.IRON;
+      if (this.hasLevel()) {
+         IronChestsTypes typeFromBlock = AbstractIronChestBlock.getTypeFromBlock(this.getBlockState().getBlock());
+         if (typeFromBlock != null) {
+            type = typeFromBlock;
+         }
+      }
+
+      return type;
+   }
+
+   public Block getBlockToUse() {
+      return this.blockToUse.get();
+   }
+}

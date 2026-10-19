@@ -1,0 +1,42 @@
+package com.blamejared.crafttweaker.api.item;
+
+import com.blamejared.crafttweaker.api.CraftTweakerAPI;
+import com.blamejared.crafttweaker.api.action.item.ActionSetBurnTime;
+import com.blamejared.crafttweaker.api.annotation.ZenRegister;
+import com.blamejared.crafttweaker.api.recipe.manager.base.IRecipeManager;
+import com.blamejared.crafttweaker_annotations.annotations.Document;
+import net.neoforged.neoforge.capabilities.ItemCapability;
+import net.neoforged.neoforge.common.ItemAbility;
+import org.openzen.zencode.java.ZenCodeType;
+
+@ZenRegister
+@ZenCodeType.Expansion("crafttweaker.api.item.IItemStack")
+@Document("neoforge/api/item/NeoForgeIItemStackExpansions")
+public class ExpandIItemStackNeoForge {
+   @ZenCodeType.Method
+   public static void setBurnTime(IItemStack internal, int time, IRecipeManager<?> manager) {
+      CraftTweakerAPI.apply(new ActionSetBurnTime(internal, time, manager.getRecipeType()));
+   }
+
+   @ZenCodeType.Method
+   public static int getBurnTime(IItemStack internal, IRecipeManager<?> manager) {
+      return internal.getInternal().getBurnTime(manager.getRecipeType());
+   }
+
+   @ZenCodeType.Method
+   public static <T, C> @ZenCodeType.Nullable T getCapabilityWithContext(
+      IItemStack internal, Class<T> tClass, Class<C> cClass, ItemCapability<T, C> cap, @ZenCodeType.Nullable C context
+   ) {
+      return (T)internal.getInternal().getCapability(cap, context);
+   }
+
+   @ZenCodeType.Method
+   public static <T> @ZenCodeType.Nullable T getCapability(IItemStack internal, Class<T> tClass, ItemCapability<T, Void> cap) {
+      return (T)internal.getInternal().getCapability(cap);
+   }
+
+   @ZenCodeType.Method
+   public static boolean canPerformAction(IItemStack internal, ItemAbility action) {
+      return internal.getInternal().canPerformAction(action);
+   }
+}

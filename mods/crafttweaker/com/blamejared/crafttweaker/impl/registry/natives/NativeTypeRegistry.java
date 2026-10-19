@@ -1,0 +1,130 @@
+package com.blamejared.crafttweaker.impl.registry.natives;
+
+import com.blamejared.crafttweaker.CraftTweakerCommon;
+import com.blamejared.crafttweaker.api.natives.IBakedTypeInfo;
+import com.blamejared.crafttweaker.api.natives.IExecutableReferenceInfo;
+import com.blamejared.crafttweaker.api.natives.INativeTypeRegistry;
+import com.blamejared.crafttweaker.api.natives.NativeTypeInfo;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+public final class NativeTypeRegistry implements INativeTypeRegistry {
+   private final Map<Class<?>, BakedTypeInfo> info = new HashMap<>();
+   private final Collection<IBakedTypeInfo> valuesView = Collections.unmodifiableCollection(this.info.values());
+
+   private static Class<?>[] convertConstructorToClassArray(NativeTypeInfo.Constructor constructorInfo) {
+      return convertParametersToClassArray(constructorInfo.parameters());
+   }
+
+   private static Class<?>[] convertMethodToClassArray(NativeTypeInfo.Method methodInfo) {
+      return convertParametersToClassArray(methodInfo.parameters());
+   }
+
+   private static Class<?>[] convertParametersToClassArray(NativeTypeInfo.Parameter... parametersInfo) {
+      return Arrays.stream(parametersInfo).map(NativeTypeInfo.Parameter::type).toArray(Class[]::new);
+   }
+
+   public void addNativeType(NativeTypeInfo info) {
+      Class<?> targetedType = info.targetedType();
+      String zenName = info.name();
+      BakedTypeInfo knownData = this.info.get(targetedType);
+      if (knownData != null && !knownData.zenName().equals(zenName)) {
+         CraftTweakerCommon.logger()
+            .error("Trying to register native type '{}' twice with names (old) '{}' and (new) '{}'", targetedType.getName(), knownData.zenName(), zenName);
+      } else {
+         Map<String, ExecutableReferenceGroupInfo> executables = this.getExecutableInfo(info);
+         this.info.put(targetedType, new BakedTypeInfo(zenName, targetedType, executables));
+      }
+   }
+
+   public void inheritFrom(NativeTypeRegistry other) {
+      other.info.forEach((clazz, info) -> {
+         if (this.info.containsKey(clazz)) {
+            throw new IllegalStateException("Unable to duplicate native type data for " + clazz);
+         }
+
+         this.info.put((Class<?>)clazz, info);
+      });
+   }
+
+   private Map<String, ExecutableReferenceGroupInfo> getExecutableInfo(NativeTypeInfo info) {
+      HashMap<String, ExecutableReferenceGroupInfo> result = new HashMap<>();
+      Arrays.stream(info.constructors())
+         .forEach(
+            it -> {
+               Class<?>[] parameters = convertConstructorToClassArray(it);
+               boolean foundConstructor = Arrays.stream(info.targetedType().getConstructors())
+                  .filter(constructor -> constructor.getParameterCount() == parameters.length)
+                  .anyMatch(constructor -> Arrays.equals(parameters, constructor.getParameterTypes()));
+               if (!foundConstructor) {
+                  throw new IllegalStateException(
+                     "Error while registering '"
+                        + info.name()
+                        + "'! No constructor found matching: "
+                        + Arrays.stream(parameters).map(Class::getName).collect(Collectors.joining(",", "(", ")"))
+                  );
+               }
+
+               result.computeIfAbsent("<init>", i -> new ExecutableReferenceGroupInfo())
+                  .getOrCreateFor(parameters, ExecutableReferenceInfo.AnnotationCreator::appendConstructorAnnotation);
+            }
+         );
+      Arrays.stream(info.methods())
+         .forEach(
+            it -> {
+               Class<?>[] parameterTypes = Arrays.stream(it.parameters()).map(NativeTypeInfo.Parameter::type).toArray(Class[]::new);
+               boolean foundMethod = Arrays.stream(info.targetedType().getMethods())
+                  .filter(method -> method.getName().equals(it.name()))
+                  .filter(method -> method.getParameterCount() == parameterTypes.length)
+                  .anyMatch(method -> Arrays.equals(method.getParameterTypes(), parameterTypes));
+               if (!foundMethod) {
+                  throw new IllegalStateException(
+                     "Error while registering '"
+                        + info.name()
+                        + "'! No method found matching: "
+                        + Arrays.stream(parameterTypes).map(Class::getName).collect(Collectors.joining(",", "(", ")"))
+                  );
+               }
+
+               result.computeIfAbsent(it.name(), i -> new ExecutableReferenceGroupInfo()).getOrCreateFor(convertMethodToClassArray(it), cons -> {
+                  cons.appendGetterAnnotation(it.getter());
+                  cons.appendSetterAnnotation(it.setter());
+                  cons.appendMethodAnnotation();
+               });
+            }
+         );
+      return result;
+   }
+
+   @Override
+   public Optional<String> getZenNameFor(Class<?> clazz) {
+      return this.getBakedTypeInfoFor(clazz).map(IBakedTypeInfo::zenName);
+   }
+
+   @Override
+   public Collection<IBakedTypeInfo> getBakedTypeInfo() {
+      return this.valuesView;
+   }
+
+   @Override
+   public Optional<IBakedTypeInfo> getBakedTypeInfoFor(Class<?> clazz) {
+      return Optional.ofNullable(this.info.get(clazz));
+   }
+
+   @Override
+   public Optional<IExecutableReferenceInfo> getExecutableReferenceInfoFor(Constructor<?> constructor) {
+      return this.getBakedTypeInfoFor(constructor.getDeclaringClass()).flatMap(it -> it.findMethod(constructor));
+   }
+
+   @Override
+   public Optional<IExecutableReferenceInfo> getExecutableReferenceInfoFor(Method method) {
+      return this.getBakedTypeInfoFor(method.getDeclaringClass()).flatMap(it -> it.findMethod(method));
+   }
+}

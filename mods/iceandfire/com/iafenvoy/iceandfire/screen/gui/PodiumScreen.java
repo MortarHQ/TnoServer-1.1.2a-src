@@ -1,0 +1,42 @@
+package com.iafenvoy.iceandfire.screen.gui;
+
+import com.iafenvoy.iceandfire.screen.handler.PodiumScreenHandler;
+import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.resources.language.I18n;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.player.Inventory;
+
+public class PodiumScreen extends AbstractContainerScreen<PodiumScreenHandler> {
+   public static final ResourceLocation PODIUM_TEXTURE = ResourceLocation.fromNamespaceAndPath("iceandfire", "textures/gui/podium.png");
+
+   public PodiumScreen(PodiumScreenHandler container, Inventory inv, Component name) {
+      super(container, inv, name);
+      this.imageHeight = 133;
+   }
+
+   protected void renderLabels(GuiGraphics pGuiGraphics, int x, int y) {
+      if (this.menu != null) {
+         String s = I18n.get("block.iceandfire.podium", new Object[0]);
+         assert this.minecraft != null;
+         pGuiGraphics.drawString(this.font, s, this.imageWidth / 2 - this.minecraft.font.width(s) / 2, 6, 4210752, false);
+      }
+
+      pGuiGraphics.drawString(this.font, this.playerInventoryTitle, 8, this.imageHeight - 96 + 2, 4210752, false);
+   }
+
+   public void render(GuiGraphics context, int mouseX, int mouseY, float partialTicks) {
+      this.renderBackground(context, mouseX, mouseY, partialTicks);
+      super.render(context, mouseX, mouseY, partialTicks);
+      this.renderTooltip(context, mouseX, mouseY);
+   }
+
+   protected void renderBg(GuiGraphics pGuiGraphics, float partialTicks, int x, int y) {
+      RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+      int i = (this.width - this.imageWidth) / 2;
+      int j = (this.height - this.imageHeight) / 2;
+      pGuiGraphics.blit(PODIUM_TEXTURE, i, j, 0, 0, this.imageWidth, this.imageHeight);
+   }
+}

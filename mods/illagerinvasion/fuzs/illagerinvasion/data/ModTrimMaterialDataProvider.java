@@ -1,0 +1,20 @@
+package fuzs.illagerinvasion.data;
+
+import fuzs.illagerinvasion.init.ModItems;
+import fuzs.illagerinvasion.init.ModRegistry;
+import fuzs.puzzleslib.api.data.v2.AbstractRegistriesDatapackGenerator;
+import fuzs.puzzleslib.api.data.v2.core.DataProviderContext;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.data.worldgen.BootstrapContext;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.armortrim.TrimMaterial;
+
+public class ModTrimMaterialDataProvider extends AbstractRegistriesDatapackGenerator<TrimMaterial> {
+   public ModTrimMaterialDataProvider(DataProviderContext context) {
+      super(Registries.TRIM_MATERIAL, context);
+   }
+
+   public void addBootstrap(BootstrapContext<TrimMaterial> context) {
+      registerTrimMaterial(context, ModRegistry.PLATINUM_TRIM_MATERIAL, (Item)ModItems.PLATINUM_SHEET_ITEM.value(), 5406076, 0.2F);
+   }
+}

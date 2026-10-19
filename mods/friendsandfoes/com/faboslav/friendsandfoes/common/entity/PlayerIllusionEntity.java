@@ -1,0 +1,163 @@
+package com.faboslav.friendsandfoes.common.entity;
+
+import com.faboslav.friendsandfoes.common.init.FriendsAndFoesSoundEvents;
+import com.faboslav.friendsandfoes.common.util.particle.ParticleSpawner;
+import com.faboslav.friendsandfoes.common.versions.VersionedEntitySpawnReason;
+import com.faboslav.friendsandfoes.common.versions.VersionedNbt;
+import java.util.Optional;
+import java.util.UUID;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.world.DifficultyInstance;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.MobSpawnType;
+import net.minecraft.world.entity.SpawnGroupData;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.attributes.AttributeSupplier.Builder;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.player.PlayerModelPart;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.ServerLevelAccessor;
+import org.jetbrains.annotations.Nullable;
+
+public final class PlayerIllusionEntity extends Mob {
+   private static final String TICKS_UNTIL_DESPAWN_NBT_NAME = "TicksUntilDespawn";
+   private static final EntityDataAccessor<Integer> TICKS_UNTIL_DESPAWN = SynchedEntityData.defineId(PlayerIllusionEntity.class, EntityDataSerializers.INT);
+   private static final String PLAYER_UUID_NBT_NAME = "PlayerUuid";
+   private static final EntityDataAccessor<Byte> PLAYER_MODEL_PARTS = SynchedEntityData.defineId(PlayerIllusionEntity.class, EntityDataSerializers.BYTE);
+   private static final EntityDataAccessor<Optional<UUID>> PLAYER_UUID = SynchedEntityData.defineId(
+      PlayerIllusionEntity.class, EntityDataSerializers.OPTIONAL_UUID
+   );
+   @Nullable
+   private Player player;
+   public double prevCapeX;
+   public double prevCapeY;
+   public double prevCapeZ;
+   public double capeX;
+   public double capeY;
+   public double capeZ;
+   public float prevStrideDistance;
+   public float strideDistance;
+
+   public PlayerIllusionEntity(EntityType<? extends Mob> entityType, Level world) {
+      super(entityType, world);
+   }
+
+   @Nullable
+   public SpawnGroupData finalizeSpawn(ServerLevelAccessor world, DifficultyInstance difficulty, MobSpawnType spawnReason, @Nullable SpawnGroupData entityData) {
+      if (spawnReason == VersionedEntitySpawnReason.COMMAND) {
+         this.setTicksUntilDespawn(-1);
+         if (this.getPlayerUuid() == null) {
+            Player player = this.level().getNearestPlayer(this.getX(), this.getY(), this.getZ(), 10.0, null);
+            if (player != null) {
+               this.setPlayer(player);
+               this.setPlayerUuid(player.getUUID());
+            }
+         }
+      }
+
+      return super.finalizeSpawn(world, difficulty, spawnReason, entityData);
+   }
+
+   public static Builder createPlayerIllusionAttributes() {
+      return Mob.createMobAttributes()
+         .add(Attributes.MAX_HEALTH, 1.0)
+         .add(Attributes.ATTACK_DAMAGE, 1.0)
+         .add(Attributes.MOVEMENT_SPEED, 0.0)
+         .add(Attributes.KNOCKBACK_RESISTANCE, 1.0);
+   }
+
+   protected void defineSynchedData(net.minecraft.network.syncher.SynchedEntityData.Builder builder) {
+      super.defineSynchedData(builder);
+      builder.define(PLAYER_MODEL_PARTS, (byte)0);
+      builder.define(TICKS_UNTIL_DESPAWN, 0);
+      builder.define(PLAYER_UUID, Optional.empty());
+   }
+
+   public void addAdditionalSaveData(CompoundTag nbt) {
+      super.addAdditionalSaveData(nbt);
+      nbt.putInt("TicksUntilDespawn", this.getTicksUntilDespawn());
+      VersionedNbt.putUUID(nbt, "PlayerUuid", this.getPlayerUuid());
+   }
+
+   public void readAdditionalSaveData(CompoundTag nbt) {
+      super.readAdditionalSaveData(nbt);
+      this.setPlayerUuid(VersionedNbt.getUUID(nbt, "PlayerUuid"));
+      this.setTicksUntilDespawn(VersionedNbt.getInt(nbt, "TicksUntilDespawn", 0));
+   }
+
+   public boolean shouldDropExperience() {
+      return false;
+   }
+
+   protected boolean shouldDropLoot() {
+      return false;
+   }
+
+   public boolean shouldShowName() {
+      return false;
+   }
+
+   public void aiStep() {
+      super.aiStep();
+      if (this.getTicksUntilDespawn() > 0) {
+         this.setTicksUntilDespawn(this.getTicksUntilDespawn() - 1);
+      }
+
+      boolean isPlayerNonExistingOrDead = this.getPlayer() != null && !this.getPlayer().isAlive();
+      if (this.getTicksUntilDespawn() == 0 || isPlayerNonExistingOrDead) {
+         this.discardIllusion();
+      }
+   }
+
+   public boolean hurt(DamageSource damageSource, float amount) {
+      this.discardIllusion();
+      return true;
+   }
+
+   public boolean isPartVisible(PlayerModelPart modelPart) {
+      return ((Byte)this.getEntityData().get(PLAYER_MODEL_PARTS) & modelPart.getMask()) == modelPart.getMask();
+   }
+
+   @Nullable
+   public UUID getPlayerUuid() {
+      return (UUID)((Optional)this.entityData.get(PLAYER_UUID)).orElse(null);
+   }
+
+   public void setPlayerUuid(@Nullable UUID uuid) {
+      this.entityData.set(PLAYER_UUID, Optional.ofNullable(uuid));
+   }
+
+   @Nullable
+   public Player getPlayer() {
+      return this.player;
+   }
+
+   public void setPlayer(Player player) {
+      this.player = player;
+   }
+
+   public int getTicksUntilDespawn() {
+      return (Integer)this.entityData.get(TICKS_UNTIL_DESPAWN);
+   }
+
+   public void setTicksUntilDespawn(int ticksUntilDespawn) {
+      this.entityData.set(TICKS_UNTIL_DESPAWN, ticksUntilDespawn);
+   }
+
+   private void discardIllusion() {
+      this.playMirrorSound();
+      ParticleSpawner.spawnParticles(this, ParticleTypes.CLOUD, 16, 0.1);
+      this.discard();
+   }
+
+   private void playMirrorSound() {
+      this.playSound((SoundEvent)FriendsAndFoesSoundEvents.ENTITY_PLAYER_MIRROR_MOVE.get(), this.getSoundVolume(), this.getVoicePitch());
+   }
+}

@@ -1,0 +1,207 @@
+package de.ellpeck.naturesaura.entities;
+
+import com.google.common.collect.ListMultimap;
+import de.ellpeck.naturesaura.Helper;
+import de.ellpeck.naturesaura.api.NaturesAuraAPI;
+import de.ellpeck.naturesaura.api.misc.ILevelData;
+import de.ellpeck.naturesaura.api.render.IVisualizable;
+import de.ellpeck.naturesaura.items.ItemEffectPowder;
+import de.ellpeck.naturesaura.items.ModItems;
+import de.ellpeck.naturesaura.misc.LevelData;
+import java.util.List;
+import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.network.syncher.SynchedEntityData.Builder;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Tuple;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.api.distmarker.OnlyIn;
+import org.jetbrains.annotations.Nullable;
+
+public class EntityEffectInhibitor extends Entity implements IVisualizable {
+   private static final EntityDataAccessor<String> INHIBITED_EFFECT = SynchedEntityData.defineId(EntityEffectInhibitor.class, EntityDataSerializers.STRING);
+   private static final EntityDataAccessor<Integer> COLOR = SynchedEntityData.defineId(EntityEffectInhibitor.class, EntityDataSerializers.INT);
+   private static final EntityDataAccessor<Integer> AMOUNT = SynchedEntityData.defineId(EntityEffectInhibitor.class, EntityDataSerializers.INT);
+   private ResourceLocation lastEffect;
+   private boolean powderListDirty;
+   @OnlyIn(Dist.CLIENT)
+   public int renderTicks;
+
+   public EntityEffectInhibitor(EntityType<?> entityTypeIn, Level levelIn) {
+      super(entityTypeIn, levelIn);
+   }
+
+   public static void place(Level level, ItemStack stack, double posX, double posY, double posZ) {
+      ResourceLocation effect = ItemEffectPowder.getEffect(stack);
+      EntityEffectInhibitor entity = new EntityEffectInhibitor(ModEntities.EFFECT_INHIBITOR, level);
+      entity.setInhibitedEffect(effect);
+      entity.setColor(NaturesAuraAPI.EFFECT_POWDERS.get(effect));
+      entity.setAmount(stack.getCount());
+      entity.setPos(posX, posY, posZ);
+      level.addFreshEntity(entity);
+   }
+
+   public void onAddedToLevel() {
+      super.onAddedToLevel();
+      this.powderListDirty = true;
+   }
+
+   public void onRemovedFromLevel() {
+      super.onRemovedFromLevel();
+      this.updatePowderListStatus(null);
+   }
+
+   protected void defineSynchedData(Builder builder) {
+      builder.define(INHIBITED_EFFECT, "");
+      builder.define(COLOR, 0);
+      builder.define(AMOUNT, 0);
+   }
+
+   public void onSyncedDataUpdated(EntityDataAccessor<?> key) {
+      super.onSyncedDataUpdated(key);
+      if (INHIBITED_EFFECT.equals(key) || AMOUNT.equals(key)) {
+         this.powderListDirty = true;
+      }
+   }
+
+   public void setPos(double x, double y, double z) {
+      if (x != this.getX() || y != this.getY() || z != this.getZ()) {
+         this.powderListDirty = true;
+      }
+
+      super.setPos(x, y, z);
+   }
+
+   public void tick() {
+      super.tick();
+      if (this.powderListDirty) {
+         this.updatePowderListStatus(this.getInhibitedEffect());
+      }
+
+      if (this.level().isClientSide) {
+         if (this.level().getGameTime() % 5L == 0L) {
+            NaturesAuraAPI.instance()
+               .spawnMagicParticle(
+                  this.getX() + this.level().random.nextGaussian() * 0.1F,
+                  this.getY(),
+                  this.getZ() + this.level().random.nextGaussian() * 0.1F,
+                  this.level().random.nextGaussian() * 0.005F,
+                  this.level().random.nextFloat() * 0.03F,
+                  this.level().random.nextGaussian() * 0.005F,
+                  this.getColor(),
+                  this.level().random.nextFloat() * 3.0F + 1.0F,
+                  120,
+                  0.0F,
+                  true,
+                  true
+               );
+         }
+
+         this.renderTicks++;
+      }
+   }
+
+   protected void readAdditionalSaveData(CompoundTag compound) {
+      this.setInhibitedEffect(ResourceLocation.parse(compound.getString("effect")));
+      this.setColor(compound.getInt("color"));
+      this.setAmount(compound.contains("amount") ? compound.getInt("amount") : 24);
+   }
+
+   protected void addAdditionalSaveData(CompoundTag compound) {
+      compound.putString("effect", this.getInhibitedEffect().toString());
+      compound.putInt("color", this.getColor());
+      compound.putInt("amount", this.getAmount());
+   }
+
+   public boolean skipAttackInteraction(Entity entity) {
+      return entity instanceof Player player
+         && (!this.level().mayInteract(player, this.blockPosition()) || this.hurt(this.damageSources().playerAttack(player), 0.0F));
+   }
+
+   public boolean hurt(DamageSource source, float amount) {
+      if (source.getEntity() != null && !this.level().isClientSide) {
+         this.spawnAtLocation(this.getDrop(), 0.0F);
+         this.kill();
+         return true;
+      } else {
+         return super.hurt(source, amount);
+      }
+   }
+
+   public boolean isPickable() {
+      return true;
+   }
+
+   @Nullable
+   public ItemStack getPickResult() {
+      return this.getDrop();
+   }
+
+   public ItemStack getDrop() {
+      return ItemEffectPowder.setEffect(new ItemStack(ModItems.EFFECT_POWDER, this.getAmount()), this.getInhibitedEffect());
+   }
+
+   public ResourceLocation getInhibitedEffect() {
+      String effect = (String)this.entityData.get(INHIBITED_EFFECT);
+      return effect != null && !effect.isEmpty() ? ResourceLocation.parse(effect) : null;
+   }
+
+   public void setInhibitedEffect(ResourceLocation effect) {
+      this.entityData.set(INHIBITED_EFFECT, effect != null ? effect.toString() : "");
+   }
+
+   public int getColor() {
+      return (Integer)this.entityData.get(COLOR);
+   }
+
+   public void setColor(int color) {
+      this.entityData.set(COLOR, color);
+   }
+
+   public int getAmount() {
+      return (Integer)this.entityData.get(AMOUNT);
+   }
+
+   public void setAmount(int amount) {
+      this.entityData.set(AMOUNT, amount);
+   }
+
+   @OnlyIn(Dist.CLIENT)
+   @Override
+   public AABB getVisualizationBounds(Level level, BlockPos pos) {
+      return Helper.aabb(this.getEyePosition()).inflate(this.getAmount());
+   }
+
+   @OnlyIn(Dist.CLIENT)
+   @Override
+   public int getVisualizationColor(Level level, BlockPos pos) {
+      return this.getColor();
+   }
+
+   private void updatePowderListStatus(ResourceLocation inhibitedEffect) {
+      ListMultimap<ResourceLocation, Tuple<Vec3, Integer>> powders = ((LevelData)ILevelData.getLevelData(this.level())).effectPowders;
+      if (this.lastEffect != null) {
+         List<Tuple<Vec3, Integer>> oldList = powders.get(this.lastEffect);
+         oldList.removeIf(t -> this.getEyePosition().equals(t.getA()));
+      }
+
+      if (inhibitedEffect != null) {
+         List<Tuple<Vec3, Integer>> newList = powders.get(inhibitedEffect);
+         newList.add(new Tuple(this.getEyePosition(), this.getAmount()));
+      }
+
+      this.powderListDirty = false;
+      this.lastEffect = inhibitedEffect;
+   }
+}

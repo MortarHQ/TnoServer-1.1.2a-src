@@ -1,0 +1,42 @@
+package com.blackgear.vanillabackport.client;
+
+import com.blackgear.platform.client.GameRendering;
+import com.blackgear.platform.client.event.LocalPlayerEvents;
+import com.blackgear.platform.client.event.LocalPlayerEvents.PlayerJoin;
+import com.blackgear.platform.common.block.WoodTypeRegistry;
+import com.blackgear.platform.core.ParallelDispatch;
+import com.blackgear.platform.core.events.ResourcePackManager;
+import com.blackgear.platform.core.events.ResourceReloadManager;
+import com.blackgear.vanillabackport.client.api.bundle.BundleMouseActions;
+import com.blackgear.vanillabackport.client.api.tabs.BundledTabSelector;
+import com.blackgear.vanillabackport.client.resources.color.DryFoliageColorReloadListener;
+import com.blackgear.vanillabackport.client.resources.color.LeafColorReloadListener;
+import com.blackgear.vanillabackport.common.registries.ModWoodTypes;
+import com.blackgear.vanillabackport.core.VanillaBackport;
+import net.minecraft.resources.ResourceLocation;
+
+public class ClientSetup {
+   public static void setup() {
+      ResourcePackManager.registerBuiltResourcePack(VanillaBackport.resource("freshly_animated"), "vanillabackport", "Freshly Animated");
+      ResourcePackManager.registerBuiltResourcePack(VanillaBackport.resource("freshly_animated_legacy"), "vanillabackport", "Freshly Animated Legacy");
+      ResourceReloadManager.registerClient(event -> {
+         event.register(ResourceLocation.withDefaultNamespace("dry_foliage"), DryFoliageColorReloadListener.INSTANCE);
+         event.register(ResourceLocation.withDefaultNamespace("leaf_colors"), LeafColorReloadListener.INSTANCE);
+      });
+      GameRendering.registerParticleFactories(Rendering::particleFactories);
+      GameRendering.registerModelLayers(Rendering::modelLayers);
+      GameRendering.registerEntityRenderers(Rendering::entityRendering);
+      GameRendering.registerBlockColors(Rendering::blockColors);
+      GameRendering.registerItemColors(Rendering::itemColors);
+      GameRendering.registerSpecialModels(Rendering::specialModels);
+   }
+
+   public static void asyncSetup(ParallelDispatch dispatch) {
+      dispatch.enqueueWork(() -> LocalPlayerEvents.ON_LOGIN.register((PlayerJoin)player -> BundledTabSelector.bootstrap()));
+      BundleMouseActions.bootstrap();
+      GameRendering.registerBlockRenderers(Rendering::blockRendering);
+      WoodTypeRegistry.registerWoodType(ModWoodTypes.PALE_OAK);
+      CreativeTabIntegration.bootstrap();
+      ItemPropertyRegistrar.bootstrap();
+   }
+}

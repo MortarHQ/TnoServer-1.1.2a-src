@@ -1,0 +1,73 @@
+package team.creative.creativecore.common.gui.style.display;
+
+import com.google.gson.JsonDeserializationContext;
+import com.google.gson.JsonDeserializer;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParseException;
+import com.google.gson.annotations.JsonAdapter;
+import java.lang.reflect.Type;
+import java.util.HashMap;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
+import net.minecraft.client.gui.GuiGraphics;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.api.distmarker.OnlyIn;
+import team.creative.creativecore.common.gui.GuiControlRect;
+import team.creative.creativecore.common.util.math.geo.Rect;
+
+@OnlyIn(Dist.CLIENT)
+@JsonAdapter(StyleDisplay.StyleDisplayDeserializer.class)
+@Environment(EnvType.CLIENT)
+public abstract class StyleDisplay {
+   public static final StyleDisplay NONE = new StyleDisplay() {
+      @Override
+      public void render(GuiGraphics graphics, double x, double y, double width, double height) {
+      }
+   };
+   private static final HashMap<String, Class<? extends StyleDisplay>> types = new HashMap<>();
+
+   public static void registerType(String id, Class<? extends StyleDisplay> clazz) {
+      if (types.containsKey(id)) {
+         throw new IllegalArgumentException(id + " is already taken");
+      }
+
+      types.put(id, clazz);
+   }
+
+   public void render(GuiGraphics graphics, double width, double height) {
+      this.render(graphics, 0.0, 0.0, width, height);
+   }
+
+   public void render(GuiGraphics graphics, Rect origin, Rect rect) {
+      this.render(graphics, rect.getWidth(), rect.getHeight());
+   }
+
+   public void render(GuiGraphics graphics, GuiControlRect rect) {
+      this.render(graphics, rect.getX(), rect.getY(), rect.getWidth(), rect.getHeight());
+   }
+
+   public abstract void render(GuiGraphics var1, double var2, double var4, double var6, double var8);
+
+   static {
+      registerType("color", DisplayColor.class);
+      registerType("tex", DisplayTexture.class);
+      registerType("texs", DisplayTextureStretch.class);
+   }
+
+   public static class StyleDisplayDeserializer implements JsonDeserializer<StyleDisplay> {
+      public StyleDisplay deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException {
+         if (!json.isJsonObject()) {
+            throw new JsonParseException("style display cannot be a property");
+         } else if (!json.getAsJsonObject().has("type")) {
+            throw new JsonParseException("missing type in style display");
+         } else {
+            Class<? extends StyleDisplay> clazz = StyleDisplay.types.get(json.getAsJsonObject().get("type").getAsString());
+            if (clazz == null) {
+               throw new JsonParseException("style display type not found " + json.getAsJsonObject().get("type"));
+            } else {
+               return (StyleDisplay)context.deserialize(json, clazz);
+            }
+         }
+      }
+   }
+}

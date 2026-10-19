@@ -1,0 +1,247 @@
+package gardensofthedead.neoforge.datagen;
+
+import gardensofthedead.GardensOfTheDead;
+import gardensofthedead.block.SoulblightFungusBlock;
+import gardensofthedead.block.WhistlecaneBlock;
+import gardensofthedead.feature.SoulSporeColumnFeature;
+import gardensofthedead.feature.configuration.HugeFlatFungusConfiguration;
+import gardensofthedead.feature.configuration.SoulSporeColumnConfiguration;
+import gardensofthedead.registry.ModBlocks;
+import gardensofthedead.registry.ModFeatures;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Supplier;
+import net.minecraft.core.Direction;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.data.worldgen.BootstrapContext;
+import net.minecraft.data.worldgen.features.FeatureUtils;
+import net.minecraft.data.worldgen.placement.PlacementUtils;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.util.random.SimpleWeightedRandomList;
+import net.minecraft.util.valueproviders.UniformInt;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.RotatedPillarBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.blockpredicates.BlockPredicate;
+import net.minecraft.world.level.levelgen.feature.ConfiguredFeature;
+import net.minecraft.world.level.levelgen.feature.Feature;
+import net.minecraft.world.level.levelgen.feature.configurations.BlockColumnConfiguration;
+import net.minecraft.world.level.levelgen.feature.configurations.BlockPileConfiguration;
+import net.minecraft.world.level.levelgen.feature.configurations.FeatureConfiguration;
+import net.minecraft.world.level.levelgen.feature.configurations.NetherForestVegetationConfig;
+import net.minecraft.world.level.levelgen.feature.configurations.RandomPatchConfiguration;
+import net.minecraft.world.level.levelgen.feature.configurations.SimpleBlockConfiguration;
+import net.minecraft.world.level.levelgen.feature.stateproviders.WeightedStateProvider;
+
+public class ConfiguredFeatureProvider {
+   private static final Map<ResourceKey<ConfiguredFeature<?, ?>>, Supplier<ConfiguredFeature<?, ?>>> CONFIGURED_FEATURES = new HashMap<>();
+   public static final ResourceKey<ConfiguredFeature<?, ?>> SOULBLIGHT_FUNGUS_PLANTED = register(
+      SoulblightFungusBlock.SOULBLIGHT_FUNGUS_PLANTED,
+      ModFeatures.HUGE_SOULBLIGHT_FUNGUS,
+      () -> new HugeFlatFungusConfiguration(
+         SoulblightFungusBlock.REQUIRED_BLOCK.defaultBlockState(),
+         ((RotatedPillarBlock)ModBlocks.SOULBLIGHT_STEM.get()).defaultBlockState(),
+         ((Block)ModBlocks.BLIGHTWART_BLOCK.get()).defaultBlockState(),
+         fungusReplaceablePlants(),
+         true
+      )
+   );
+   public static final ResourceKey<ConfiguredFeature<?, ?>> SOULBLIGHT_FUNGUS = register(
+      "soulblight_fungus",
+      ModFeatures.HUGE_SOULBLIGHT_FUNGUS,
+      () -> new HugeFlatFungusConfiguration(
+         Blocks.SOUL_SOIL.defaultBlockState(),
+         ((RotatedPillarBlock)ModBlocks.SOULBLIGHT_STEM.get()).defaultBlockState(),
+         ((Block)ModBlocks.BLIGHTWART_BLOCK.get()).defaultBlockState(),
+         fungusReplaceablePlants(),
+         false
+      )
+   );
+   public static final ResourceKey<ConfiguredFeature<?, ?>> SHORT_STANDING_SOUL_SPORE_PATCH = soulSporePatch(
+      "short_standing_soul_spore_patch", 3, Direction.UP, 0.05F, Blocks.SOUL_SOIL
+   );
+   public static final ResourceKey<ConfiguredFeature<?, ?>> LONG_STANDING_SOUL_SPORE_PATCH = soulSporePatch(
+      "long_standing_soul_spore_patch", 8, Direction.UP, 0.05F, Blocks.SOUL_SAND
+   );
+   public static final ResourceKey<ConfiguredFeature<?, ?>> SHORT_HANGING_SOUL_SPORE_PATCH = soulSporePatch(
+      "short_hanging_soul_spore_patch", 3, Direction.DOWN, 0.0F, Blocks.SOUL_SOIL
+   );
+   public static final ResourceKey<ConfiguredFeature<?, ?>> LONG_HANGING_SOUL_SPORE_PATCH = soulSporePatch(
+      "long_hanging_soul_spore_patch", 8, Direction.DOWN, 0.05F, Blocks.SOUL_SAND
+   );
+   public static final ResourceKey<ConfiguredFeature<?, ?>> SOULBLIGHT_FOREST_VEGETATION = register(
+      "soulblight_forest_vegetation", ModFeatures.SOULBLIGHT_FOREST_VEGETATION, () -> new NetherForestVegetationConfig(soulblightVegetationProvider(), 8, 4)
+   );
+   public static final ResourceKey<ConfiguredFeature<?, ?>> WHISTLECANE_COLUMN = register(
+      "whistlecane_column",
+      () -> Feature.BLOCK_COLUMN,
+      () -> new BlockColumnConfiguration(
+         List.of(
+            BlockColumnConfiguration.layer(
+               UniformInt.of(2, 6),
+               net.minecraft.world.level.levelgen.feature.stateproviders.BlockStateProvider.simple(
+                  (BlockState)((Block)ModBlocks.WHISTLECANE.get()).defaultBlockState().setValue(WhistlecaneBlock.GROWING, false)
+               )
+            )
+         ),
+         Direction.UP,
+         BlockPredicate.ONLY_IN_AIR_PREDICATE,
+         true
+      )
+   );
+   public static final ResourceKey<ConfiguredFeature<?, ?>> WHISTLING_WOODS_VEGETATION = register(
+      "whistling_woods_vegetation", () -> Feature.NETHER_FOREST_VEGETATION, () -> new NetherForestVegetationConfig(whistlingWoodsVegetationProvider(), 8, 4)
+   );
+   public static final ResourceKey<ConfiguredFeature<?, ?>> TALL_BLISTERCROWN_PATCH = register(
+      "tall_blistercrown_patch",
+      () -> Feature.RANDOM_PATCH,
+      () -> FeatureUtils.simplePatchConfiguration(
+         Feature.SIMPLE_BLOCK,
+         new SimpleBlockConfiguration(
+            net.minecraft.world.level.levelgen.feature.stateproviders.BlockStateProvider.simple((Block)ModBlocks.TALL_BLISTERCROWN.get())
+         ),
+         List.of(),
+         32
+      )
+   );
+   public static final ResourceKey<ConfiguredFeature<?, ?>> NETHER_WART_BLOCK_PILE = register(
+      "nether_wart_block_pile",
+      () -> Feature.BLOCK_PILE,
+      () -> new BlockPileConfiguration(
+         new WeightedStateProvider(
+            SimpleWeightedRandomList.builder().add(Blocks.NETHER_WART_BLOCK.defaultBlockState(), 10).add(Blocks.SHROOMLIGHT.defaultBlockState(), 1)
+         )
+      )
+   );
+
+   private static BlockPredicate fungusReplaceablePlants() {
+      return BlockPredicate.matchesBlocks(
+         new Block[]{
+            Blocks.OAK_SAPLING,
+            Blocks.SPRUCE_SAPLING,
+            Blocks.BIRCH_SAPLING,
+            Blocks.JUNGLE_SAPLING,
+            Blocks.ACACIA_SAPLING,
+            Blocks.CHERRY_SAPLING,
+            Blocks.DARK_OAK_SAPLING,
+            Blocks.MANGROVE_PROPAGULE,
+            Blocks.DANDELION,
+            Blocks.TORCHFLOWER,
+            Blocks.POPPY,
+            Blocks.BLUE_ORCHID,
+            Blocks.ALLIUM,
+            Blocks.AZURE_BLUET,
+            Blocks.RED_TULIP,
+            Blocks.ORANGE_TULIP,
+            Blocks.WHITE_TULIP,
+            Blocks.PINK_TULIP,
+            Blocks.OXEYE_DAISY,
+            Blocks.CORNFLOWER,
+            Blocks.WITHER_ROSE,
+            Blocks.LILY_OF_THE_VALLEY,
+            Blocks.BROWN_MUSHROOM,
+            Blocks.RED_MUSHROOM,
+            Blocks.WHEAT,
+            Blocks.SUGAR_CANE,
+            Blocks.ATTACHED_PUMPKIN_STEM,
+            Blocks.ATTACHED_MELON_STEM,
+            Blocks.PUMPKIN_STEM,
+            Blocks.MELON_STEM,
+            Blocks.LILY_PAD,
+            Blocks.NETHER_WART,
+            Blocks.COCOA,
+            Blocks.CARROTS,
+            Blocks.POTATOES,
+            Blocks.CHORUS_PLANT,
+            Blocks.CHORUS_FLOWER,
+            Blocks.TORCHFLOWER_CROP,
+            Blocks.PITCHER_CROP,
+            Blocks.BEETROOTS,
+            Blocks.SWEET_BERRY_BUSH,
+            Blocks.WARPED_FUNGUS,
+            Blocks.CRIMSON_FUNGUS,
+            Blocks.WEEPING_VINES,
+            Blocks.WEEPING_VINES_PLANT,
+            Blocks.TWISTING_VINES,
+            Blocks.TWISTING_VINES_PLANT,
+            Blocks.CAVE_VINES,
+            Blocks.CAVE_VINES_PLANT,
+            Blocks.SPORE_BLOSSOM,
+            Blocks.AZALEA,
+            Blocks.FLOWERING_AZALEA,
+            Blocks.MOSS_CARPET,
+            Blocks.PINK_PETALS,
+            Blocks.BIG_DRIPLEAF,
+            Blocks.BIG_DRIPLEAF_STEM,
+            Blocks.SMALL_DRIPLEAF,
+            (Block)ModBlocks.SOULBLIGHT_FUNGUS.get(),
+            (Block)ModBlocks.SOULBLIGHT_SPROUTS.get(),
+            (Block)ModBlocks.SOUL_SPORE.get(),
+            (Block)ModBlocks.GLOWING_SOUL_SPORE.get(),
+            (Block)ModBlocks.BLISTERCROWN.get()
+         }
+      );
+   }
+
+   public static void create(BootstrapContext<ConfiguredFeature<?, ?>> context) {
+      for (ResourceKey<ConfiguredFeature<?, ?>> key : CONFIGURED_FEATURES.keySet()) {
+         context.register(key, CONFIGURED_FEATURES.get(key).get());
+      }
+   }
+
+   private static WeightedStateProvider soulblightVegetationProvider() {
+      return new WeightedStateProvider(
+         SimpleWeightedRandomList.builder()
+            .add(((Block)ModBlocks.SOULBLIGHT_SPROUTS.get()).defaultBlockState(), 48)
+            .add(((Block)ModBlocks.SOULBLIGHT_FUNGUS.get()).defaultBlockState(), 48)
+            .add(Blocks.CRIMSON_FUNGUS.defaultBlockState(), 2)
+            .add(Blocks.WARPED_FUNGUS.defaultBlockState(), 2)
+      );
+   }
+
+   private static WeightedStateProvider whistlingWoodsVegetationProvider() {
+      return new WeightedStateProvider(
+         SimpleWeightedRandomList.builder()
+            .add(Blocks.CRIMSON_ROOTS.defaultBlockState(), 70)
+            .add(((Block)ModBlocks.BLISTERCROWN.get()).defaultBlockState(), 18)
+            .add(Blocks.CRIMSON_FUNGUS.defaultBlockState(), 10)
+            .add(Blocks.WARPED_FUNGUS.defaultBlockState(), 2)
+      );
+   }
+
+   private static ResourceKey<ConfiguredFeature<?, ?>> soulSporePatch(
+      String name, int length, Direction direction, float glowingChance, Block... matchingBlocks
+   ) {
+      return register(
+         name,
+         () -> Feature.RANDOM_PATCH,
+         () -> new RandomPatchConfiguration(
+            64,
+            8,
+            4,
+            PlacementUtils.filtered(
+               (SoulSporeColumnFeature)ModFeatures.SOUL_SPORE_COLUMN.get(),
+               new SoulSporeColumnConfiguration(UniformInt.of(1, length), direction, glowingChance),
+               BlockPredicate.allOf(BlockPredicate.ONLY_IN_AIR_PREDICATE, BlockPredicate.matchesBlocks(direction.getOpposite().getNormal(), matchingBlocks))
+            )
+         )
+      );
+   }
+
+   private static <T extends FeatureConfiguration> ResourceKey<ConfiguredFeature<?, ?>> register(
+      ResourceKey<ConfiguredFeature<?, ?>> key, Supplier<? extends Feature<T>> feature, Supplier<T> config
+   ) {
+      CONFIGURED_FEATURES.put(key, () -> new ConfiguredFeature(feature.get(), config.get()));
+      return key;
+   }
+
+   private static <T extends FeatureConfiguration> ResourceKey<ConfiguredFeature<?, ?>> register(
+      String name, Supplier<? extends Feature<T>> feature, Supplier<T> config
+   ) {
+      ResourceKey<ConfiguredFeature<?, ?>> key = ResourceKey.create(Registries.CONFIGURED_FEATURE, GardensOfTheDead.id(name));
+      CONFIGURED_FEATURES.put(key, () -> new ConfiguredFeature(feature.get(), config.get()));
+      return key;
+   }
+}

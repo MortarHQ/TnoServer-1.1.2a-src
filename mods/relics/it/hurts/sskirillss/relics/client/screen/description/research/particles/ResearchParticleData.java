@@ -1,0 +1,59 @@
+package it.hurts.sskirillss.relics.client.screen.description.research.particles;
+
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
+import it.hurts.sskirillss.relics.client.screen.description.general.particles.base.ParticleData;
+import it.hurts.sskirillss.relics.utils.data.GUIRenderer;
+import it.hurts.sskirillss.relics.utils.data.SpriteAnchor;
+import java.awt.Color;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
+import net.minecraft.util.RandomSource;
+
+public class ResearchParticleData extends ParticleData {
+   private static final ResourceLocation TEXTURE = ResourceLocation.fromNamespaceAndPath("relics", "textures/gui/description/general/particles/pixel.png");
+   private final float verticalAcceleration;
+
+   public ResearchParticleData(Color color, float xStart, float yStart, float scale, int lifeTime, float verticalAcceleration) {
+      super(TEXTURE, color, xStart, yStart, scale, lifeTime);
+      this.verticalAcceleration = verticalAcceleration;
+   }
+
+   @Override
+   public void tick(Screen screen) {
+      super.tick(screen);
+      LocalPlayer player = screen.getMinecraft().player;
+      if (player != null) {
+         RandomSource random = player.getRandom();
+         this.setX((float)(this.getX() + Math.sin(this.getLifeTime() * 0.15F) * (0.1F + random.nextFloat() * 0.5F)));
+         this.setY(this.getY() - this.getLifeTime() * this.verticalAcceleration);
+      }
+   }
+
+   @Override
+   public void render(Screen screen, GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+      PoseStack poseStack = guiGraphics.pose();
+      float lifePercentage = (float)this.getLifeTime() / this.getMaxLifeTime();
+      float blinkOffset = 0.25F + (float)(Math.sin(this.getLifeTime() + partialTick) * 0.5);
+      poseStack.pushPose();
+      RenderSystem.setShaderColor(
+         this.getColor().getRed() / 255.0F + blinkOffset,
+         this.getColor().getGreen() / 255.0F + blinkOffset,
+         this.getColor().getBlue() / 255.0F + blinkOffset,
+         lifePercentage
+      );
+      RenderSystem.enableBlend();
+      RenderSystem.blendFunc(770, 1);
+      poseStack.translate(Mth.lerp(partialTick, this.getXO(), this.getX()), Mth.lerp(partialTick, this.getYO(), this.getY()), 0.0F);
+      poseStack.mulPose(Axis.ZP.rotationDegrees((this.getLifeTime() + partialTick) * 25.0F));
+      GUIRenderer.begin(TEXTURE, guiGraphics.pose()).scale(this.getScale() * lifePercentage).anchor(SpriteAnchor.CENTER).end();
+      RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+      RenderSystem.defaultBlendFunc();
+      RenderSystem.disableBlend();
+      poseStack.popPose();
+   }
+}

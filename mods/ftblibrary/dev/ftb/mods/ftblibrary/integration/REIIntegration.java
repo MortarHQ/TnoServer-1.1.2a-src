@@ -1,0 +1,56 @@
+package dev.ftb.mods.ftblibrary.integration;
+
+import dev.ftb.mods.ftblibrary.config.ui.resource.ResourceSearchMode;
+import dev.ftb.mods.ftblibrary.config.ui.resource.SelectItemStackScreen;
+import dev.ftb.mods.ftblibrary.config.ui.resource.SelectableResource;
+import dev.ftb.mods.ftblibrary.icon.Icon;
+import dev.ftb.mods.ftblibrary.icon.ItemIcon;
+import dev.ftb.mods.ftblibrary.sidebar.SidebarGroupGuiButton;
+import java.util.Collection;
+import java.util.List;
+import me.shedaniel.math.Rectangle;
+import me.shedaniel.rei.api.client.plugins.REIClientPlugin;
+import me.shedaniel.rei.api.client.registry.entry.EntryRegistry;
+import me.shedaniel.rei.api.client.registry.screen.ExclusionZones;
+import me.shedaniel.rei.api.common.entry.type.VanillaEntryTypes;
+import me.shedaniel.rei.api.common.util.CollectionUtils;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.renderer.Rect2i;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+
+public class REIIntegration implements REIClientPlugin {
+   private static final ResourceSearchMode<ItemStack> REI_ITEMS = new ResourceSearchMode<ItemStack>() {
+      @Override
+      public Icon getIcon() {
+         return ItemIcon.getItemIcon(Items.GLOW_BERRIES);
+      }
+
+      public MutableComponent getDisplayName() {
+         return Component.translatable("ftblibrary.select_item.list_mode.rei");
+      }
+
+      @Override
+      public Collection<? extends SelectableResource<ItemStack>> getAllResources() {
+         return CollectionUtils.filterAndMap(
+            EntryRegistry.getInstance().getPreFilteredList(),
+            stack -> stack.getType().equals(VanillaEntryTypes.ITEM),
+            stack -> SelectableResource.item((ItemStack)stack.castValue())
+         );
+      }
+   };
+
+   public void registerExclusionZones(ExclusionZones zones) {
+      zones.register(AbstractContainerScreen.class, screen -> {
+         Rect2i lastDrawnArea = SidebarGroupGuiButton.lastDrawnArea;
+         Rectangle sidebar = new Rectangle(lastDrawnArea.getX(), lastDrawnArea.getY(), lastDrawnArea.getWidth(), lastDrawnArea.getHeight());
+         return List.of(sidebar);
+      });
+   }
+
+   static {
+      SelectItemStackScreen.KNOWN_MODES.prependMode(REI_ITEMS);
+   }
+}

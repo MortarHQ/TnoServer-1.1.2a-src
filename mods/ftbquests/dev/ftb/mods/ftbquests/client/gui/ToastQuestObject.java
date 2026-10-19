@@ -1,0 +1,42 @@
+package dev.ftb.mods.ftbquests.client.gui;
+
+import dev.ftb.mods.ftblibrary.icon.Icon;
+import dev.ftb.mods.ftblibrary.ui.misc.SimpleToast;
+import dev.ftb.mods.ftbquests.client.FTBQuestsClientConfig;
+import dev.ftb.mods.ftbquests.client.NotificationStyle;
+import dev.ftb.mods.ftbquests.quest.Chapter;
+import dev.ftb.mods.ftbquests.quest.QuestObject;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.client.sounds.SoundManager;
+import net.minecraft.network.chat.Component;
+import net.minecraft.sounds.SoundEvents;
+
+public class ToastQuestObject extends SimpleToast {
+   private final QuestObject object;
+
+   public ToastQuestObject(QuestObject q) {
+      this.object = q;
+   }
+
+   public Component getTitle() {
+      return this.object.getObjectType().getCompletedMessage();
+   }
+
+   public Component getSubtitle() {
+      return this.object.getTitle();
+   }
+
+   public boolean isImportant() {
+      return this.object instanceof Chapter;
+   }
+
+   public Icon getIcon() {
+      return this.object.getIcon();
+   }
+
+   public void playSound(SoundManager handler) {
+      if (this.object instanceof Chapter && FTBQuestsClientConfig.COMPLETION_STYLE.get() != NotificationStyle.NONE) {
+         handler.play(SimpleSoundInstance.forUI(SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, 1.0F, 1.0F));
+      }
+   }
+}

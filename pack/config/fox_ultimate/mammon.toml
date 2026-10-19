@@ -1,0 +1,37 @@
+[Mammon]
+	#Permanent maximum-magicule capacity consumed when mastered Greed awakens into Mammon.
+	acquisitionMaximumMagiculeCost = 1000000.0
+	#Ticks between automatic Mammon acquisition checks.
+	acquisitionCheckIntervalTicks = 20
+	#Mastery granted when Mammon is acquired.
+	acquisitionGrantMastery = 0
+	#Maximum targeting range in blocks for Life Steal and Skill Steal.
+	targetingRange = 20.0
+	#Base charge time in seconds for Mammon's inherited Heart Control mode. Proximity and desire modifiers scale with this value.
+	heartControlBaseChargeSeconds = 10
+	#Base charge time in seconds for Mammon's Death Wish mode.
+	deathWishBaseChargeSeconds = 5
+	#Fraction of the target's maximum EP permanently transferred by Life Steal. 0.01 means 1 percent.
+	lifeStealEpFraction = 0.01
+	#Fraction of the target's maximum EP permanently transferred by Life Steal after Mammon is mastered. 0.05 means 5 percent.
+	lifeStealEpFractionMastered = 0.05
+	#Magicules consumed by every Life Steal attempt.
+	lifeStealMagiculeCost = 3000.0
+	#Life Steal success cooldown in Tensura skill-system seconds.
+	lifeStealSuccessCooldownSeconds = 10
+	#Life Steal failure cooldown in Tensura skill-system seconds.
+	lifeStealFailureCooldownSeconds = 3
+	#Magicules consumed by every Skill Steal attempt.
+	skillStealMagiculeCost = 10000.0
+	#Skill Steal success cooldown in Tensura skill-system seconds.
+	skillStealSuccessCooldownSeconds = 30
+	#Skill Steal failure cooldown in Tensura skill-system seconds.
+	skillStealFailureCooldownSeconds = 3
+	#Whether Skill Steal may target players.
+	skillStealAllowsPlayers = true
+	#When true, one living target can only suffer one successful Mammon Skill Steal in its lifetime.
+	oneSuccessfulSkillStealPerTarget = true
+	#Whether Skill Steal respects Tensura's no-skill-plunder entity tag.
+	respectNoSkillPlunderEntityTag = true
+	#Whether Skill Steal is blocked by Anti-Skill.
+	respectAntiSkill = true

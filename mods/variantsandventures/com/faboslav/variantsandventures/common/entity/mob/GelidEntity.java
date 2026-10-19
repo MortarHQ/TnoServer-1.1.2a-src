@@ -1,0 +1,109 @@
+package com.faboslav.variantsandventures.common.entity.mob;
+
+import com.faboslav.variantsandventures.common.VariantsAndVentures;
+import com.faboslav.variantsandventures.common.entity.ai.GelidSnowballRangedAttackGoal;
+import com.faboslav.variantsandventures.common.init.VariantsAndVenturesSoundEvents;
+import com.faboslav.variantsandventures.common.util.AdvancementHelper;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.DifficultyInstance;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.attributes.AttributeSupplier.Builder;
+import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.entity.monster.Zombie;
+import net.minecraft.world.entity.projectile.Snowball;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.Level;
+
+public final class GelidEntity extends Zombie {
+   public GelidEntity(EntityType<? extends Zombie> entityType, Level world) {
+      super(entityType, world);
+   }
+
+   public static Builder createGelidAttributes() {
+      return Monster.createMonsterAttributes()
+         .add(Attributes.FOLLOW_RANGE, 35.0)
+         .add(Attributes.MOVEMENT_SPEED, 0.2)
+         .add(Attributes.ATTACK_DAMAGE, 4.0)
+         .add(Attributes.ARMOR, 2.0)
+         .add(Attributes.SPAWN_REINFORCEMENTS_CHANCE);
+   }
+
+   protected void registerGoals() {
+      this.goalSelector.addGoal(1, new GelidSnowballRangedAttackGoal(this, 10.0F));
+      super.registerGoals();
+   }
+
+   protected void populateDefaultEquipmentSlots(RandomSource random, DifficultyInstance difficulty) {
+      super.populateDefaultEquipmentSlots(random, difficulty);
+      this.setItemSlot(EquipmentSlot.OFFHAND, Items.SNOWBALL.getDefaultInstance());
+   }
+
+   protected SoundEvent getAmbientSound() {
+      return VariantsAndVenturesSoundEvents.ENTITY_GELID_AMBIENT.get();
+   }
+
+   protected SoundEvent getHurtSound(DamageSource source) {
+      return VariantsAndVenturesSoundEvents.ENTITY_GELID_HURT.get();
+   }
+
+   protected SoundEvent getDeathSound() {
+      return VariantsAndVenturesSoundEvents.ENTITY_GELID_DEATH.get();
+   }
+
+   protected SoundEvent getStepSound() {
+      return VariantsAndVenturesSoundEvents.ENTITY_GELID_STEP.get();
+   }
+
+   public void tick() {
+      if (!VariantsAndVentures.getConfig().enableGelid) {
+         this.discard();
+      }
+
+      super.tick();
+   }
+
+   public void throwSnowball(LivingEntity target, float pullProgress) {
+      ItemStack itemStack = this.getItemInHand(InteractionHand.OFF_HAND);
+      Item itemInHand = itemStack.getItem();
+      if (itemInHand == Items.SNOWBALL) {
+         itemStack.shrink(1);
+         Snowball snowball = new Snowball(this.level(), this);
+         double d = target.getEyeY() - 1.1F;
+         double e = target.getX() - this.getX();
+         double f = d - snowball.getY();
+         double g = target.getZ() - this.getZ();
+         double h = Math.sqrt(e * e + g * g) * 0.2F;
+         snowball.shoot(e, f + h, g, 1.6F, 7.0F);
+         this.playSound(SoundEvents.SNOW_GOLEM_SHOOT, 1.0F, 0.4F / (this.getRandom().nextFloat() * 0.4F + 0.8F));
+         this.swing(InteractionHand.OFF_HAND);
+         this.level().addFreshEntity(snowball);
+      }
+   }
+
+   public boolean doHurtTarget(Entity source) {
+      Level level = this.level();
+      level.broadcastEntityEvent(this, (byte)4);
+      this.playSound(VariantsAndVenturesSoundEvents.ENTITY_GELID_ATTACK.get(), 1.0F, this.getVoicePitch());
+      boolean attackResult = super.doHurtTarget(source);
+      if (attackResult && this.getMainHandItem().isEmpty() && source instanceof LivingEntity && source.canFreeze()) {
+         source.setTicksFrozen(240);
+      }
+
+      return attackResult;
+   }
+
+   public void die(DamageSource damageSource) {
+      super.die(damageSource);
+      AdvancementHelper.triggerMonsterHunter(this.level(), damageSource);
+   }
+}

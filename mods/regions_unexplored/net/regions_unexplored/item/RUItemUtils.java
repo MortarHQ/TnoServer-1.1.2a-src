@@ -1,0 +1,31 @@
+package net.regions_unexplored.item;
+
+import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.food.FoodProperties;
+import net.minecraft.world.food.FoodProperties.Builder;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.PlaceOnWaterBlockItem;
+import net.minecraft.world.item.Item.Properties;
+import net.minecraft.world.level.block.Block;
+import net.regions_unexplored.module.platform.Registrar;
+
+public class RUItemUtils {
+   public static Supplier<Item> register(String name, ItemFactory factory) {
+      return Registrar.register(BuiltInRegistries.ITEM, name, () -> factory.apply(new Properties()));
+   }
+
+   public static <T extends Block> Supplier<Item> registerBlock(String name, Supplier<T> block) {
+      return register(name, p -> new BlockItem(block.get(), p));
+   }
+
+   public static Supplier<Item> registerPlaceOnWaterBlock(String name, Supplier<Block> block) {
+      return register(name, p -> new PlaceOnWaterBlockItem(block.get(), p));
+   }
+
+   public static FoodProperties food(int nutrition, float saturation, UnaryOperator<Builder> operator) {
+      return operator.apply(new Builder().nutrition(nutrition).saturationModifier(saturation)).build();
+   }
+}

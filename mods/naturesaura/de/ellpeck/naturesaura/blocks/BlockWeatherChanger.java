@@ -1,0 +1,28 @@
+package de.ellpeck.naturesaura.blocks;
+
+import de.ellpeck.naturesaura.blocks.tiles.BlockEntityWeatherChanger;
+import de.ellpeck.naturesaura.data.BlockStateGenerator;
+import de.ellpeck.naturesaura.reg.ICustomBlockState;
+import de.ellpeck.naturesaura.reg.IPickaxeBreakable;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockBehaviour.Properties;
+
+public class BlockWeatherChanger extends BlockContainerImpl implements ICustomBlockState, IPickaxeBreakable {
+   public BlockWeatherChanger() {
+      super("weather_changer", BlockEntityWeatherChanger.class, Properties.ofFullCopy(Blocks.STONE_BRICKS));
+   }
+
+   @Override
+   public void generateCustomBlockState(BlockStateGenerator generator) {
+      generator.simpleBlock(
+         this,
+         generator.models()
+            .cubeBottomTop(
+               this.getBaseName(),
+               generator.modLoc("block/" + this.getBaseName()),
+               generator.modLoc("block/" + this.getBaseName() + "_bottom"),
+               generator.modLoc("block/" + this.getBaseName() + "_top")
+            )
+      );
+   }
+}

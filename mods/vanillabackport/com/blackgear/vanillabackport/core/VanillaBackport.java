@@ -1,0 +1,126 @@
+package com.blackgear.vanillabackport.core;
+
+import com.blackgear.platform.common.worldgen.placement.BiomePlacement;
+import com.blackgear.platform.core.Environment;
+import com.blackgear.platform.core.ModInstance;
+import com.blackgear.platform.core.api.registrar.Registrar;
+import com.blackgear.platform.core.networking.Networking;
+import com.blackgear.platform.core.util.config.ConfigLoader;
+import com.blackgear.platform.core.util.config.ModConfig.Type;
+import com.blackgear.vanillabackport.client.ClientConfig;
+import com.blackgear.vanillabackport.client.ClientSetup;
+import com.blackgear.vanillabackport.client.registries.ModCreativeTabs;
+import com.blackgear.vanillabackport.client.registries.ModParticles;
+import com.blackgear.vanillabackport.client.registries.ModSoundEvents;
+import com.blackgear.vanillabackport.client.registries.ModSoundTypes;
+import com.blackgear.vanillabackport.common.CommonConfig;
+import com.blackgear.vanillabackport.common.CommonSetup;
+import com.blackgear.vanillabackport.common.api.variant.spawn.SpawnConditions;
+import com.blackgear.vanillabackport.common.level.entities.animal.CatDataVariants;
+import com.blackgear.vanillabackport.common.level.entities.animal.ChickenVariants;
+import com.blackgear.vanillabackport.common.level.entities.animal.CowVariants;
+import com.blackgear.vanillabackport.common.level.entities.animal.FrogDataVariants;
+import com.blackgear.vanillabackport.common.level.entities.animal.PigVariants;
+import com.blackgear.vanillabackport.common.level.entities.animal.WolfDataVariants;
+import com.blackgear.vanillabackport.common.level.entities.sulfurcube.SulfurCubeArchetypes;
+import com.blackgear.vanillabackport.common.registries.ModAttributes;
+import com.blackgear.vanillabackport.common.registries.ModBiomes;
+import com.blackgear.vanillabackport.common.registries.ModBlockEntities;
+import com.blackgear.vanillabackport.common.registries.ModBlocks;
+import com.blackgear.vanillabackport.common.registries.ModDataComponents;
+import com.blackgear.vanillabackport.common.registries.ModEntities;
+import com.blackgear.vanillabackport.common.registries.ModEntityTypes;
+import com.blackgear.vanillabackport.common.registries.ModFeatures;
+import com.blackgear.vanillabackport.common.registries.ModItems;
+import com.blackgear.vanillabackport.common.registries.ModMaterialConditions;
+import com.blackgear.vanillabackport.common.registries.ModMaterialRules;
+import com.blackgear.vanillabackport.common.registries.ModRecipeSerializers;
+import com.blackgear.vanillabackport.common.registries.ModSensorTypes;
+import com.blackgear.vanillabackport.common.registries.ModTreeDecorators;
+import com.blackgear.vanillabackport.common.registries.ModValueProviders;
+import com.blackgear.vanillabackport.common.worldgen.BiomeGeneration;
+import com.blackgear.vanillabackport.common.worldgen.features.ChaosCubedFeatures;
+import com.blackgear.vanillabackport.common.worldgen.features.SpringToLifeFeatures;
+import com.blackgear.vanillabackport.common.worldgen.features.TheGardenAwakensFeatures;
+import com.blackgear.vanillabackport.common.worldgen.placements.ChaosCubedPlacements;
+import com.blackgear.vanillabackport.common.worldgen.placements.SpringToLifePlacements;
+import com.blackgear.vanillabackport.common.worldgen.placements.TheGardenAwakensPlacements;
+import com.blackgear.vanillabackport.core.data.tags.ModBiomeTags;
+import com.blackgear.vanillabackport.core.data.tags.ModBlockTags;
+import com.blackgear.vanillabackport.core.data.tags.ModDamageTypeTags;
+import com.blackgear.vanillabackport.core.data.tags.ModEntityTypeTags;
+import com.blackgear.vanillabackport.core.data.tags.ModItemTags;
+import com.blackgear.vanillabackport.core.network.ServerboundSelectBundleItemPacket;
+import com.blackgear.vanillabackport.core.registries.ModBuiltinRegistries;
+import com.mojang.logging.LogUtils;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import org.slf4j.Logger;
+
+public final class VanillaBackport {
+   public static final String MOD_ID = "vanillabackport";
+   public static final String NAMESPACE = "minecraft";
+   public static final Logger LOGGER = LogUtils.getLogger();
+   public static final ClientConfig CLIENT_CONFIG = (ClientConfig)Environment.registerConfig("vanillabackport", Type.CLIENT, ClientConfig::new);
+   public static final CommonConfig COMMON_CONFIG = (CommonConfig)Environment.registerConfig("vanillabackport", Type.COMMON, CommonConfig::new);
+   public static final ModInstance INSTANCE = ModInstance.create("vanillabackport")
+      .client(ClientSetup::setup)
+      .postClient(ClientSetup::asyncSetup)
+      .common(CommonSetup::setup)
+      .postCommon(CommonSetup::asyncSetup)
+      .build();
+
+   public static void bootstrap() {
+      INSTANCE.bootstrap();
+      ConfigLoader.bootstrap();
+      ModBlockTags.TAGS.register();
+      ModItemTags.TAGS.register();
+      ModBiomeTags.TAGS.register();
+      ModEntityTypeTags.TAGS.register();
+      ModDamageTypeTags.TAGS.register();
+      ModValueProviders.VALUE_PROVIDERS.register();
+      ModMaterialRules.MATERIALS.registrar();
+      ModMaterialConditions.MATERIALS.registrar();
+      ModAttributes.ATTRIBUTES.register();
+      SulfurCubeArchetypes.REGISTRY.register();
+      ModParticles.PARTICLES.register();
+      ModDataComponents.COMPONENTS.register();
+      ModBlocks.BLOCKS.register();
+      ModItems.ITEMS.register();
+      ModBlockEntities.BLOCK_ENTITIES.register();
+      ModEntities.ENTITIES.register();
+      Registrar.bind(BuiltInRegistries.ENTITY_TYPE, ModEntityTypes::bootstrap);
+      ModSensorTypes.SENSOR_TYPES.register();
+      ModSoundEvents.SOUNDS.register();
+      ModSoundTypes.SOUNDS.register();
+      ModRecipeSerializers.SERIALIZERS.register();
+      ModCreativeTabs.TABS.register();
+      ModBuiltinRegistries.WOLF_SOUND_VARIANTS.register();
+      CowVariants.REGISTRY.register();
+      ChickenVariants.REGISTRY.register();
+      PigVariants.REGISTRY.register();
+      WolfDataVariants.REGISTRY.register();
+      CatDataVariants.REGISTRY.register();
+      FrogDataVariants.REGISTRY.register();
+      SpawnConditions.CONDITIONS.register();
+      ModBiomes.BIOMES.register();
+      ModFeatures.FEATURES.register();
+      ModTreeDecorators.DECORATORS.register();
+      SpringToLifeFeatures.FEATURES.register();
+      TheGardenAwakensFeatures.FEATURES.register();
+      ChaosCubedFeatures.FEATURES.register();
+      SpringToLifePlacements.FEATURES.register();
+      TheGardenAwakensPlacements.FEATURES.register();
+      ChaosCubedPlacements.FEATURES.register();
+      BiomePlacement.registerBiomePlacements(BiomeGeneration::bootstrap);
+      Networking.register(
+         registrar -> registrar.registerToServer(
+            ServerboundSelectBundleItemPacket.TYPE, ServerboundSelectBundleItemPacket.STREAM_CODEC, ServerboundSelectBundleItemPacket::handler
+         )
+      );
+   }
+
+   public static ResourceLocation resource(String path) {
+      return ResourceLocation.fromNamespaceAndPath("vanillabackport", path);
+   }
+}

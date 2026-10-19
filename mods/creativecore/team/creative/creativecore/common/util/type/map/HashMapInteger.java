@@ -1,0 +1,38 @@
+package team.creative.creativecore.common.util.type.map;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
+
+public class HashMapInteger<K> extends HashMap<K, Integer> {
+   public HashMapInteger() {
+   }
+
+   public HashMapInteger(Map<? extends K, ? extends Integer> paramMap) {
+      super(paramMap);
+   }
+
+   public void scale(int scale) {
+      for (Entry<K, Integer> entry : this.entrySet()) {
+         entry.setValue(entry.getValue() * scale);
+      }
+   }
+
+   public Integer put(K paramK, Integer paramV) {
+      Integer value = this.get(paramK);
+      if (value != null) {
+         value = value + paramV;
+      } else {
+         value = paramV;
+      }
+
+      return super.put(paramK, value);
+   }
+
+   @Override
+   public void putAll(Map<? extends K, ? extends Integer> paramMap) {
+      for (Entry<? extends K, ? extends Integer> entry : paramMap.entrySet()) {
+         this.put((K)entry.getKey(), entry.getValue());
+      }
+   }
+}

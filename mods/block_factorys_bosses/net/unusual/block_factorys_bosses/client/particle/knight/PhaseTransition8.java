@@ -1,0 +1,85 @@
+package net.unusual.block_factorys_bosses.client.particle.knight;
+
+import javax.annotation.ParametersAreNonnullByDefault;
+import net.minecraft.MethodsReturnNonnullByDefault;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.particle.Particle;
+import net.minecraft.client.particle.ParticleProvider;
+import net.minecraft.client.particle.SpriteSet;
+import net.minecraft.core.particles.SimpleParticleType;
+import net.minecraft.world.phys.Vec3;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.api.distmarker.OnlyIn;
+import net.unusual.block_factorys_bosses.client.particle.util.ColorCurve;
+import net.unusual.block_factorys_bosses.client.particle.util.LinearCurve;
+import net.unusual.block_factorys_bosses.client.particle.util.SubParticle;
+import net.unusual.block_factorys_bosses.client.particle.util.SubSteadyParticleEmitter;
+
+@OnlyIn(Dist.CLIENT)
+@ParametersAreNonnullByDefault
+@MethodsReturnNonnullByDefault
+public class PhaseTransition8 extends SubSteadyParticleEmitter {
+   private static final LinearCurve X_FACTOR = new LinearCurve(
+      new float[]{0.0F, 1.0F, 1.24F, 0.0F}, (subParticle, partial) -> (subParticle.age + partial) / subParticle.lifeTime, (subParticle, partial) -> 1.0F
+   );
+   private static final ColorCurve COLOR_CURVE = new ColorCurve(
+      new ColorCurve.Point[]{
+         new ColorCurve.Point(ColorCurve.FloatRGBA.fromARGB(16777215), 0.0F),
+         new ColorCurve.Point(ColorCurve.FloatRGBA.fromARGB(-16711694), 0.31F),
+         new ColorCurve.Point(ColorCurve.FloatRGBA.fromARGB(16777215), 1.0F)
+      },
+      (subParticle, partial) -> (subParticle.age + partial) / subParticle.lifeTime
+   );
+
+   public static PhaseTransition8.Provider provider(SpriteSet spriteSet) {
+      return new PhaseTransition8.Provider(spriteSet);
+   }
+
+   protected PhaseTransition8(ClientLevel world, double x, double y, double z, double vx, double vy, double vz, SpriteSet spriteSet) {
+      super(world, x, y, z, spriteSet, 50, 30, 100);
+      this.setSize(0.6F, 0.6F);
+      this.gravity = 0.0F;
+      this.hasPhysics = false;
+   }
+
+   @Override
+   protected int getSubParticleLifeTime() {
+      return 20;
+   }
+
+   @Override
+   protected float getSubSize(SubParticle subParticle, float partialTick, float ageInSeconds) {
+      return X_FACTOR.get(subParticle, partialTick) * 0.3F;
+   }
+
+   @Override
+   protected ColorCurve.FloatRGBA getSubColor(SubParticle subParticle, float partialTick, float ageInSeconds) {
+      return COLOR_CURVE.get(subParticle, partialTick);
+   }
+
+   @Override
+   protected SubParticle makeParticle() {
+      SubParticle subParticle = super.makeParticle();
+      double distance = 0.1;
+      double theta = this.random.nextDouble() * Math.PI;
+      double phi = this.random.nextDouble() * 2.0 * Math.PI;
+      Vec3 pos = new Vec3(distance * Math.sin(theta) * Math.cos(phi), distance * Math.sin(theta) * Math.sin(phi), distance * Math.cos(theta));
+      subParticle.pos = pos;
+      subParticle.pos0 = pos;
+      subParticle.linearAcceleration = new Vec3(0.0, -1.0, 0.0);
+      subParticle.setVelocity(pos, 0.1F);
+      return subParticle;
+   }
+
+   public static class Provider implements ParticleProvider<SimpleParticleType> {
+      private final SpriteSet spriteSet;
+
+      public Provider(SpriteSet spriteSet) {
+         this.spriteSet = spriteSet;
+      }
+
+      public Particle createParticle(SimpleParticleType typeIn, ClientLevel worldIn, double x, double y, double z, double xSpeed, double ySpeed, double zSpeed) {
+         return new PhaseTransition8(worldIn, x, y, z, xSpeed, ySpeed, zSpeed, this.spriteSet);
+      }
+   }
+}

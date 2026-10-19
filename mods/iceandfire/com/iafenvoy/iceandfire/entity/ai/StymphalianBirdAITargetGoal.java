@@ -1,0 +1,50 @@
+package com.iafenvoy.iceandfire.entity.ai;
+
+import com.google.common.base.Predicate;
+import com.iafenvoy.iceandfire.config.IafCommonConfig;
+import com.iafenvoy.iceandfire.entity.GorgonEntity;
+import com.iafenvoy.iceandfire.entity.StymphalianBirdEntity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
+import net.minecraft.world.entity.animal.AbstractGolem;
+import net.minecraft.world.entity.animal.Animal;
+import net.minecraft.world.entity.npc.AbstractVillager;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.AABB;
+
+public class StymphalianBirdAITargetGoal extends NearestAttackableTargetGoal<LivingEntity> {
+   private final StymphalianBirdEntity bird;
+
+   public StymphalianBirdAITargetGoal(StymphalianBirdEntity entityIn, Class<LivingEntity> classTarget, boolean checkSight) {
+      super(
+         entityIn,
+         classTarget,
+         0,
+         checkSight,
+         false,
+         (Predicate)entity -> {
+            if (GorgonEntity.isStoneMob(entity)) {
+               return false;
+            } else if ((!(entity instanceof Player) || ((Player)entity).isCreative())
+               && !(entity instanceof AbstractVillager)
+               && !(entity instanceof AbstractGolem)) {
+               return !(entity instanceof Animal) ? false : (Boolean)IafCommonConfig.INSTANCE.stymphalianBird.attackAnimals.getValue();
+            } else {
+               return true;
+            }
+         }
+      );
+      this.bird = entityIn;
+   }
+
+   public boolean canUse() {
+      boolean supe = super.canUse();
+      return this.target != null && this.bird.getVictor() != null && this.bird.getVictor().getUUID().equals(this.target.getUUID())
+         ? false
+         : supe && this.target != null && !this.target.getClass().equals(this.bird.getClass());
+   }
+
+   protected AABB getTargetSearchArea(double targetDistance) {
+      return this.bird.getBoundingBox().inflate(targetDistance, targetDistance, targetDistance);
+   }
+}

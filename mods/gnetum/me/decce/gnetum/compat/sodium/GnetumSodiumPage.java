@@ -1,0 +1,123 @@
+package me.decce.gnetum.compat.sodium;
+
+import com.google.common.collect.ImmutableList;
+import java.util.ArrayList;
+import java.util.List;
+import me.decce.gnetum.Gnetum;
+import net.caffeinemc.mods.sodium.client.gui.options.OptionGroup;
+import net.caffeinemc.mods.sodium.client.gui.options.OptionImpact;
+import net.caffeinemc.mods.sodium.client.gui.options.OptionImpl;
+import net.caffeinemc.mods.sodium.client.gui.options.OptionPage;
+import net.caffeinemc.mods.sodium.client.gui.options.OptionGroup.Builder;
+import net.caffeinemc.mods.sodium.client.gui.options.control.ControlValueFormatter;
+import net.caffeinemc.mods.sodium.client.gui.options.control.SliderControl;
+import net.caffeinemc.mods.sodium.client.gui.options.control.TickBoxControl;
+import net.caffeinemc.mods.sodium.client.gui.options.storage.OptionStorage;
+import net.minecraft.network.chat.Component;
+
+public class GnetumSodiumPage extends OptionPage {
+   public static final OptionStorage<?> STORAGE = new OptionStorage<Object>() {
+      public Object getData() {
+         return new Object();
+      }
+
+      public void save() {
+         Gnetum.getConfig().save();
+      }
+   };
+
+   public GnetumSodiumPage() {
+      super(Component.literal("Gnetum"), groups());
+   }
+
+   private static ImmutableList<OptionGroup> groups() {
+      List<OptionGroup> groups = new ArrayList<>();
+      Builder general = OptionGroup.createBuilder();
+      OptionImpl<?, Boolean> enabledOption = OptionImpl.createBuilder(boolean.class, STORAGE)
+         .setName(Component.translatable("gnetum.config.enabled"))
+         .setTooltip(Component.translatable("gnetum.config.enabled.tooltip"))
+         .setImpact(OptionImpact.HIGH)
+         .setControl(TickBoxControl::new)
+         .setBinding((opts, value) -> {
+            if (Gnetum.getConfig().enabled.get() != value) {
+               Gnetum.getConfig().enabled.next();
+            }
+         }, opts -> Gnetum.getConfig().enabled.get())
+         .build();
+      general.add(enabledOption);
+      general.add(
+         OptionImpl.createBuilder(boolean.class, STORAGE)
+            .setEnabled(enabledOption::getValue)
+            .setName(Component.translatable("gnetum.config.showFps"))
+            .setTooltip(Component.translatable("gnetum.config.showFps.tooltip"))
+            .setControl(TickBoxControl::new)
+            .setBinding((opts, value) -> {
+               if (Gnetum.getConfig().showHudFps.get() != value) {
+                  Gnetum.getConfig().showHudFps.next();
+               }
+            }, opts -> Gnetum.getConfig().showHudFps.get())
+            .build()
+      );
+      general.add(
+         OptionImpl.createBuilder(boolean.class, STORAGE)
+            .setName(Component.translatable("gnetum.config.downscale"))
+            .setTooltip(Component.translatable("gnetum.config.downscale.tooltip"))
+            .setImpact(OptionImpact.LOW)
+            .setControl(TickBoxControl::new)
+            .setBinding((opts, value) -> {
+               if (Gnetum.getConfig().downscale.get() != value) {
+                  Gnetum.getConfig().downscale.next();
+               }
+            }, opts -> Gnetum.getConfig().downscale.get())
+            .build()
+      );
+      general.add(
+         OptionImpl.createBuilder(int.class, STORAGE)
+            .setEnabled(enabledOption::getValue)
+            .setName(Component.translatable("gnetum.config.numberOfPasses"))
+            .setTooltip(Component.translatable("gnetum.config.numberOfPasses.tooltip"))
+            .setImpact(OptionImpact.MEDIUM)
+            .setControl(option -> new SliderControl(option, 2, 10, 1, ControlValueFormatter.number()))
+            .setBinding((opts, value) -> Gnetum.getConfig().numberOfPasses = value, opts -> Gnetum.getConfig().numberOfPasses)
+            .build()
+      );
+      general.add(
+         OptionImpl.createBuilder(int.class, STORAGE)
+            .setEnabled(enabledOption::getValue)
+            .setName(Component.translatable("gnetum.config.maxFps"))
+            .setTooltip(Component.translatable("gnetum.config.maxFps.tooltip"))
+            .setImpact(OptionImpact.MEDIUM)
+            .setControl(
+               option -> new SliderControl(
+                  option,
+                  5,
+                  125,
+                  5,
+                  i -> i == 125 ? Component.translatable("options.framerateLimit.max") : Component.translatable("options.framerate", new Object[]{i})
+               )
+            )
+            .setBinding((opts, value) -> Gnetum.getConfig().setMaxFps(value), opts -> Gnetum.getConfig().getRawMaxFps())
+            .build()
+      );
+      general.add(
+         OptionImpl.createBuilder(int.class, STORAGE)
+            .setEnabled(enabledOption::getValue)
+            .setName(Component.translatable("gnetum.config.screenMaxFps"))
+            .setTooltip(Component.translatable("gnetum.config.screenMaxFps.tooltip"))
+            .setImpact(OptionImpact.MEDIUM)
+            .setControl(
+               option -> new SliderControl(
+                  option,
+                  5,
+                  65,
+                  5,
+                  i -> i == 65 ? Component.translatable("options.framerateLimit.max") : Component.translatable("options.framerate", new Object[]{i})
+               )
+            )
+            .setBinding((opts, value) -> Gnetum.getConfig().screenMaxFps = value, opts -> Gnetum.getConfig().screenMaxFps)
+            .build()
+      );
+      groups.add(general.build());
+      return ImmutableList.copyOf(groups);
+   }
+}

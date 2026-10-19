@@ -1,0 +1,134 @@
+package twilightforest.world.components.structures.finalcastle;
+
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction.Axis;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.StructureManager;
+import net.minecraft.world.level.WorldGenLevel;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.RotatedPillarBlock;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.ChunkGenerator;
+import net.minecraft.world.level.levelgen.structure.BoundingBox;
+import net.minecraft.world.level.levelgen.structure.pieces.StructurePieceSerializationContext;
+import net.minecraft.world.level.levelgen.structure.pieces.StructurePieceType;
+import twilightforest.init.TFBlocks;
+import twilightforest.init.TFStructurePieceTypes;
+import twilightforest.util.RotationUtil;
+import twilightforest.world.components.structures.TFStructureComponentOld;
+
+public class FinalCastleFoundation13ComponentThorns extends FinalCastleFoundation13Component {
+   public FinalCastleFoundation13ComponentThorns(StructurePieceSerializationContext ctx, CompoundTag nbt) {
+      super((StructurePieceType)TFStructurePieceTypes.TFFCFTh21.get(), nbt);
+   }
+
+   public FinalCastleFoundation13ComponentThorns(int i, TFStructureComponentOld sideTower, int x, int y, int z) {
+      super((StructurePieceType)TFStructurePieceTypes.TFFCFTh21.get(), i, sideTower, x, y, z);
+      this.boundingBox = new BoundingBox(
+         sideTower.getBoundingBox().minX() - 5,
+         sideTower.getBoundingBox().maxY() - 1,
+         sideTower.getBoundingBox().minZ() - 5,
+         sideTower.getBoundingBox().maxX() + 5,
+         sideTower.getBoundingBox().maxY(),
+         sideTower.getBoundingBox().maxZ() + 5
+      );
+   }
+
+   @Override
+   public void postProcess(
+      WorldGenLevel world, StructureManager manager, ChunkGenerator generator, RandomSource rand, BoundingBox sbb, ChunkPos chunkPosIn, BlockPos blockPos
+   ) {
+      RandomSource decoRNG = RandomSource.create(world.getSeed() + this.getBoundingBox().minX() * 321534781L ^ this.getBoundingBox().minZ() * 756839L);
+
+      for (Rotation i : RotationUtil.ROTATIONS) {
+         this.makeThornVine(world, decoRNG, i, sbb);
+      }
+   }
+
+   private void makeThornVine(WorldGenLevel world, RandomSource decoRNG, Rotation rotation, BoundingBox sbb) {
+      int x = 3 + decoRNG.nextInt(13);
+      int z = 3 + decoRNG.nextInt(13);
+      int y = this.getBoundingBox().getYSpan() + 5;
+      int twist = decoRNG.nextInt(4);
+      int twistMod = 3 + decoRNG.nextInt(3);
+      BlockState thorns = ((Block)TFBlocks.BROWN_THORNS.get()).defaultBlockState();
+
+      while (!this.getBlockStateFromPosRotated(world, x, y, z, sbb, rotation).is(TFBlocks.DEADROCK) && this.getWorldY(y) > 90) {
+         this.setBlockStateRotated(world, thorns, x, y, z, rotation, sbb);
+         switch (twist) {
+            case 0:
+               this.setBlockStateRotated(world, thorns, x + 1, y, z, rotation, sbb);
+               this.setBlockStateRotated(world, thorns, x, y, z + 1, rotation, sbb);
+               this.setBlockStateRotated(world, thorns, x + 1, y, z + 1, rotation, sbb);
+               break;
+            case 1:
+               this.setBlockStateRotated(world, thorns, x + 1, y, z, rotation, sbb);
+               this.setBlockStateRotated(world, thorns, x, y, z - 1, rotation, sbb);
+               this.setBlockStateRotated(world, thorns, x + 1, y, z - 1, rotation, sbb);
+               break;
+            case 2:
+               this.setBlockStateRotated(world, thorns, x - 1, y, z, rotation, sbb);
+               this.setBlockStateRotated(world, thorns, x, y, z - 1, rotation, sbb);
+               this.setBlockStateRotated(world, thorns, x - 1, y, z - 1, rotation, sbb);
+               break;
+            case 3:
+               this.setBlockStateRotated(world, thorns, x - 1, y, z, rotation, sbb);
+               this.setBlockStateRotated(world, thorns, x, y, z + 1, rotation, sbb);
+               this.setBlockStateRotated(world, thorns, x - 1, y, z + 1, rotation, sbb);
+         }
+
+         if (Math.abs(y % twistMod) == 1) {
+            this.makeThornBranch(world, x, y, z, rotation, sbb);
+         }
+
+         if (y % twistMod == 0) {
+            twist = ++twist % 4;
+         }
+
+         y--;
+      }
+   }
+
+   private void makeThornBranch(WorldGenLevel world, int x, int y, int z, Rotation rotation, BoundingBox sbb) {
+      RandomSource rand = RandomSource.create(world.getSeed() + x * 321534781L ^ y * 756839L + z);
+      Rotation dir = RotationUtil.getRandomRotation(rand);
+      int dx = 0;
+      int dz = 0;
+      switch (dir) {
+         case NONE:
+            dx = 1;
+            break;
+         case CLOCKWISE_90:
+            dz = 1;
+            break;
+         case CLOCKWISE_180:
+            dx = -1;
+            break;
+         case COUNTERCLOCKWISE_90:
+            dz = -1;
+      }
+
+      int dist = 2 + rand.nextInt(3);
+      int destX = x + dist * dx;
+      int destZ = z + dist * dz;
+      if (destX > 0 && destX < this.getBoundingBox().getXSpan() && destZ > 0 && destZ < this.getBoundingBox().getZSpan()) {
+         for (int i = 0; i < dist; i++) {
+            Rotation add = dir.getRotated(rotation).getRotated(this.getRotation());
+            BlockState thorns = (BlockState)((Block)TFBlocks.GREEN_THORNS.get())
+               .defaultBlockState()
+               .setValue(RotatedPillarBlock.AXIS, add != Rotation.NONE && add != Rotation.CLOCKWISE_180 ? Axis.Z : Axis.X);
+            if (i > 0) {
+               this.setBlockStateRotated(world, thorns, x + dx * i, y, z + dz * i, rotation, sbb);
+            }
+
+            this.setBlockStateRotated(world, (BlockState)thorns.setValue(RotatedPillarBlock.AXIS, Axis.Y), destX, y + i, destZ, rotation, sbb);
+            if (i > dist / 2) {
+               this.setBlockStateRotated(world, thorns, x + dx * i, y + dist - 1, z + dz * i, rotation, sbb);
+            }
+         }
+      }
+   }
+}

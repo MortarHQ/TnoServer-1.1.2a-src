@@ -1,0 +1,35 @@
+package artifacts.network;
+
+import artifacts.Artifacts;
+import artifacts.component.ToggleIdentifier;
+import artifacts.equipment.EquipmentHelper;
+import artifacts.registry.ModDataComponents;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload.Type;
+import net.minecraft.util.Unit;
+import net.minecraft.world.entity.player.Player;
+
+public record ToggleKeyPressedPacket(ToggleIdentifier identifier) implements CustomPacketPayload {
+   public static final Type<ToggleKeyPressedPacket> TYPE = new Type(Artifacts.id("toggle_key_pressed"));
+   public static final StreamCodec<ByteBuf, ToggleKeyPressedPacket> CODEC = ToggleIdentifier.STREAM_CODEC
+      .map(ToggleKeyPressedPacket::new, ToggleKeyPressedPacket::identifier);
+
+   void apply(NetworkHandler.PayloadContext context) {
+      Player player = context.player();
+      context.queue(() -> EquipmentHelper.iterateEquipment(player, stack -> {
+         if (stack.get(ModDataComponents.TOGGLE_KEY.get()) instanceof ToggleIdentifier id && id == this.identifier) {
+            if (stack.has(ModDataComponents.DISABLED_BY_TOGGLE.get())) {
+               stack.remove(ModDataComponents.DISABLED_BY_TOGGLE.get());
+            } else {
+               stack.set(ModDataComponents.DISABLED_BY_TOGGLE.get(), Unit.INSTANCE);
+            }
+         }
+      }));
+   }
+
+   public Type<? extends CustomPacketPayload> type() {
+      return TYPE;
+   }
+}

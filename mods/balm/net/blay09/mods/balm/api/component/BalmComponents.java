@@ -1,0 +1,10 @@
+package net.blay09.mods.balm.api.component;
+
+import java.util.function.Supplier;
+import net.blay09.mods.balm.api.DeferredObject;
+import net.minecraft.core.component.DataComponentType;
+import net.minecraft.resources.ResourceLocation;
+
+public interface BalmComponents {
+   <TComponent> DeferredObject<DataComponentType<TComponent>> registerComponent(Supplier<DataComponentType<TComponent>> var1, ResourceLocation var2);
+}

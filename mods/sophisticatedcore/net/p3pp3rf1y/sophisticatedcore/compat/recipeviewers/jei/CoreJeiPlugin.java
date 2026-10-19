@@ -1,0 +1,29 @@
+package net.p3pp3rf1y.sophisticatedcore.compat.recipeviewers.jei;
+
+import mezz.jei.api.IModPlugin;
+import mezz.jei.api.JeiPlugin;
+import mezz.jei.api.constants.RecipeTypes;
+import mezz.jei.api.registration.IGuiHandlerRegistration;
+import mezz.jei.api.registration.IRecipeRegistration;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.crafting.RecipeType;
+import net.p3pp3rf1y.sophisticatedcore.compat.recipeviewers.common.ClientRecipeHelper;
+import net.p3pp3rf1y.sophisticatedcore.crafting.UpgradeNextTierRecipe;
+
+@JeiPlugin
+public class CoreJeiPlugin implements IModPlugin {
+   public ResourceLocation getPluginUid() {
+      return ResourceLocation.fromNamespaceAndPath("sophisticatedcore", "default");
+   }
+
+   public void registerGuiHandlers(IGuiHandlerRegistration registration) {
+      super.registerGuiHandlers(registration);
+   }
+
+   public void registerRecipes(IRecipeRegistration registration) {
+      registration.addRecipes(
+         RecipeTypes.CRAFTING,
+         ClientRecipeHelper.transformAllRecipesOfType(RecipeType.CRAFTING, UpgradeNextTierRecipe.class, JeiClientRecipeHelper::copyShapedRecipeWithRecipeHolder)
+      );
+   }
+}

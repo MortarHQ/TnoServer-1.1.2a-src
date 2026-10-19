@@ -1,0 +1,54 @@
+package com.blamejared.controlling.platform;
+
+import com.blamejared.controlling.client.NewKeyBindsScreen;
+import com.blamejared.controlling.mixin.AccessKeyBindsScreenNeoForge;
+import com.mojang.blaze3d.platform.InputConstants;
+import com.mojang.blaze3d.platform.InputConstants.Key;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Options;
+import net.minecraft.network.chat.Component;
+import net.neoforged.neoforge.client.settings.KeyModifier;
+
+public class NeoForgePlatformHelper implements IPlatformHelper {
+   @Override
+   public boolean hasConflictingModifier(KeyMapping keybinding, KeyMapping other) {
+      return keybinding.hasKeyModifierConflict(other);
+   }
+
+   @Override
+   public void setKey(Options options, KeyMapping keybinding, Key key) {
+      keybinding.setKeyModifierAndCode(KeyModifier.getActiveModifier(), key);
+      IPlatformHelper.super.setKey(options, keybinding, key);
+   }
+
+   @Override
+   public boolean isKeyCodeModifier(Key key) {
+      return KeyModifier.isKeyCodeModifier(key);
+   }
+
+   @Override
+   public Component getKeyName(KeyMapping mapping) {
+      return mapping.getDisplayName();
+   }
+
+   @Override
+   public void handleKeyPress(NewKeyBindsScreen screen, Options options, int key, int scancode, int mods) {
+      IPlatformHelper.super.handleKeyPress(screen, options, key, scancode, mods);
+      if (screen.selectedKey != null) {
+         Key pressed = InputConstants.getKey(key, scancode);
+         AccessKeyBindsScreenNeoForge access = (AccessKeyBindsScreenNeoForge)screen;
+         if (access.getLastPressedModifier() == InputConstants.UNKNOWN && KeyModifier.isKeyCodeModifier(pressed)) {
+            access.setLastPressedModifier(pressed);
+            access.setIsLastModifierHeldDown(true);
+         } else {
+            access.setLastPressedKey(pressed);
+            access.setIsLastKeyHeldDown(true);
+         }
+      }
+   }
+
+   @Override
+   public void setToDefault(Options options, KeyMapping keybinding) {
+      keybinding.setToDefault();
+   }
+}

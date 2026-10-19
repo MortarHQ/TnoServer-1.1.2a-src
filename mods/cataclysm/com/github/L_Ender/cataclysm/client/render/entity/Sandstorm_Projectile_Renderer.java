@@ -1,0 +1,43 @@
+package com.github.L_Ender.cataclysm.client.render.entity;
+
+import com.github.L_Ender.cataclysm.client.model.entity.Sandstorm_Projectile_Model;
+import com.github.L_Ender.cataclysm.entity.projectile.Sandstorm_Projectile;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.entity.EntityRenderer;
+import net.minecraft.client.renderer.entity.EntityRendererProvider.Context;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.api.distmarker.OnlyIn;
+
+@OnlyIn(Dist.CLIENT)
+public class Sandstorm_Projectile_Renderer extends EntityRenderer<Sandstorm_Projectile> {
+   private static final ResourceLocation SANDSTORM = ResourceLocation.fromNamespaceAndPath("cataclysm", "textures/entity/koboleton/sandstorm.png");
+   public Sandstorm_Projectile_Model model = new Sandstorm_Projectile_Model();
+
+   public Sandstorm_Projectile_Renderer(Context manager) {
+      super(manager);
+   }
+
+   public void render(
+      Sandstorm_Projectile entityIn, float entityYaw, float partialTicks, PoseStack matrixStackIn, MultiBufferSource bufferIn, int packedLightIn
+   ) {
+      matrixStackIn.pushPose();
+      matrixStackIn.scale(-0.5F, -0.5F, 0.5F);
+      matrixStackIn.translate(0.0F, -1.5F, 0.0F);
+      float f = Mth.rotLerp(partialTicks, entityIn.yRotO, entityIn.getYRot());
+      float f1 = Mth.lerp(partialTicks, entityIn.xRotO, entityIn.getXRot());
+      VertexConsumer vertexconsumer = bufferIn.getBuffer(this.model.renderType(this.getTextureLocation(entityIn)));
+      this.model.setupAnim(entityIn, 0.0F, 0.0F, entityIn.tickCount + partialTicks, f, f1);
+      this.model.renderToBuffer(matrixStackIn, vertexconsumer, packedLightIn, OverlayTexture.NO_OVERLAY);
+      matrixStackIn.popPose();
+      super.render(entityIn, entityYaw, partialTicks, matrixStackIn, bufferIn, packedLightIn);
+   }
+
+   public ResourceLocation getTextureLocation(Sandstorm_Projectile entity) {
+      return SANDSTORM;
+   }
+}

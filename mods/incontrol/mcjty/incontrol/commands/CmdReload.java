@@ -1,0 +1,45 @@
+package mcjty.incontrol.commands;
+
+import com.mojang.brigadier.Command;
+import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.builder.ArgumentBuilder;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import mcjty.incontrol.ErrorHandler;
+import mcjty.incontrol.InControl;
+import mcjty.incontrol.areas.AreaSystem;
+import mcjty.incontrol.events.EventsSystem;
+import mcjty.incontrol.rules.RulesManager;
+import mcjty.incontrol.spawner.SpawnerSystem;
+import net.minecraft.ChatFormatting;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.Commands;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+
+public class CmdReload implements Command<CommandSourceStack> {
+   private static final CmdReload CMD = new CmdReload();
+
+   public static ArgumentBuilder<CommandSourceStack, ?> register(CommandDispatcher<CommandSourceStack> dispatcher) {
+      return ((LiteralArgumentBuilder)Commands.literal("reload").requires(cs -> cs.hasPermission(1))).executes(CMD);
+   }
+
+   public int run(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+      ServerPlayer player = ((CommandSourceStack)context.getSource()).getPlayerOrException();
+      ErrorHandler.clearErrors();
+      player.sendSystemMessage(Component.literal("Reloaded InControl rules"));
+
+      try {
+         AreaSystem.reloadRules();
+         RulesManager.reloadRules();
+         SpawnerSystem.reloadRules();
+         EventsSystem.reloadRules();
+      } catch (Exception e) {
+         InControl.setup.getLogger().error("Error reloading rules!", e);
+         player.sendSystemMessage(Component.literal(ChatFormatting.RED + "Error: " + e.getLocalizedMessage()));
+      }
+
+      return 0;
+   }
+}

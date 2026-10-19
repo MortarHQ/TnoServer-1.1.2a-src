@@ -1,0 +1,216 @@
+package it.hurts.sskirillss.relics.items.relics.feet;
+
+import com.google.common.collect.Lists;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import it.hurts.sskirillss.relics.api.events.common.FluidCollisionEvent;
+import it.hurts.sskirillss.relics.client.models.items.CurioModel;
+import it.hurts.sskirillss.relics.client.models.items.SidedCurioModel;
+import it.hurts.sskirillss.relics.init.DataComponentRegistry;
+import it.hurts.sskirillss.relics.init.ItemRegistry;
+import it.hurts.sskirillss.relics.items.relics.base.IRelicItem;
+import it.hurts.sskirillss.relics.items.relics.base.IRenderableCurio;
+import it.hurts.sskirillss.relics.items.relics.base.RelicItem;
+import it.hurts.sskirillss.relics.items.relics.base.data.RelicData;
+import it.hurts.sskirillss.relics.items.relics.base.data.leveling.AbilitiesData;
+import it.hurts.sskirillss.relics.items.relics.base.data.leveling.AbilityData;
+import it.hurts.sskirillss.relics.items.relics.base.data.leveling.LevelingData;
+import it.hurts.sskirillss.relics.items.relics.base.data.leveling.StatData;
+import it.hurts.sskirillss.relics.items.relics.base.data.leveling.misc.UpgradeOperation;
+import it.hurts.sskirillss.relics.items.relics.base.data.loot.LootData;
+import it.hurts.sskirillss.relics.items.relics.base.data.loot.misc.LootEntries;
+import it.hurts.sskirillss.relics.utils.EntityUtils;
+import it.hurts.sskirillss.relics.utils.MathUtils;
+import java.util.List;
+import net.minecraft.client.model.EntityModel;
+import net.minecraft.client.model.HumanoidModel;
+import net.minecraft.client.model.geom.PartPose;
+import net.minecraft.client.model.geom.builders.CubeDeformation;
+import net.minecraft.client.model.geom.builders.CubeListBuilder;
+import net.minecraft.client.model.geom.builders.LayerDefinition;
+import net.minecraft.client.model.geom.builders.MeshDefinition;
+import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.entity.ItemRenderer;
+import net.minecraft.client.renderer.entity.RenderLayerParent;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.tags.FluidTags;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.api.distmarker.OnlyIn;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import top.theillusivec4.curios.api.SlotContext;
+import top.theillusivec4.curios.api.client.ICurioRenderer;
+
+@EventBusSubscriber(modid = "relics")
+public class MagmaWalkerItem extends RelicItem implements IRenderableCurio {
+   @Override
+   public RelicData constructDefaultRelicData() {
+      return RelicData.builder()
+         .abilities(
+            AbilitiesData.builder()
+               .ability(AbilityData.builder("heat_resistance").maxLevel(0).build())
+               .ability(
+                  AbilityData.builder("pace")
+                     .stat(
+                        StatData.builder("time")
+                           .initialValue(20.0, 50.0)
+                           .upgradeModifier(UpgradeOperation.MULTIPLY_BASE, 0.1)
+                           .formatValue(value -> (int)MathUtils.round(value, 0))
+                           .build()
+                     )
+                     .build()
+               )
+               .build()
+         )
+         .leveling(new LevelingData(100, 10, 200))
+         .loot(LootData.builder().entry(LootEntries.THE_NETHER, LootEntries.NETHER_LIKE).build())
+         .build();
+   }
+
+   public void inventoryTick(ItemStack stack, Level level, Entity entity, int slot, boolean isSelected) {
+      int heat = (Integer)stack.getOrDefault(DataComponentRegistry.CHARGE, 0);
+      if (entity instanceof Player player && player.tickCount % 20 == 0) {
+         if (heat > 0) {
+            if (heat > this.getStatValue(stack, "pace", "time")) {
+               player.hurt(level.damageSources().hotFloor(), (float)(1.0 + (heat - this.getStatValue(stack, "pace", "time")) / 10.0));
+            }
+
+            if (!level.getFluidState(player.blockPosition().below()).is(FluidTags.LAVA) && !level.getFluidState(player.blockPosition()).is(FluidTags.LAVA)) {
+               stack.set(DataComponentRegistry.CHARGE, --heat);
+            }
+         }
+      }
+   }
+
+   @OnlyIn(Dist.CLIENT)
+   @Override
+   public CurioModel getModel(ItemStack stack) {
+      return new SidedCurioModel(stack.getItem());
+   }
+
+   @OnlyIn(Dist.CLIENT)
+   @Override
+   public <T extends LivingEntity, M extends EntityModel<T>> void render(
+      ItemStack stack,
+      SlotContext slotContext,
+      PoseStack matrixStack,
+      RenderLayerParent<T, M> renderLayerParent,
+      MultiBufferSource renderTypeBuffer,
+      int light,
+      float limbSwing,
+      float limbSwingAmount,
+      float partialTicks,
+      float ageInTicks,
+      float netHeadYaw,
+      float headPitch
+   ) {
+      if (this.getModel(stack) instanceof SidedCurioModel sidedModel) {
+         sidedModel.setSlot(slotContext.index());
+         matrixStack.pushPose();
+         LivingEntity entity = slotContext.entity();
+         sidedModel.prepareMobModel(entity, limbSwing, limbSwingAmount, partialTicks);
+         sidedModel.setupAnim(entity, limbSwing, limbSwingAmount, ageInTicks, netHeadYaw, headPitch);
+         ICurioRenderer.followBodyRotations(entity, new HumanoidModel[]{sidedModel});
+         VertexConsumer vertexconsumer = ItemRenderer.getArmorFoilBuffer(
+            renderTypeBuffer, RenderType.armorCutoutNoCull(this.getTexture(stack)), stack.hasFoil()
+         );
+         matrixStack.translate(0.0F, 0.0F, -0.025F);
+         sidedModel.renderToBuffer(matrixStack, vertexconsumer, light, OverlayTexture.NO_OVERLAY);
+         matrixStack.popPose();
+      }
+   }
+
+   @OnlyIn(Dist.CLIENT)
+   @Override
+   public LayerDefinition constructLayerDefinition() {
+      MeshDefinition mesh = HumanoidModel.createMesh(new CubeDeformation(0.4F), 0.0F);
+      PartDefinition rightLeg = mesh.getRoot()
+         .addOrReplaceChild(
+            "right_leg",
+            CubeListBuilder.create()
+               .texOffs(0, 9)
+               .addBox(-2.9F, 5.5F, -2.5F, 6.0F, 7.0F, 6.0F, new CubeDeformation(0.0F))
+               .texOffs(0, 1)
+               .addBox(-2.9F, 5.5F, -2.5F, 6.0F, 1.0F, 6.0F, new CubeDeformation(0.175F))
+               .texOffs(18, 9)
+               .addBox(-2.9F, 9.5F, -4.5F, 6.0F, 3.0F, 2.0F, new CubeDeformation(0.0F)),
+            PartPose.offset(1.9F, 12.0F, 0.5F)
+         );
+      rightLeg.addOrReplaceChild(
+         "cube_r1",
+         CubeListBuilder.create().texOffs(0, -1).addBox(1.5F, 5.5F, 4.4F, 0.0F, 5.0F, 3.0F, new CubeDeformation(0.0F)),
+         PartPose.offsetAndRotation(0.0F, 0.0F, 0.0F, 0.0F, 0.3927F, 0.0F)
+      );
+      rightLeg.addOrReplaceChild(
+         "cube_r2",
+         CubeListBuilder.create().texOffs(0, -1).mirror().addBox(-1.325F, 5.5F, 4.2F, 0.0F, 5.0F, 3.0F, new CubeDeformation(0.0F)).mirror(false),
+         PartPose.offsetAndRotation(0.0F, 0.0F, 0.0F, 0.0F, -0.3927F, 0.0F)
+      );
+      PartDefinition leftLeg = mesh.getRoot()
+         .addOrReplaceChild(
+            "left_leg",
+            CubeListBuilder.create()
+               .texOffs(0, 9)
+               .addBox(-2.9F, 5.5F, -2.5F, 6.0F, 7.0F, 6.0F, new CubeDeformation(0.0F))
+               .texOffs(0, 1)
+               .addBox(-2.9F, 5.5F, -2.5F, 6.0F, 1.0F, 6.0F, new CubeDeformation(0.175F))
+               .texOffs(18, 9)
+               .addBox(-2.9F, 9.5F, -4.5F, 6.0F, 3.0F, 2.0F, new CubeDeformation(0.0F)),
+            PartPose.offset(1.9F, 12.0F, 0.5F)
+         );
+      leftLeg.addOrReplaceChild(
+         "cube_r1",
+         CubeListBuilder.create().texOffs(0, -1).addBox(1.5F, 5.5F, 4.4F, 0.0F, 5.0F, 3.0F, new CubeDeformation(0.0F)),
+         PartPose.offsetAndRotation(0.0F, 0.0F, 0.0F, 0.0F, 0.3927F, 0.0F)
+      );
+      leftLeg.addOrReplaceChild(
+         "cube_r2",
+         CubeListBuilder.create().texOffs(0, -1).mirror().addBox(-1.325F, 5.5F, 4.2F, 0.0F, 5.0F, 3.0F, new CubeDeformation(0.0F)).mirror(false),
+         PartPose.offsetAndRotation(0.0F, 0.0F, 0.0F, 0.0F, -0.3927F, 0.0F)
+      );
+      return LayerDefinition.create(mesh, 64, 64);
+   }
+
+   @Override
+   public List<String> bodyParts() {
+      return Lists.newArrayList(new String[]{"right_leg", "left_leg"});
+   }
+
+   @SubscribeEvent
+   public static void onLivingAttack(LivingIncomingDamageEvent event) {
+      ItemStack stack = EntityUtils.findEquippedCurio(event.getEntity(), (Item)ItemRegistry.MAGMA_WALKER.get());
+      if (stack.getItem() instanceof IRelicItem relic
+         && event.getSource() == event.getEntity().level().damageSources().hotFloor()
+         && ((Integer)stack.getOrDefault(DataComponentRegistry.CHARGE, 0)).intValue() <= relic.getStatValue(stack, "pace", "time")) {
+         event.setCanceled(true);
+      }
+   }
+
+   @SubscribeEvent
+   public static void onFluidCollide(FluidCollisionEvent event) {
+      ItemStack stack = EntityUtils.findEquippedCurio(event.getEntity(), (Item)ItemRegistry.MAGMA_WALKER.get());
+      if (event.getEntity() instanceof Player player
+         && stack.getItem() instanceof IRelicItem relic
+         && event.getFluid().is(FluidTags.LAVA)
+         && !player.isShiftKeyDown()) {
+         if (player.tickCount % 20 == 0) {
+            int heat = (Integer)stack.getOrDefault(DataComponentRegistry.CHARGE, 0);
+            stack.set(DataComponentRegistry.CHARGE, ++heat);
+            if (heat % 5 == 0) {
+               relic.spreadRelicExperience(player, stack, 1);
+            }
+         }
+
+         event.setCanceled(true);
+      }
+   }
+}

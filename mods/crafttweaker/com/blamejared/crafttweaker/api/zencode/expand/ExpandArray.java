@@ -1,0 +1,16 @@
+package com.blamejared.crafttweaker.api.zencode.expand;
+
+import com.blamejared.crafttweaker.api.annotation.ZenRegister;
+import com.blamejared.crafttweaker.api.data.IData;
+import com.blamejared.crafttweaker.api.data.ListData;
+import java.util.Arrays;
+import org.openzen.zencode.java.ZenCodeType;
+
+@ZenRegister
+@ZenCodeType.Expansion("crafttweaker.api.data.IData[]")
+public class ExpandArray {
+   @ZenCodeType.Caster(implicit = true)
+   public static IData asData(IData[] values) {
+      return new ListData(Arrays.asList(values));
+   }
+}

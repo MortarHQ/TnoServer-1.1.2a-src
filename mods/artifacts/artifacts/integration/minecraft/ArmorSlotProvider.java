@@ -1,0 +1,24 @@
+package artifacts.integration.minecraft;
+
+import artifacts.equipment.EquipmentSlotProvider;
+import java.util.function.BiFunction;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
+
+public class ArmorSlotProvider implements EquipmentSlotProvider {
+   @Override
+   public <T> T reduceEquipment(LivingEntity entity, T init, BiFunction<ItemStack, T, T> f) {
+      for (ItemStack stack : entity.getArmorAndBodyArmorSlots()) {
+         if (!stack.isEmpty()) {
+            init = f.apply(stack, init);
+         }
+      }
+
+      return init;
+   }
+
+   @Override
+   public boolean tryEquipItem(LivingEntity entity, ItemStack stack) {
+      return false;
+   }
+}

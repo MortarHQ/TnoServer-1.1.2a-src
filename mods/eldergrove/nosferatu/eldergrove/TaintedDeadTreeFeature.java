@@ -1,0 +1,16 @@
+package nosferatu.eldergrove;
+
+import com.mojang.serialization.Codec;
+import net.minecraft.world.level.levelgen.feature.Feature;
+import net.minecraft.world.level.levelgen.feature.FeaturePlaceContext;
+import net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration;
+
+public class TaintedDeadTreeFeature extends Feature<NoneFeatureConfiguration> {
+   public TaintedDeadTreeFeature(Codec<NoneFeatureConfiguration> codec) {
+      super(codec);
+   }
+
+   public boolean place(FeaturePlaceContext<NoneFeatureConfiguration> context) {
+      return TaintedDeadTreeGenerator.grow(context.level(), context.origin(), context.random());
+   }
+}

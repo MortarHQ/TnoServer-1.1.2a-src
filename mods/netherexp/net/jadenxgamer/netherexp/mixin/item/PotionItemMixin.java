@@ -1,0 +1,33 @@
+package net.jadenxgamer.netherexp.mixin.item;
+
+import java.awt.Color;
+import net.jadenxgamer.netherexp.config.JNEConfigs;
+import net.jadenxgamer.netherexp.registry.JNESoundEvents;
+import net.jadenxgamer.netherexp.util.CommonParticles;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.PotionItem;
+import net.minecraft.world.item.alchemy.PotionContents;
+import net.minecraft.world.level.Level;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+@Mixin(PotionItem.class)
+public class PotionItemMixin {
+   @Inject(method = "finishUsingItem", at = @At("HEAD"))
+   private static void netherexp$injectPotionUseEffect(ItemStack stack, Level level, LivingEntity entityLiving, CallbackInfoReturnable<ItemStack> cir) {
+      PotionContents contents = (PotionContents)stack.getOrDefault(DataComponents.POTION_CONTENTS, PotionContents.EMPTY);
+      boolean hasEffect = (Boolean)JNEConfigs.POTION_CONSUMPTION_PARTICLES.get() && contents.hasEffects();
+      if (hasEffect) {
+         if (level.isClientSide()) {
+            CommonParticles.potionConsumeParticle(level, level.random, entityLiving, new Color(contents.getColor()));
+         }
+
+         level.playSound(null, entityLiving.blockPosition(), JNESoundEvents.POTION_POSTDRINK.get(), SoundSource.PLAYERS, 1.0F, 1.0F);
+      }
+   }
+}

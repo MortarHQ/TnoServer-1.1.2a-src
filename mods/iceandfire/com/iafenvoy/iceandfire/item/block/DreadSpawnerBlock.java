@@ -1,0 +1,42 @@
+package com.iafenvoy.iceandfire.item.block;
+
+import com.iafenvoy.iceandfire.item.block.entity.DreadSpawnerBlockEntity;
+import com.iafenvoy.iceandfire.item.block.util.DreadBlock;
+import com.iafenvoy.iceandfire.registry.IafBlockEntities;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.block.SpawnerBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityTicker;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.BlockBehaviour.Properties;
+import net.minecraft.world.level.block.state.properties.NoteBlockInstrument;
+import net.minecraft.world.level.material.MapColor;
+
+public class DreadSpawnerBlock extends SpawnerBlock implements DreadBlock {
+   public DreadSpawnerBlock() {
+      super(
+         Properties.of()
+            .mapColor(MapColor.STONE)
+            .instrument(NoteBlockInstrument.BASEDRUM)
+            .strength(10.0F, 10000.0F)
+            .sound(SoundType.METAL)
+            .noOcclusion()
+            .dynamicShape()
+      );
+   }
+
+   public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
+      return new DreadSpawnerBlockEntity(pos, state);
+   }
+
+   public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level world, BlockState state, BlockEntityType<T> type) {
+      return createTickerHelper(
+         type,
+         (BlockEntityType)IafBlockEntities.DREAD_SPAWNER.get(),
+         world.isClientSide ? DreadSpawnerBlockEntity::clientTick : DreadSpawnerBlockEntity::serverTick
+      );
+   }
+}

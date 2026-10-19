@@ -1,0 +1,57 @@
+package com.iafenvoy.iceandfire.entity.ai;
+
+import com.iafenvoy.iceandfire.entity.DragonBaseEntity;
+import java.util.EnumSet;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.entity.ai.goal.Goal;
+import net.minecraft.world.entity.ai.goal.Goal.Flag;
+
+public class DragonAIEscortGoal extends Goal {
+   private final DragonBaseEntity dragon;
+   private BlockPos previousPosition;
+
+   public DragonAIEscortGoal(DragonBaseEntity entityIn, double movementSpeedIn) {
+      this.dragon = entityIn;
+      this.setFlags(EnumSet.of(Flag.MOVE));
+   }
+
+   public boolean canUse() {
+      return this.dragon.canMove() && this.dragon.getTarget() == null && this.dragon.getOwner() != null && this.dragon.getCommand() == 2;
+   }
+
+   public void tick() {
+      if (this.dragon.getOwner() != null) {
+         float dist = this.dragon.distanceTo(this.dragon.getOwner());
+         float maxRange = 2000.0F;
+         if (dist > maxRange) {
+            return;
+         }
+
+         if (dist > this.dragon.getBoundingBox().getSize()
+            && (!this.dragon.isFlying() && !this.dragon.isHovering() || !this.dragon.isAllowedToTriggerFlight())
+            && (this.previousPosition == null || this.previousPosition.distSqr(this.dragon.getOwner().blockPosition()) > 9.0)) {
+            this.dragon.getNavigation().moveTo(this.dragon.getOwner(), 1.0);
+            this.previousPosition = this.dragon.getOwner().blockPosition();
+         }
+
+         if ((dist > 30.0F || this.dragon.getOwner().getY() - this.dragon.getY() > 8.0)
+            && !this.dragon.isFlying()
+            && !this.dragon.isHovering()
+            && this.dragon.isAllowedToTriggerFlight()) {
+            this.dragon.setHovering(true);
+            this.dragon.setInSittingPose(false);
+            this.dragon.setOrderedToSit(false);
+            this.dragon.flyTicks = 0;
+         }
+      }
+   }
+
+   public boolean canContinueToUse() {
+      return this.dragon.getCommand() == 2
+         && this.dragon.canMove()
+         && this.dragon.getTarget() == null
+         && this.dragon.getOwner() != null
+         && this.dragon.getOwner().isAlive()
+         && (this.dragon.distanceTo(this.dragon.getOwner()) > 15.0F || !this.dragon.getNavigation().isDone());
+   }
+}

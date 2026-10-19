@@ -1,0 +1,16 @@
+package com.blamejared.crafttweaker.mixin.common.access.villager;
+
+import net.minecraft.world.entity.npc.VillagerTrades.TippedArrowForItemsAndEmeralds;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.gen.Accessor;
+
+@Mixin(TippedArrowForItemsAndEmeralds.class)
+public interface AccessTippedArrowForItemsAndEmeralds {
+   @Accessor("toItem")
+   ItemStack crafttweaker$getToItem();
+
+   @Accessor("fromItem")
+   Item crafttweaker$getFromItem();
+}

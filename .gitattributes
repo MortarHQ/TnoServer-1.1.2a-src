@@ -1,0 +1,4 @@
+*.java linguist-language=Java
+*.tsv linguist-documentation
+pack/** linguist-documentation
+*.md linguist-documentation

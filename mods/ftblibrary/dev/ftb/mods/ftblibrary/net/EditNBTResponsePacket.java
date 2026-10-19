@@ -1,0 +1,29 @@
+package dev.ftb.mods.ftblibrary.net;
+
+import dev.architectury.networking.NetworkManager.PacketContext;
+import dev.ftb.mods.ftblibrary.FTBLibrary;
+import dev.ftb.mods.ftblibrary.nbtedit.NBTEditResponseHandlers;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload.Type;
+import net.minecraft.server.level.ServerPlayer;
+
+public record EditNBTResponsePacket(CompoundTag info, CompoundTag tag) implements CustomPacketPayload {
+   public static final Type<EditNBTResponsePacket> TYPE = new Type(FTBLibrary.rl("edit_nbt_response"));
+   public static StreamCodec<FriendlyByteBuf, EditNBTResponsePacket> STREAM_CODEC = StreamCodec.composite(
+      ByteBufCodecs.COMPOUND_TAG, EditNBTResponsePacket::info, ByteBufCodecs.COMPOUND_TAG, EditNBTResponsePacket::tag, EditNBTResponsePacket::new
+   );
+
+   public static void handle(EditNBTResponsePacket packet, PacketContext context) {
+      if (context.getPlayer() instanceof ServerPlayer serverPlayer) {
+         context.queue(() -> NBTEditResponseHandlers.INSTANCE.handleResponse(packet.info.getString("type"), serverPlayer, packet.info, packet.tag));
+      }
+   }
+
+   public Type<? extends CustomPacketPayload> type() {
+      return TYPE;
+   }
+}

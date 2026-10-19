@@ -1,0 +1,30 @@
+package com.finderfeed.fdlib.systems.bedrock.animations.animation_system.entity.head;
+
+import com.finderfeed.fdlib.systems.bedrock.animations.animation_system.AnimatedObject;
+import com.finderfeed.fdlib.systems.bedrock.animations.animation_system.BoneTransformationController;
+import com.finderfeed.fdlib.systems.bedrock.models.FDModel;
+import com.finderfeed.fdlib.systems.bedrock.models.FDModelPart;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.world.entity.Mob;
+import org.joml.Vector2f;
+
+public class HeadBoneTransformation<T extends Mob & AnimatedObject & IHasHead<T>> implements BoneTransformationController<T> {
+   public void transformBone(
+      T t, FDModel model, FDModelPart fdModelPart, PoseStack poseStack, MultiBufferSource multiBufferSource, String boneName, int light, int overlay, float v
+   ) {
+      HeadControllerContainer<T> container = t.getHeadControllerContainer();
+      HeadController<T> controller = container.getController(boneName);
+      Vector2f vec = controller.getCurrentHeadAngles(v);
+      HeadControllerContainer.Mode mode = container.getControllersMode();
+      float rotX = vec.x;
+      float rotY = vec.y;
+      if (mode == HeadControllerContainer.Mode.ANIMATION_AND_LOOK || mode == HeadControllerContainer.Mode.ANIMATION) {
+         rotX += fdModelPart.getXRot();
+         rotY += fdModelPart.getYRot();
+      }
+
+      fdModelPart.setXRot(rotX);
+      fdModelPart.setYRot(rotY);
+   }
+}

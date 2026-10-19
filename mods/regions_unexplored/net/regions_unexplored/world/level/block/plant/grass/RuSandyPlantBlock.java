@@ -1,0 +1,124 @@
+package net.regions_unexplored.world.level.block.plant.grass;
+
+import com.mojang.serialization.MapCodec;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.TagKey;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelAccessor;
+import net.minecraft.world.level.LevelReader;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.BonemealableBlock;
+import net.minecraft.world.level.block.BushBlock;
+import net.minecraft.world.level.block.DoublePlantBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.BlockBehaviour.Properties;
+import net.minecraft.world.level.block.state.StateDefinition.Builder;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
+import net.minecraft.world.level.block.state.properties.Property;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.VoxelShape;
+import net.regions_unexplored.registry.RUBlocks;
+import net.regions_unexplored.registry.tag.RUBlockTags;
+import net.regions_unexplored.world.level.block.plant.tall.RuSandyDoublePlantBlock;
+import net.regions_unexplored.world.level.block.state.properties.RuBlockStateProperties;
+
+public class RuSandyPlantBlock extends BushBlock implements BonemealableBlock {
+   public static final MapCodec<? extends RuSandyPlantBlock> CODEC = simpleCodec(RuSandyPlantBlock::new);
+   public static final BooleanProperty IS_RED = RuBlockStateProperties.IS_RED;
+   protected static final float AABB_OFFSET = 6.0F;
+   protected static final VoxelShape SHAPE = Block.box(2.0, 0.0, 2.0, 14.0, 13.0, 14.0);
+
+   public RuSandyPlantBlock(Properties properties) {
+      super(properties);
+      this.registerDefaultState((BlockState)this.defaultBlockState().setValue(IS_RED, false));
+   }
+
+   protected MapCodec<? extends BushBlock> codec() {
+      return CODEC;
+   }
+
+   public VoxelShape getShape(BlockState state, BlockGetter getter, BlockPos pos, CollisionContext context) {
+      return SHAPE;
+   }
+
+   public BlockState updateShape(BlockState state, Direction direction, BlockState state1, LevelAccessor level, BlockPos pos, BlockPos pos2) {
+      if (!level.getBlockState(pos.below()).is(Blocks.RED_SAND)
+         && !level.getBlockState(pos.below()).is(Blocks.RED_SANDSTONE)
+         && !level.getBlockState(pos.below()).is(TagKey.create(Registries.BLOCK, ResourceLocation.fromNamespaceAndPath("c", "red_sandstone")))
+         && !level.getBlockState(pos.below()).is(TagKey.create(Registries.BLOCK, ResourceLocation.fromNamespaceAndPath("c", "sandstone/red")))
+         && !level.getBlockState(pos.below()).is(TagKey.create(Registries.BLOCK, ResourceLocation.fromNamespaceAndPath("c", "red_sand")))
+         && !level.getBlockState(pos.below()).is(TagKey.create(Registries.BLOCK, ResourceLocation.fromNamespaceAndPath("c", "sand/red")))) {
+         state.setValue(IS_RED, false);
+      } else {
+         state.setValue(IS_RED, true);
+      }
+
+      return !state.canSurvive(level, pos) ? Blocks.AIR.defaultBlockState() : super.updateShape(state, direction, state1, level, pos, pos2);
+   }
+
+   protected void createBlockStateDefinition(Builder<Block, BlockState> stateBuilder) {
+      stateBuilder.add(new Property[]{IS_RED});
+   }
+
+   public BlockState getStateForPlacement(BlockPlaceContext context) {
+      boolean isRed = context.getLevel().getBlockState(context.getClickedPos().below()).is(Blocks.RED_SAND)
+         || context.getLevel().getBlockState(context.getClickedPos().below()).is(Blocks.RED_SANDSTONE)
+         || context.getLevel()
+            .getBlockState(context.getClickedPos().below())
+            .is(TagKey.create(Registries.BLOCK, ResourceLocation.fromNamespaceAndPath("c", "red_sandstone")))
+         || context.getLevel()
+            .getBlockState(context.getClickedPos().below())
+            .is(TagKey.create(Registries.BLOCK, ResourceLocation.fromNamespaceAndPath("c", "sandstone/red")))
+         || context.getLevel()
+            .getBlockState(context.getClickedPos().below())
+            .is(TagKey.create(Registries.BLOCK, ResourceLocation.fromNamespaceAndPath("c", "red_sand")))
+         || context.getLevel()
+            .getBlockState(context.getClickedPos().below())
+            .is(TagKey.create(Registries.BLOCK, ResourceLocation.fromNamespaceAndPath("c", "sand/red")));
+      return (BlockState)this.defaultBlockState().setValue(IS_RED, isRed);
+   }
+
+   public boolean isValidBonemealTarget(LevelReader level, BlockPos pos, BlockState state) {
+      return true;
+   }
+
+   public boolean isBonemealSuccess(Level level, RandomSource random, BlockPos pos, BlockState state) {
+      return true;
+   }
+
+   public static void placeAt(LevelAccessor level, BlockState state, BlockPos pos, int i) {
+      level.setBlock(pos, DoublePlantBlock.copyWaterloggedFrom(level, pos, state), i);
+   }
+
+   public boolean mayPlaceOn(BlockState state, BlockGetter getter, BlockPos pos) {
+      return state.is(RUBlockTags.SANDY_PLANT_CAN_SURVIVE_ON);
+   }
+
+   public void performBonemeal(ServerLevel level, RandomSource random, BlockPos pos, BlockState state) {
+      boolean isRed = (Boolean)state.getValue(IS_RED);
+      if (state.is(RUBlocks.SANDY_GRASS.get())) {
+         Block sandyTallGrassBlock = RUBlocks.SANDY_TALL_GRASS.get();
+         if (sandyTallGrassBlock instanceof DoublePlantBlock sandyTallGrass
+            && sandyTallGrass.defaultBlockState().canSurvive(level, pos)
+            && level.isEmptyBlock(pos.above())) {
+            placeAt(level, (BlockState)sandyTallGrass.defaultBlockState().setValue(IS_RED, isRed), pos, 2);
+            placeAt(
+               level,
+               (BlockState)((BlockState)sandyTallGrass.defaultBlockState().setValue(RuSandyDoublePlantBlock.HALF, DoubleBlockHalf.UPPER))
+                  .setValue(IS_RED, isRed),
+               pos.above(),
+               2
+            );
+         }
+      }
+   }
+}

@@ -1,0 +1,91 @@
+package team.creative.creativecore.common.config.holder;
+
+import java.lang.reflect.Field;
+import team.creative.creativecore.CreativeCore;
+import team.creative.creativecore.Side;
+import team.creative.creativecore.common.config.converation.ConfigTypeConveration;
+import team.creative.creativecore.common.config.field.ConfigFieldDynamic;
+import team.creative.creativecore.common.config.key.ConfigKey;
+import team.creative.creativecore.common.config.key.ConfigKeyHolder;
+import team.creative.creativecore.common.config.sync.ConfigSynchronization;
+
+public class ConfigHolderDynamic extends ConfigHolder<ConfigKey> {
+   public ConfigHolderDynamic(ICreativeConfigHolder parent, String key, ConfigSynchronization synchronization) {
+      super(parent, key, synchronization);
+   }
+
+   ConfigHolderDynamic() {
+   }
+
+   public ConfigHolderDynamic registerFolder(String key) {
+      return this.registerFolder(key, ConfigSynchronization.UNIVERSAL);
+   }
+
+   public ConfigHolderDynamic registerFolder(String key, ConfigSynchronization synchronization) {
+      if (key.contains(".") || key.contains("/")) {
+         throw new RuntimeException("Invalid key " + key);
+      }
+
+      if (this.fields.containsKey(key)) {
+         throw new RuntimeException("Key already registered " + key);
+      }
+
+      synchronization = this.synchronization != ConfigSynchronization.UNIVERSAL ? this.synchronization : synchronization;
+      ConfigHolderDynamic holder = new ConfigHolderDynamic(this, key, synchronization);
+      this.fields.add(key, new ConfigKeyHolder(holder, new ConfigFieldDynamic(holder), key, synchronization, false, false));
+      return holder;
+   }
+
+   public ConfigHolderDynamic registerValue(String key, Object defaultValue) {
+      return this.registerValue(key, defaultValue, ConfigSynchronization.UNIVERSAL, false);
+   }
+
+   public ConfigHolderDynamic registerValue(String key, Object defaultValue, ConfigSynchronization synchronization, boolean requiresRestart) {
+      return this.registerValue(key, defaultValue, synchronization, requiresRestart, false);
+   }
+
+   public ConfigHolderDynamic registerValue(
+      String key, Object defaultValue, ConfigSynchronization synchronization, boolean requiresRestart, boolean hideFromGUI
+   ) {
+      if (ConfigTypeConveration.has(defaultValue.getClass())) {
+         throw new IllegalArgumentException("Only holder objects are allowed");
+      }
+
+      if (key.contains(".") || key.contains("/")) {
+         throw new RuntimeException("Invalid key " + key);
+      }
+
+      if (this.fields.containsKey(key)) {
+         throw new RuntimeException("Key already registered " + key);
+      }
+
+      synchronization = this.synchronization != ConfigSynchronization.UNIVERSAL ? this.synchronization : synchronization;
+      this.fields.add(key, ConfigKey.of(this, new ConfigFieldDynamic(defaultValue), key, defaultValue, synchronization, requiresRestart, hideFromGUI));
+      return this;
+   }
+
+   public void registerField(String key, Field field, Object object) {
+      this.registerField(key, field, object, ConfigSynchronization.CLIENT, false);
+   }
+
+   public void registerField(String key, Field field, Object object, ConfigSynchronization synchronization, boolean requiresRestart) {
+      this.registerField(key, field, object, synchronization, requiresRestart, false);
+   }
+
+   public void registerField(String key, Field field, Object object, ConfigSynchronization synchronization, boolean requiresRestart, boolean hideFromGUI) {
+      synchronization = this.synchronization != ConfigSynchronization.UNIVERSAL ? this.synchronization : synchronization;
+      if (!ConfigTypeConveration.has(field.getType())) {
+         throw new RuntimeException("Field cannot contain holder object, use register value instead");
+      }
+
+      try {
+         this.fields.add(key, ConfigKey.of(this, field, key, field.get(object), synchronization, requiresRestart, hideFromGUI, object));
+      } catch (IllegalArgumentException | IllegalAccessException e) {
+         CreativeCore.LOGGER.error(e);
+      }
+   }
+
+   @Override
+   public void configured(Side side) {
+   }
+}

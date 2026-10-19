@@ -1,0 +1,25 @@
+package com.natamus.starterkit_common_fabric.data;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
+import com.mojang.logging.LogUtils;
+import java.lang.reflect.Type;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import net.minecraft.class_1304;
+import org.slf4j.Logger;
+
+public class Constants {
+   public static final Logger logger = LogUtils.getLogger();
+   public static final String logPrefix = "[Starter Kit] ";
+   public static final Gson gson = new Gson();
+   public static final Gson gsonPretty = new GsonBuilder().setPrettyPrinting().create();
+   public static final Type gsonTrackingMapType = (new TypeToken<Map<String, Map<String, Boolean>>>() {}).getType();
+   public static List<class_1304> equipmentSlots = new ArrayList<>(
+      Arrays.asList(class_1304.field_6169, class_1304.field_6174, class_1304.field_6172, class_1304.field_6166, class_1304.field_6171)
+   );
+   public static List<String> commandPrefixes = new ArrayList<>(Arrays.asList("starterkit", "sk"));
+}

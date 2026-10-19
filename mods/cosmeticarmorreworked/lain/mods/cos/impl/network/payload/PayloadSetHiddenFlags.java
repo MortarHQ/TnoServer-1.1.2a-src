@@ -1,0 +1,28 @@
+package lain.mods.cos.impl.network.payload;
+
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload.Type;
+import net.minecraft.resources.ResourceLocation;
+
+public record PayloadSetHiddenFlags(String modid, String identifier, boolean hidden) implements CustomPacketPayload {
+   public static final Type<PayloadSetHiddenFlags> TYPE = new Type(ResourceLocation.fromNamespaceAndPath("cosmeticarmorreworked", "set_flag"));
+   public static final StreamCodec<FriendlyByteBuf, PayloadSetHiddenFlags> STREAM_CODEC = StreamCodec.of(
+      PayloadSetHiddenFlags::encode, PayloadSetHiddenFlags::decode
+   );
+
+   private static PayloadSetHiddenFlags decode(FriendlyByteBuf buffer) {
+      return new PayloadSetHiddenFlags(buffer.readUtf(), buffer.readUtf(), buffer.readBoolean());
+   }
+
+   private static void encode(FriendlyByteBuf buffer, PayloadSetHiddenFlags payload) {
+      buffer.writeUtf(payload.modid(), 32767);
+      buffer.writeUtf(payload.identifier(), 32767);
+      buffer.writeBoolean(payload.hidden());
+   }
+
+   public Type<PayloadSetHiddenFlags> type() {
+      return TYPE;
+   }
+}

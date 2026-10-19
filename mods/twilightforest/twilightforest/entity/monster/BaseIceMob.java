@@ -1,0 +1,51 @@
+package twilightforest.entity.monster;
+
+import net.minecraft.core.particles.ParticleOptions;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.tags.BiomeTags;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
+import twilightforest.init.TFParticleType;
+
+public abstract class BaseIceMob extends Monster {
+   public BaseIceMob(EntityType<? extends BaseIceMob> type, Level worldIn) {
+      super(type, worldIn);
+   }
+
+   public void aiStep() {
+      if (!this.onGround() && this.getDeltaMovement().y() < 0.0) {
+         Vec3 motion = this.getDeltaMovement();
+         this.setDeltaMovement(motion.x(), motion.y() * 0.6, motion.z());
+      }
+
+      super.aiStep();
+      if (this.level().isClientSide() && !this.isDeadOrDying()) {
+         for (int i = 0; i < 3; i++) {
+            float px = (this.getRandom().nextFloat() - this.getRandom().nextFloat()) * 0.3F;
+            float py = this.getEyeHeight() + (this.getRandom().nextFloat() - this.getRandom().nextFloat()) * 0.5F;
+            float pz = (this.getRandom().nextFloat() - this.getRandom().nextFloat()) * 0.3F;
+            this.level().addParticle((ParticleOptions)TFParticleType.SNOW_GUARDIAN.get(), this.xOld + px, this.yOld + py, this.zOld + pz, 0.0, 0.0, 0.0);
+            if (this.level().getBiome(this.blockPosition()).is(BiomeTags.SNOW_GOLEM_MELTS)) {
+               if (this.random.nextInt(4) == 0) {
+                  this.level().addParticle(ParticleTypes.CLOUD, this.xOld + px, this.yOld + py, this.zOld + pz, 0.0, 0.1F, 0.0);
+               }
+
+               if (this.random.nextBoolean()) {
+                  this.level().addParticle(ParticleTypes.FALLING_WATER, this.xOld + px, this.yOld + py, this.zOld + pz, 0.0, 0.0, 0.0);
+               }
+            }
+         }
+      }
+
+      if (this.level().getBiome(this.blockPosition()).is(BiomeTags.SNOW_GOLEM_MELTS) && this.tickCount % 20 == 0) {
+         this.hurt(this.damageSources().onFire(), 1.0F);
+      }
+   }
+
+   protected boolean canRide(Entity entity) {
+      return false;
+   }
+}

@@ -1,0 +1,20 @@
+package com.chronodawn.client.renderer.mobs;
+
+import com.chronodawn.client.model.EpochHuskModel;
+import com.chronodawn.compat.CompatResourceLocation;
+import com.chronodawn.entities.mobs.EpochHuskEntity;
+import net.minecraft.client.renderer.entity.MobRenderer;
+import net.minecraft.client.renderer.entity.EntityRendererProvider.Context;
+import net.minecraft.resources.ResourceLocation;
+
+public class EpochHuskRenderer extends MobRenderer<EpochHuskEntity, EpochHuskModel> {
+   private static final ResourceLocation TEXTURE = CompatResourceLocation.create("chronodawn", "textures/entity/mobs/epoch_husk.png");
+
+   public EpochHuskRenderer(Context context) {
+      super(context, new EpochHuskModel(context.bakeLayer(EpochHuskModel.LAYER_LOCATION)), 0.5F);
+   }
+
+   public ResourceLocation getTextureLocation(EpochHuskEntity entity) {
+      return TEXTURE;
+   }
+}

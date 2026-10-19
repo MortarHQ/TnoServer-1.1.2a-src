@@ -1,0 +1,24 @@
+package com.blamejared.crafttweaker.natives.predicate;
+
+import com.blamejared.crafttweaker.api.annotation.ZenRegister;
+import com.blamejared.crafttweaker_annotations.annotations.Document;
+import com.blamejared.crafttweaker_annotations.annotations.NativeTypeRegistration;
+import net.minecraft.advancements.critereon.EntityFlagsPredicate;
+import net.minecraft.advancements.critereon.EntityFlagsPredicate.Builder;
+import net.minecraft.world.entity.Entity;
+import org.openzen.zencode.java.ZenCodeType;
+
+@ZenRegister
+@Document("vanilla/api/predicate/EntityFlagsPredicate")
+@NativeTypeRegistration(value = EntityFlagsPredicate.class, zenCodeName = "crafttweaker.api.predicate.EntityFlagsPredicate")
+public final class ExpandEntityFlagsPredicate {
+   @ZenCodeType.StaticExpansionMethod
+   public static Builder create() {
+      return Builder.flags();
+   }
+
+   @ZenCodeType.Method
+   public static boolean matches(EntityFlagsPredicate internal, Entity entity) {
+      return internal.matches(entity);
+   }
+}

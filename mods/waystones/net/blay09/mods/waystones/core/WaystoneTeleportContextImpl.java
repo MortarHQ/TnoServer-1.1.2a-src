@@ -1,0 +1,150 @@
+package net.blay09.mods.waystones.core;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import net.blay09.mods.waystones.api.Waystone;
+import net.blay09.mods.waystones.api.WaystoneTeleportContext;
+import net.blay09.mods.waystones.api.requirement.WarpRequirement;
+import net.blay09.mods.waystones.requirement.NoRequirement;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.item.ItemStack;
+import org.jetbrains.annotations.Nullable;
+
+public class WaystoneTeleportContextImpl implements WaystoneTeleportContext {
+   private final Entity entity;
+   private final Waystone targetWaystone;
+   private final List<Entity> additionalEntities = new ArrayList<>();
+   private final List<Mob> leashedEntities = new ArrayList<>();
+   private final Set<ResourceLocation> flags = new HashSet<>();
+   private Waystone fromWaystone;
+   private ItemStack warpItem = ItemStack.EMPTY;
+   private WarpRequirement warpRequirement = NoRequirement.INSTANCE;
+   private boolean playsSound = true;
+   private boolean playsEffect = true;
+   private boolean appliesModifiers = true;
+
+   public WaystoneTeleportContextImpl(Entity entity, Waystone targetWaystone) {
+      this.entity = entity;
+      this.targetWaystone = targetWaystone;
+   }
+
+   @Override
+   public Entity getEntity() {
+      return this.entity;
+   }
+
+   @Override
+   public Waystone getTargetWaystone() {
+      return this.targetWaystone;
+   }
+
+   @Override
+   public List<Mob> getLeashedEntities() {
+      return this.leashedEntities;
+   }
+
+   @Override
+   public List<Entity> getAdditionalEntities() {
+      return this.additionalEntities;
+   }
+
+   @Override
+   public WaystoneTeleportContext addAdditionalEntity(Entity additionalEntity) {
+      this.additionalEntities.add(additionalEntity);
+      return this;
+   }
+
+   @Nullable
+   @Override
+   public Optional<Waystone> getFromWaystone() {
+      return Optional.ofNullable(this.fromWaystone);
+   }
+
+   @Override
+   public WaystoneTeleportContext setFromWaystone(@Nullable Waystone fromWaystone) {
+      this.fromWaystone = fromWaystone;
+      return this;
+   }
+
+   @Override
+   public ItemStack getWarpItem() {
+      return this.warpItem;
+   }
+
+   @Override
+   public WaystoneTeleportContext setWarpItem(ItemStack warpItem) {
+      this.warpItem = warpItem;
+      return this;
+   }
+
+   @Override
+   public boolean isDimensionalTeleport() {
+      return this.targetWaystone.getDimension() != this.entity.level().dimension();
+   }
+
+   @Override
+   public WarpRequirement getRequirements() {
+      return this.warpRequirement;
+   }
+
+   @Override
+   public WaystoneTeleportContext setRequirements(WarpRequirement warpRequirement) {
+      this.warpRequirement = warpRequirement;
+      return this;
+   }
+
+   @Override
+   public boolean playsSound() {
+      return this.playsSound;
+   }
+
+   @Override
+   public WaystoneTeleportContext setPlaysSound(boolean playsSound) {
+      this.playsSound = playsSound;
+      return this;
+   }
+
+   @Override
+   public boolean playsEffect() {
+      return this.playsEffect;
+   }
+
+   @Override
+   public WaystoneTeleportContext setPlaysEffect(boolean playsEffect) {
+      this.playsEffect = playsEffect;
+      return this;
+   }
+
+   @Override
+   public boolean appliesModifiers() {
+      return this.appliesModifiers;
+   }
+
+   @Override
+   public WaystoneTeleportContext setAppliesModifiers(boolean appliesModifiers) {
+      this.appliesModifiers = appliesModifiers;
+      return this;
+   }
+
+   @Override
+   public Set<ResourceLocation> getFlags() {
+      return this.flags;
+   }
+
+   @Override
+   public WaystoneTeleportContext addFlag(ResourceLocation flag) {
+      this.flags.add(flag);
+      return this;
+   }
+
+   @Override
+   public WaystoneTeleportContext removeFlag(ResourceLocation flag) {
+      this.flags.remove(flag);
+      return this;
+   }
+}

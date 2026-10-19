@@ -1,0 +1,10 @@
+{
+  "showSplash": true,
+  "refreshCatalogueOnStartup": true,
+  "speechBubbles": true,
+  "voiceFrequency": 100,
+  "moonSongHeard": true,
+  "toldAboutHub": true,
+  "toldAboutCompanionGui": true,
+  "chatHeads": true
+}

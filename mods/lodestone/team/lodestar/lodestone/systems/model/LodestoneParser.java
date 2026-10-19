@@ -1,0 +1,23 @@
+package team.lodestar.lodestone.systems.model;
+
+import java.io.IOException;
+import java.util.Optional;
+import net.minecraft.client.Minecraft;
+import net.minecraft.server.packs.resources.Resource;
+
+public abstract class LodestoneParser<M extends IRenderableModel> {
+   public void startParse(M model) {
+      Optional<Resource> resource = Minecraft.getInstance().getResourceManager().getResource(model.getModelLocation());
+      if (resource.isEmpty()) {
+         throw new RuntimeException("Lodestone Model not found at " + model.getModelLocation());
+      }
+
+      try {
+         this.parse(resource.get(), model);
+      } catch (Exception e) {
+         throw new RuntimeException("Error parsing Model file: " + model.getModelLocation(), e);
+      }
+   }
+
+   public abstract void parse(Resource var1, M var2) throws IOException;
+}

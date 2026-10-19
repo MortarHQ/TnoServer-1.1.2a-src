@@ -1,0 +1,16 @@
+package net.jadenxgamer.netherexp.client.rendering.entity;
+
+import net.jadenxgamer.netherexp.NetherExp;
+import net.jadenxgamer.netherexp.core.entity.SlugPellet;
+import net.minecraft.client.renderer.entity.EntityRendererProvider.Context;
+import net.minecraft.resources.ResourceLocation;
+
+public class SlugPelletRenderer extends PelletRenderer<SlugPellet> {
+   public SlugPelletRenderer(Context context) {
+      super(context);
+   }
+
+   public ResourceLocation getTextureLocation(SlugPellet entity) {
+      return NetherExp.netherexpPath("textures/entity/projectiles/slug_pellet.png");
+   }
+}

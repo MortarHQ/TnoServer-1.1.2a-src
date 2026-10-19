@@ -1,0 +1,282 @@
+package it.hurts.sskirillss.relics.items.relics.back;
+
+import com.google.common.collect.Lists;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import it.hurts.sskirillss.relics.api.events.common.ContainerSlotClickEvent;
+import it.hurts.sskirillss.relics.client.models.items.CurioModel;
+import it.hurts.sskirillss.relics.init.DataComponentRegistry;
+import it.hurts.sskirillss.relics.items.relics.base.IRenderableCurio;
+import it.hurts.sskirillss.relics.items.relics.base.RelicItem;
+import it.hurts.sskirillss.relics.items.relics.base.data.RelicData;
+import it.hurts.sskirillss.relics.items.relics.base.data.cast.CastData;
+import it.hurts.sskirillss.relics.items.relics.base.data.cast.misc.CastStage;
+import it.hurts.sskirillss.relics.items.relics.base.data.cast.misc.CastType;
+import it.hurts.sskirillss.relics.items.relics.base.data.cast.misc.PredicateType;
+import it.hurts.sskirillss.relics.items.relics.base.data.leveling.AbilitiesData;
+import it.hurts.sskirillss.relics.items.relics.base.data.leveling.AbilityData;
+import it.hurts.sskirillss.relics.items.relics.base.data.leveling.LevelingData;
+import it.hurts.sskirillss.relics.items.relics.base.data.leveling.StatData;
+import it.hurts.sskirillss.relics.items.relics.base.data.leveling.misc.UpgradeOperation;
+import it.hurts.sskirillss.relics.items.relics.base.data.loot.LootData;
+import it.hurts.sskirillss.relics.items.relics.base.data.loot.misc.LootEntries;
+import it.hurts.sskirillss.relics.utils.MathUtils;
+import java.util.List;
+import net.minecraft.client.model.EntityModel;
+import net.minecraft.client.model.HumanoidModel;
+import net.minecraft.client.model.geom.PartPose;
+import net.minecraft.client.model.geom.builders.CubeDeformation;
+import net.minecraft.client.model.geom.builders.CubeListBuilder;
+import net.minecraft.client.model.geom.builders.LayerDefinition;
+import net.minecraft.client.model.geom.builders.MeshDefinition;
+import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.entity.ItemRenderer;
+import net.minecraft.client.renderer.entity.RenderLayerParent;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.ClickAction;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.RecipeType;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.api.distmarker.OnlyIn;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import top.theillusivec4.curios.api.SlotContext;
+import top.theillusivec4.curios.api.client.ICurioRenderer;
+
+@EventBusSubscriber
+public class ElytraBoosterItem extends RelicItem implements IRenderableCurio {
+   @Override
+   public RelicData constructDefaultRelicData() {
+      return RelicData.builder()
+         .abilities(
+            AbilitiesData.builder()
+               .ability(
+                  AbilityData.builder("boost")
+                     .maxLevel(10)
+                     .active(
+                        CastData.builder()
+                           .type(CastType.CYCLICAL)
+                           .predicate("fuel", PredicateType.CAST, (player, stack) -> (Integer)stack.getOrDefault(DataComponentRegistry.CHARGE, 0) > 0)
+                           .predicate("elytra", PredicateType.CAST, (player, stack) -> player.isFallFlying())
+                           .build()
+                     )
+                     .stat(
+                        StatData.builder("capacity")
+                           .initialValue(50.0, 100.0)
+                           .upgradeModifier(UpgradeOperation.MULTIPLY_BASE, 0.25)
+                           .formatValue(value -> (int)MathUtils.round(value, 0))
+                           .build()
+                     )
+                     .stat(
+                        StatData.builder("speed")
+                           .initialValue(1.1, 1.5)
+                           .upgradeModifier(UpgradeOperation.MULTIPLY_BASE, 0.1)
+                           .formatValue(value -> MathUtils.round(value * 16.0, 1))
+                           .build()
+                     )
+                     .build()
+               )
+               .build()
+         )
+         .leveling(new LevelingData(100, 10, 100))
+         .loot(LootData.builder().entry(LootEntries.THE_END, LootEntries.END_LIKE).build())
+         .build();
+   }
+
+   public int getBreathCapacity(ItemStack stack) {
+      return (int)Math.round(this.getStatValue(stack, "boost", "capacity"));
+   }
+
+   @Override
+   public void castActiveAbility(ItemStack stack, Player player, String ability, CastType type, CastStage stage) {
+      if (ability.equals("boost") && stage == CastStage.TICK) {
+         int fuel = (Integer)stack.getOrDefault(DataComponentRegistry.CHARGE, 0);
+         if (fuel > 0 && player.tickCount % 20 == 0) {
+            stack.set(DataComponentRegistry.CHARGE, --fuel);
+         }
+
+         double speed = (Double)stack.getOrDefault(DataComponentRegistry.SPEED, 0.0);
+         if (player.tickCount % 3 == 0) {
+            double maxSpeed = this.getStatValue(stack, "boost", "speed");
+            if (speed < maxSpeed) {
+               speed = Math.min(maxSpeed, speed + (maxSpeed - 1.0) / 100.0);
+               stack.set(DataComponentRegistry.SPEED, speed);
+            } else {
+               player.startAutoSpinAttack(5, 0.0F, ItemStack.EMPTY);
+            }
+         }
+
+         Vec3 look = player.getLookAngle();
+         Vec3 motion = player.getDeltaMovement();
+         Level world = player.getCommandSenderWorld();
+         RandomSource random = world.getRandom();
+         player.setDeltaMovement(
+            motion.add(
+               look.x * 0.1 + (look.x * speed - motion.x) * 0.5,
+               look.y * 0.1 + (look.y * speed - motion.y) * 0.5,
+               look.z * 0.1 + (look.z * speed - motion.z) * 0.5
+            )
+         );
+
+         for (int i = 0; i < speed * 3.0; i++) {
+            world.addParticle(
+               ParticleTypes.SMOKE,
+               player.getX() + MathUtils.randomFloat(random) * 0.4F,
+               player.getY() + MathUtils.randomFloat(random) * 0.4F,
+               player.getZ() + MathUtils.randomFloat(random) * 0.4F,
+               0.0,
+               0.0,
+               0.0
+            );
+         }
+
+         if (player.tickCount % Math.max(1, (int)Math.round((10.0 - speed * 2.0) / (player.isInWaterOrRain() ? 2 : 1))) == 0) {
+            stack.set(DataComponentRegistry.CHARGE, --fuel);
+         }
+      }
+   }
+
+   public void inventoryTick(ItemStack stack, Level level, Entity entity, int slot, boolean isSelected) {
+      super.inventoryTick(stack, level, entity, slot, isSelected);
+      if (entity instanceof Player player) {
+         double speed = (Double)stack.getOrDefault(DataComponentRegistry.SPEED, 0.0);
+         int fuel = (Integer)stack.getOrDefault(DataComponentRegistry.CHARGE, 0);
+         if (speed > 1.0 && (fuel <= 0 || !player.isFallFlying())) {
+            stack.set(DataComponentRegistry.SPEED, 1.0);
+         }
+      }
+   }
+
+   @Override
+   public ResourceLocation getTexture(ItemStack stack) {
+      return ResourceLocation.fromNamespaceAndPath(
+         "relics", "textures/item/model/elytra_booster_" + (stack.getOrDefault(DataComponentRegistry.CHARGE, 0) > 0 ? 1 : 0) + ".png"
+      );
+   }
+
+   @OnlyIn(Dist.CLIENT)
+   @Override
+   public <T extends LivingEntity, M extends EntityModel<T>> void render(
+      ItemStack stack,
+      SlotContext slotContext,
+      PoseStack matrixStack,
+      RenderLayerParent<T, M> renderLayerParent,
+      MultiBufferSource renderTypeBuffer,
+      int light,
+      float limbSwing,
+      float limbSwingAmount,
+      float partialTicks,
+      float ageInTicks,
+      float netHeadYaw,
+      float headPitch
+   ) {
+      CurioModel model = this.getModel(stack);
+      matrixStack.pushPose();
+      LivingEntity entity = slotContext.entity();
+      model.prepareMobModel(entity, limbSwing, limbSwingAmount, partialTicks);
+      model.setupAnim(entity, limbSwing, limbSwingAmount, ageInTicks, netHeadYaw, headPitch);
+      ICurioRenderer.followBodyRotations(entity, new HumanoidModel[]{model});
+      VertexConsumer vertexconsumer = ItemRenderer.getArmorFoilBuffer(renderTypeBuffer, RenderType.armorCutoutNoCull(this.getTexture(stack)), stack.hasFoil());
+      model.renderToBuffer(matrixStack, vertexconsumer, light, OverlayTexture.NO_OVERLAY);
+      matrixStack.popPose();
+   }
+
+   @OnlyIn(Dist.CLIENT)
+   @Override
+   public LayerDefinition constructLayerDefinition() {
+      MeshDefinition mesh = HumanoidModel.createMesh(new CubeDeformation(0.4F), 0.0F);
+      PartDefinition body = mesh.getRoot().addOrReplaceChild("body", CubeListBuilder.create(), PartPose.offset(0.0F, 0.0F, 0.0F));
+      PartDefinition bone = body.addOrReplaceChild(
+         "bone",
+         CubeListBuilder.create()
+            .texOffs(0, 0)
+            .mirror()
+            .addBox(-5.0F, -0.075F, 1.25F, 10.0F, 6.0F, 4.0F, new CubeDeformation(0.025F))
+            .mirror(false)
+            .texOffs(0, 23)
+            .addBox(-2.0F, -2.0F, 3.75F, 4.0F, 7.0F, 2.0F, new CubeDeformation(0.0F)),
+         PartPose.offsetAndRotation(0.0F, 0.0F, 0.0F, 0.25F, 0.0F, 0.0F)
+      );
+      PartDefinition cube_r1 = bone.addOrReplaceChild(
+         "cube_r1",
+         CubeListBuilder.create()
+            .texOffs(28, 0)
+            .addBox(-3.75F, -11.0F, -1.001F, 1.0F, 3.0F, 4.0F, new CubeDeformation(0.0F))
+            .texOffs(0, 10)
+            .mirror()
+            .addBox(-3.75F, -8.0F, -1.0F, 6.0F, 8.0F, 5.0F, new CubeDeformation(0.0F))
+            .mirror(false),
+         PartPose.offsetAndRotation(-3.0F, 11.25F, 2.25F, 0.0F, 0.0F, 0.1309F)
+      );
+      PartDefinition cube_r2 = bone.addOrReplaceChild(
+         "cube_r2",
+         CubeListBuilder.create()
+            .texOffs(28, 0)
+            .mirror()
+            .addBox(2.75F, -11.0F, -1.001F, 1.0F, 3.0F, 4.0F, new CubeDeformation(0.0F))
+            .mirror(false)
+            .texOffs(0, 10)
+            .addBox(-2.25F, -8.0F, -1.0F, 6.0F, 8.0F, 5.0F, new CubeDeformation(0.0F)),
+         PartPose.offsetAndRotation(3.0F, 11.25F, 2.25F, 0.0F, 0.0F, -0.1309F)
+      );
+      PartDefinition cube_r3 = bone.addOrReplaceChild(
+         "cube_r3",
+         CubeListBuilder.create().texOffs(28, 7).mirror().addBox(-0.15F, -2.975F, -1.8F, 4.0F, 2.0F, 2.0F, new CubeDeformation(0.0F)).mirror(false),
+         PartPose.offsetAndRotation(-8.7786F, 3.4288F, 4.25F, 0.0F, 0.0F, 0.5236F)
+      );
+      PartDefinition cube_r4 = bone.addOrReplaceChild(
+         "cube_r4",
+         CubeListBuilder.create().texOffs(28, 7).addBox(-3.875F, -2.975F, -1.8F, 4.0F, 2.0F, 2.0F, new CubeDeformation(0.0F)),
+         PartPose.offsetAndRotation(8.7786F, 3.4288F, 4.25F, 0.0F, 0.0F, -0.5236F)
+      );
+      return LayerDefinition.create(mesh, 64, 64);
+   }
+
+   @Override
+   public List<String> headParts() {
+      return Lists.newArrayList(new String[]{"body"});
+   }
+
+   @SubscribeEvent
+   public static void onSlotClick(ContainerSlotClickEvent event) {
+      if (event.getAction() == ClickAction.PRIMARY) {
+         Player player = event.getEntity();
+         ItemStack heldStack = event.getHeldStack();
+         ItemStack slotStack = event.getSlotStack();
+         if (slotStack.getItem() instanceof ElytraBoosterItem booster) {
+            int var11 = heldStack.getBurnTime(RecipeType.SMELTING) / 20;
+            int amount = (Integer)slotStack.getOrDefault(DataComponentRegistry.CHARGE, 0);
+            int capacity = booster.getBreathCapacity(slotStack);
+            int sum = amount + var11;
+            if (var11 > 0) {
+               slotStack.set(DataComponentRegistry.CHARGE, Math.min(capacity, sum));
+               int left = sum > capacity ? var11 - (sum - capacity) : var11;
+               booster.spreadRelicExperience(player, slotStack, (int)Math.floor(left / 10.0F));
+               ItemStack result = heldStack.getCraftingRemainingItem();
+               heldStack.shrink(1);
+               if (!result.isEmpty()) {
+                  if (heldStack.isEmpty()) {
+                     player.containerMenu.setCarried(result);
+                  } else {
+                     player.getInventory().add(result);
+                  }
+               }
+
+               player.playSound(SoundEvents.BLAZE_SHOOT, 0.75F, 2.0F / (var11 * 0.025F));
+               event.setCanceled(true);
+            }
+         }
+      }
+   }
+}

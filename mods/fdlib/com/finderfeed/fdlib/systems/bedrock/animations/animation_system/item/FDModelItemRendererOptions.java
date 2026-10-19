@@ -1,0 +1,77 @@
+package com.finderfeed.fdlib.systems.bedrock.animations.animation_system.item;
+
+import com.finderfeed.fdlib.systems.bedrock.models.FDModelInfo;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Function;
+import java.util.function.Supplier;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.world.item.ItemDisplayContext;
+import org.joml.Vector3f;
+
+public class FDModelItemRendererOptions {
+   protected List<FDItemModelOptions> fdItemModelOptions = new ArrayList<>();
+   protected Function<ItemDisplayContext, Vector3f> rotation = t -> new Vector3f();
+   protected Function<ItemDisplayContext, Float> scale = t -> t == ItemDisplayContext.GUI ? 0.6F : 0.35F;
+   protected Function<ItemDisplayContext, Vector3f> translation = t -> new Vector3f();
+   protected FDFreeItemRenderer freeItemRenderer;
+
+   public FDModelItemRendererOptions freeRender(FDFreeItemRenderer renderer) {
+      this.freeItemRenderer = renderer;
+      return this;
+   }
+
+   public FDModelItemRendererOptions addModel(Supplier<FDModelInfo> info, RenderType renderType) {
+      this.fdItemModelOptions.add(FDItemModelOptions.builder().modelInfo(info).renderType(renderType).build());
+      return this;
+   }
+
+   public FDModelItemRendererOptions addModel(FDItemModelOptions options) {
+      this.fdItemModelOptions.add(options);
+      return this;
+   }
+
+   public FDModelItemRendererOptions addRotation3(Function<ItemDisplayContext, Vector3f> rotation) {
+      this.rotation = rotation;
+      return this;
+   }
+
+   public FDModelItemRendererOptions addRotation3(Vector3f rotation) {
+      this.rotation = ctx -> rotation;
+      return this;
+   }
+
+   public FDModelItemRendererOptions addRotation(Function<ItemDisplayContext, Float> yRotation) {
+      this.rotation = ctx -> new Vector3f(0.0F, yRotation.apply(ctx), 0.0F);
+      return this;
+   }
+
+   public FDModelItemRendererOptions setScale(Function<ItemDisplayContext, Float> scaling) {
+      this.scale = scaling;
+      return this;
+   }
+
+   public FDModelItemRendererOptions addTranslation(Function<ItemDisplayContext, Vector3f> translation) {
+      this.translation = translation;
+      return this;
+   }
+
+   public FDModelItemRendererOptions addRotation(float rotation) {
+      this.rotation = t -> new Vector3f(0.0F, rotation, 0.0F);
+      return this;
+   }
+
+   public FDModelItemRendererOptions setScale(float scale) {
+      this.scale = t -> scale;
+      return this;
+   }
+
+   public FDModelItemRendererOptions addTranslation(Vector3f translation) {
+      this.translation = t -> translation;
+      return this;
+   }
+
+   public static FDModelItemRendererOptions create() {
+      return new FDModelItemRendererOptions();
+   }
+}

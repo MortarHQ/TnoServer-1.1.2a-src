@@ -1,0 +1,19 @@
+package cn.leolezury.eternalstarlight.common.client.renderer.entity;
+
+import cn.leolezury.eternalstarlight.common.EternalStarlight;
+import cn.leolezury.eternalstarlight.common.entity.projectile.VoraciousArrow;
+import net.minecraft.client.renderer.entity.ArrowRenderer;
+import net.minecraft.client.renderer.entity.EntityRendererProvider.Context;
+import net.minecraft.resources.ResourceLocation;
+
+public class VoraciousArrowRenderer extends ArrowRenderer<VoraciousArrow> {
+   public static final ResourceLocation ARROW_LOCATION = EternalStarlight.id("textures/entity/voracious_arrow.png");
+
+   public VoraciousArrowRenderer(Context context) {
+      super(context);
+   }
+
+   public ResourceLocation getTextureLocation(VoraciousArrow arrow) {
+      return ARROW_LOCATION;
+   }
+}

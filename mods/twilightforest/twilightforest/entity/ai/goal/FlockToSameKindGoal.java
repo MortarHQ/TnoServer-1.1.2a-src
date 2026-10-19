@@ -1,0 +1,87 @@
+package twilightforest.entity.ai.goal;
+
+import java.util.List;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.goal.Goal;
+import net.minecraft.world.phys.Vec3;
+import twilightforest.data.tags.ItemTagGenerator;
+import twilightforest.entity.monster.Kobold;
+
+public class FlockToSameKindGoal extends Goal {
+   private static final double MAX_DIST = 256.0;
+   private static final double MIN_DIST = 25.0;
+   private final Mob flockCreature;
+   private Vec3 flockPosition;
+   final double speed;
+   private int moveTimer;
+
+   public FlockToSameKindGoal(Mob living, double speed) {
+      this.flockCreature = living;
+      this.speed = speed;
+   }
+
+   public boolean canUse() {
+      if (this.flockCreature instanceof Kobold kobold && kobold.getItemBySlot(EquipmentSlot.MAINHAND).is(ItemTagGenerator.KOBOLD_PACIFICATION_BREADS)) {
+         return false;
+      } else {
+         if (this.flockCreature.getRandom().nextInt(40) != 0) {
+            return false;
+         }
+
+         List<? extends Mob> flockList = this.flockCreature
+            .level()
+            .getEntitiesOfClass(this.flockCreature.getClass(), this.flockCreature.getBoundingBox().inflate(16.0, 4.0, 16.0));
+         if (flockList.size() > 5) {
+            return false;
+         }
+
+         int flocknum = 0;
+         double flockX = 0.0;
+         double flockY = 0.0;
+         double flockZ = 0.0;
+
+         for (LivingEntity flocker : flockList) {
+            flocknum++;
+            flockX += flocker.getX();
+            flockY += flocker.getY();
+            flockZ += flocker.getZ();
+         }
+
+         flockX /= flocknum;
+         flockY /= flocknum;
+         flockZ /= flocknum;
+         if (this.flockCreature.distanceToSqr(flockX, flockY, flockZ) < 25.0) {
+            return false;
+         }
+
+         this.flockPosition = new Vec3(flockX, flockY, flockZ);
+         return true;
+      }
+   }
+
+   public boolean canContinueToUse() {
+      if (this.flockPosition == null) {
+         return false;
+      }
+
+      double distance = this.flockCreature.distanceToSqr(this.flockPosition.x(), this.flockPosition.y(), this.flockPosition.z());
+      return distance >= 25.0 && distance <= 256.0;
+   }
+
+   public void start() {
+      this.moveTimer = 0;
+   }
+
+   public void stop() {
+      this.flockPosition = null;
+   }
+
+   public void tick() {
+      if (--this.moveTimer <= 0) {
+         this.moveTimer = 10;
+         this.flockCreature.getNavigation().moveTo(this.flockPosition.x(), this.flockPosition.y(), this.flockPosition.z(), this.speed);
+      }
+   }
+}

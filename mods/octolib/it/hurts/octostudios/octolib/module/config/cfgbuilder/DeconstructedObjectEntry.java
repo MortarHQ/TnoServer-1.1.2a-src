@@ -1,0 +1,14 @@
+package it.hurts.octostudios.octolib.module.config.cfgbuilder;
+
+public class DeconstructedObjectEntry extends CompoundEntry {
+   public static final CfgTag DECONSTRUCTED_CFG_TAG = new CfgTag(DeconstructedObjectEntry.class);
+
+   public DeconstructedObjectEntry(CfgTag tag, CompoundEntry compoundEntry) {
+      super(tag);
+      this.map.putAll(compoundEntry.map);
+   }
+
+   public DeconstructedObjectEntry(CfgTag tag) {
+      super(tag);
+   }
+}

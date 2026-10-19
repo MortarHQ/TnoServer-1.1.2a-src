@@ -1,0 +1,38 @@
+package dev.ftb.mods.ftbteams.net;
+
+import dev.architectury.networking.NetworkManager;
+import dev.architectury.networking.NetworkManager.PacketContext;
+import dev.ftb.mods.ftblibrary.util.NetworkHelper;
+import dev.ftb.mods.ftbteams.api.FTBTeamsAPI;
+import dev.ftb.mods.ftbteams.data.PlayerPermissions;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload.Type;
+import net.minecraft.server.level.ServerPlayer;
+
+public record OpenGUIMessage() implements CustomPacketPayload {
+   public static final Type<OpenGUIMessage> TYPE = new Type(FTBTeamsAPI.rl("open_gui"));
+   private static final OpenGUIMessage INSTANCE = new OpenGUIMessage();
+   public static final StreamCodec<FriendlyByteBuf, OpenGUIMessage> STREAM_CODEC = StreamCodec.unit(INSTANCE);
+
+   public static void handle(OpenGUIMessage message, PacketContext context) {
+      context.queue(
+         () -> {
+            ServerPlayer player = (ServerPlayer)context.getPlayer();
+            FTBTeamsAPI.api()
+               .getManager()
+               .getTeamForPlayer(player)
+               .ifPresent(team -> NetworkHelper.sendTo(player, new OpenMyTeamGUIMessage(team.getProperties(), PlayerPermissions.forPlayer(player))));
+         }
+      );
+   }
+
+   public static void sendToServer() {
+      NetworkManager.sendToServer(INSTANCE);
+   }
+
+   public Type<OpenGUIMessage> type() {
+      return TYPE;
+   }
+}

@@ -1,0 +1,53 @@
+package com.finderfeed.raids_enhanced.content.particles.vertical_lightning;
+
+import com.finderfeed.raids_enhanced.content.particles.AnimatedSpriteParticle;
+import com.finderfeed.raids_enhanced.content.particles.SimpleTexturedParticleOptions;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.particle.Particle;
+import net.minecraft.client.particle.ParticleProvider;
+import net.minecraft.client.particle.ParticleRenderType;
+import net.minecraft.client.particle.SpriteSet;
+import net.minecraft.client.particle.SingleQuadParticle.FacingCameraMode;
+import org.jetbrains.annotations.Nullable;
+
+public class VerticalLightningParticle extends AnimatedSpriteParticle {
+   public VerticalLightningParticle(
+      SpriteSet spriteSet, SimpleTexturedParticleOptions options, ClientLevel level, double x, double y, double z, double xd, double yd, double zd
+   ) {
+      super(spriteSet, options, level, x, y, z, xd, yd, zd);
+   }
+
+   public ParticleRenderType getRenderType() {
+      return ParticleRenderType.PARTICLE_SHEET_LIT;
+   }
+
+   public FacingCameraMode getFacingCameraMode() {
+      return FacingCameraMode.LOOKAT_Y;
+   }
+
+   protected int getLightColor(float p_107249_) {
+      return 15728880;
+   }
+
+   public static class Provider implements ParticleProvider<SimpleTexturedParticleOptions> {
+      private SpriteSet spriteSet;
+
+      public Provider(SpriteSet spriteSet) {
+         this.spriteSet = spriteSet;
+      }
+
+      @Nullable
+      public Particle createParticle(
+         SimpleTexturedParticleOptions p_107421_,
+         ClientLevel p_107422_,
+         double p_107423_,
+         double p_107424_,
+         double p_107425_,
+         double p_107426_,
+         double p_107427_,
+         double p_107428_
+      ) {
+         return new VerticalLightningParticle(this.spriteSet, p_107421_, p_107422_, p_107423_, p_107424_, p_107425_, p_107426_, p_107427_, p_107428_);
+      }
+   }
+}

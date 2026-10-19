@@ -1,0 +1,63 @@
+package com.blamejared.crafttweaker.api.action.villager;
+
+import com.blamejared.crafttweaker.api.villager.ITradeRemover;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import java.util.ArrayList;
+import java.util.List;
+import net.minecraft.world.entity.npc.VillagerTrades;
+import net.minecraft.world.entity.npc.VillagerTrades.ItemListing;
+
+public class ActionRemoveWanderingTrade extends ActionTradeBase {
+   private final ITradeRemover tradeRemover;
+   private final List<ItemListing> removed;
+
+   public ActionRemoveWanderingTrade(int level, ITradeRemover tradeRemover) {
+      super(level);
+      this.tradeRemover = tradeRemover;
+      this.removed = new ArrayList<>();
+   }
+
+   @Override
+   protected Int2ObjectMap<ItemListing[]> getTrades() {
+      return VillagerTrades.WANDERING_TRADER_TRADES;
+   }
+
+   @Override
+   public void apply() {
+      List<ItemListing> tradeList = this.getTradeList();
+      this.apply(tradeList);
+      this.setTradeList(tradeList);
+   }
+
+   @Override
+   public void apply(List<ItemListing> tradeList) {
+      tradeList.forEach(iTrade -> {
+         if (this.tradeRemover.shouldRemove(iTrade)) {
+            this.removed.add(iTrade);
+         }
+      });
+      tradeList.removeAll(this.removed);
+   }
+
+   @Override
+   public String describe() {
+      return String.format("Removing Wandering Trader trade for Level: '%s'", this.level);
+   }
+
+   @Override
+   public void undo() {
+      List<ItemListing> tradeList = this.getTradeList();
+      this.undo(tradeList);
+      this.setTradeList(tradeList);
+   }
+
+   @Override
+   public void undo(List<ItemListing> tradeList) {
+      tradeList.addAll(this.removed);
+   }
+
+   @Override
+   public String describeUndo() {
+      return String.format("Undoing removal of Wandering Trader trade for Level: '%s'", this.level);
+   }
+}

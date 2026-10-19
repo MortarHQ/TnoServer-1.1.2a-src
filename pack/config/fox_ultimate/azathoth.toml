@@ -1,0 +1,83 @@
+[Azathoth]
+	#Enable automatic Azathoth acquisition when all requirements are met. Prerequisite skills are always retained.
+	acquisitionEnabled = true
+	#Required permanent skill IDs. Every listed skill is required; temporary and sub-instance copies do not count. Invalid or empty lists disable acquisition.
+	acquisitionRequiredSkills = ["foxablazeultimate:raphael", "foxablazeultimate:beelzebuth", "foxablazeultimate:veldora", "foxablazeultimate:velgrynd"]
+	#Require every prerequisite skill to be mastered. False requires permanent ownership only.
+	acquisitionRequiresMastery = true
+	#Current magicules consumed once on successful acquisition. Does not reduce permanent maximum magicules and is not reduced by skill-use discounts.
+	acquisitionMagiculeCost = 500000.0
+	#Internal migration version for acquisition-cost defaults (50M, then 5M, now 500K). Keep this value when editing the cost.
+	acquisitionCostRevision = 2
+	#Ticks between automatic acquisition checks. 20 ticks = 1 second; minimum 1 tick.
+	acquisitionCheckIntervalTicks = 20
+	#Initial mastery of the acquired Azathoth skill, clamped to its maximum mastery.
+	acquisitionGrantMastery = 0
+	#Soul Gluttony magicule cost per attempt.
+	soulMagiculeCost = 5000.0
+	#Soul Gluttony cooldown in seconds.
+	soulCooldownSeconds = 10
+	#Soul Gluttony aiming distance in blocks.
+	soulRange = 20.0
+	#Ticks continuously aiming at the same target before Soul Gluttony attempts to consume it.
+	soulHoldTicks = 20
+	#Targets above this maximum health must first be weakened.
+	soulStrongTargetHealth = 100.0
+	#Maximum remaining health fraction for strong targets. 0.1 = 10%.
+	soulStrongTargetHealthFraction = 0.1
+	#Fraction of Tensura's eligible EP reward converted to permanent EP. Respects no-plunder and summon exclusions.
+	soulEpGainFraction = 0.1
+	#Fraction of the victim's current magicules recovered on successful consumption.
+	soulMagiculeGainFraction = 1.0
+	#Recoverable magicules per point of the victim's maximum health.
+	soulBodyMagiculesPerHealth = 10.0
+	#Barrier and resistance penetration after mastery. Tensura Anti-Skill requires at least 3.
+	masteredPenetration = 3.0
+	#Void Collapse magicule cost per charge, paid once.
+	voidMagiculeCost = 50000.0
+	#Maximum Void Collapse cooldown in seconds at full charge. Shorter charges scale proportionally, rounded up to whole seconds. Begins when energy is stored.
+	voidCooldownSeconds = 1200
+	#Maximum charge time in seconds.
+	voidMaxChargeSeconds = 60
+	#Elemental damage at full charge. Partial charges scale linearly.
+	voidFullChargeDamage = 1000.0
+	#Additional fraction of main-hand attack damage when discharging a charged weapon.
+	voidWeaponDamageFraction = 0.1
+	#Ordinary and mastered independent storage page counts; 27 slots per page.
+	storagePages = 20
+	storageMasteredPages = 30
+	storageMaxStackSize = 999
+	#Spatial sight teleport range in blocks.
+	teleportRange = 64.0
+	teleportMagiculeCost = 4000.0
+	teleportCooldownSeconds = 30
+	#Warp Portal cost per block, using Tensura's native portal menu and travel mechanics.
+	portalMagiculeCostPerBlock = 50.0
+	portalChargeTicks = 20
+	portalCooldownSeconds = 30
+	#Dragon Liberation magicule cost and cooldown (seconds).
+	dragonMagiculeCost = 50000.0
+	dragonCooldownSeconds = 60
+	#Maximum simultaneously active dragon avatars per owner.
+	maxDragonAvatars = 3
+	dragonDurationSeconds = 300
+	dragonAttackRange = 24.0
+	dragonElementalDamage = 80.0
+	dragonAttackIntervalTicks = 40
+	scorchingAttackSpeedBonus = 1.0
+	scorchingDamageMultiplier = 1.5
+	stormMovementBonus = 0.5
+	stormAreaRadius = 5.0
+	frostArmorBonus = 30.0
+	frostDamageReduction = 0.5
+	frostSlowSeconds = 5
+	frostSlowAmplifier = 2
+	#Multidimensional Barrier damage reduction fractions. Uses the highest applicable reduction, without multiplying overlapping categories.
+	physicalDamageReduction = 0.7
+	elementalDamageReduction = 0.7
+	projectileDamageReduction = 0.8
+	ultimateDamageReduction = 0.8
+	#Soul Gluttony area submode radius in blocks. Uses the same cost, hold time, cooldown and strong-target health requirement as individual mode.
+	soulAreaRadius = 40.0
+	#With Azathoth's passive enabled, a left-click attack instantly destroys a Tensura barrier entity.
+	breakBarriersOnAttack = true

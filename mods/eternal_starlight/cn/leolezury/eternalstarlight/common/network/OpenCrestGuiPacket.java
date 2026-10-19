@@ -1,0 +1,34 @@
+package cn.leolezury.eternalstarlight.common.network;
+
+import cn.leolezury.eternalstarlight.common.EternalStarlight;
+import cn.leolezury.eternalstarlight.common.crest.Crest;
+import cn.leolezury.eternalstarlight.common.util.ESMiscUtil;
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+import java.util.List;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload.Type;
+import net.minecraft.world.entity.player.Player;
+
+public record OpenCrestGuiPacket(List<Crest.Instance> crests, List<Crest.Instance> ownedCrests) implements CustomPacketPayload {
+   public static final Type<OpenCrestGuiPacket> TYPE = new Type(EternalStarlight.id("open_crest_gui"));
+   public static final Codec<OpenCrestGuiPacket> CODEC = RecordCodecBuilder.create(
+      instance -> instance.group(
+            Crest.Instance.LIST_CODEC.fieldOf("crests").forGetter(OpenCrestGuiPacket::crests),
+            Crest.Instance.LIST_CODEC.fieldOf("owned_crests").forGetter(OpenCrestGuiPacket::ownedCrests)
+         )
+         .apply(instance, OpenCrestGuiPacket::new)
+   );
+   public static final StreamCodec<RegistryFriendlyByteBuf, OpenCrestGuiPacket> STREAM_CODEC = ByteBufCodecs.fromCodecWithRegistries(CODEC);
+
+   public static void handle(OpenCrestGuiPacket packet, Player player) {
+      ESMiscUtil.runWhenOnClient(() -> () -> EternalStarlight.getClientHelper().handleOpenCrestGui(packet));
+   }
+
+   public Type<? extends CustomPacketPayload> type() {
+      return TYPE;
+   }
+}

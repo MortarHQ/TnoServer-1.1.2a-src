@@ -1,0 +1,60 @@
+package net.regions_unexplored.world.level.feature;
+
+import com.mojang.serialization.Codec;
+import java.util.Random;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.LevelAccessor;
+import net.minecraft.world.level.LevelSimulatedReader;
+import net.minecraft.world.level.WorldGenLevel;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.LeavesBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.feature.Feature;
+import net.minecraft.world.level.levelgen.feature.FeaturePlaceContext;
+import net.regions_unexplored.registry.tag.RUBlockTags;
+import net.regions_unexplored.world.level.feature.configuration.SmallBushConfiguration;
+
+public class SmallBushFeature extends Feature<SmallBushConfiguration> {
+   public SmallBushFeature(Codec<SmallBushConfiguration> codec) {
+      super(codec);
+   }
+
+   public boolean place(FeaturePlaceContext<SmallBushConfiguration> context) {
+      SmallBushConfiguration bushConfig = (SmallBushConfiguration)context.config();
+      BlockPos pos = context.origin();
+      RandomSource randomSource = context.random();
+      WorldGenLevel level = context.level();
+      if (level.getBlockState(pos).canBeReplaced() && !level.getBlockState(pos).is(Blocks.WATER)) {
+         this.placeLeavesBlock(level, pos, randomSource, bushConfig);
+         if (randomSource.nextInt(2) == 0) {
+            this.placeLeavesBlock(level, pos.above(), randomSource, bushConfig);
+         }
+
+         return true;
+      } else {
+         return false;
+      }
+   }
+
+   public boolean placeLeavesBlock(LevelAccessor level, BlockPos pos, RandomSource randomSource, SmallBushConfiguration bushConfig) {
+      new Random();
+      if (level.isOutsideBuildHeight(pos)) {
+         return true;
+      }
+
+      if (level.getBlockState(pos).canBeReplaced()) {
+         level.setBlock(pos, (BlockState)bushConfig.foliageProvider.getState(randomSource, pos).setValue(LeavesBlock.DISTANCE, 1), 2);
+      }
+
+      return true;
+   }
+
+   public static boolean isReplaceableBlock(BlockState state) {
+      return state.is(RUBlockTags.REPLACEABLE_BLOCKS);
+   }
+
+   public static boolean isReplaceable(LevelSimulatedReader reader, BlockPos pos) {
+      return reader.isStateAtPosition(pos, SmallBushFeature::isReplaceableBlock);
+   }
+}

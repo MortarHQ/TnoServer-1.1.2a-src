@@ -1,0 +1,50 @@
+package com.iafenvoy.iceandfire.entity.ai;
+
+import com.iafenvoy.iceandfire.entity.DeathWormEntity;
+import com.iafenvoy.iceandfire.registry.IafEntities;
+import java.util.EnumSet;
+import java.util.function.Predicate;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.PathfinderMob;
+import net.minecraft.world.entity.ai.goal.Goal.Flag;
+import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
+import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.AABB;
+
+public class DeathWormAITargetGoal<T extends LivingEntity> extends NearestAttackableTargetGoal<T> {
+   private final DeathWormEntity deathworm;
+
+   public DeathWormAITargetGoal(DeathWormEntity entityIn, Class<T> classTarget, boolean checkSight, Predicate<LivingEntity> targetPredicate) {
+      super(entityIn, classTarget, 20, checkSight, false, targetPredicate);
+      this.deathworm = entityIn;
+      this.setFlags(EnumSet.of(Flag.TARGET));
+   }
+
+   public boolean canUse() {
+      boolean canUse = super.canUse();
+      if (canUse && this.target != null && this.target.getType() != IafEntities.DEATH_WORM.get()) {
+         if (this.target instanceof Player && !this.deathworm.isOwnedBy(this.target)) {
+            return !this.deathworm.isTame();
+         }
+
+         if (this.deathworm.isOwnedBy(this.target)) {
+            return false;
+         }
+
+         if (this.target instanceof Monster && this.deathworm.getWormAge() > 2) {
+            if (this.target instanceof PathfinderMob) {
+               return this.deathworm.getWormAge() > 3;
+            }
+
+            return true;
+         }
+      }
+
+      return false;
+   }
+
+   protected AABB getTargetSearchArea(double targetDistance) {
+      return this.deathworm.getBoundingBox().inflate(targetDistance, 6.0, targetDistance);
+   }
+}

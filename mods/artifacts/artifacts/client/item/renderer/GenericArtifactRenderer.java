@@ -1,0 +1,71 @@
+package artifacts.client.item.renderer;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.client.model.HumanoidModel;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.entity.ItemRenderer;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.monster.Ghast;
+import net.minecraft.world.item.ItemStack;
+
+public class GenericArtifactRenderer implements ArtifactRenderer {
+   private final ResourceLocation texture;
+   private final HumanoidModel<LivingEntity> model;
+
+   public GenericArtifactRenderer(String name, HumanoidModel<LivingEntity> model) {
+      this(ArtifactRenderer.getTexturePath(name), model);
+   }
+
+   public GenericArtifactRenderer(ResourceLocation texture, HumanoidModel<LivingEntity> model) {
+      this.texture = texture;
+      this.model = model;
+   }
+
+   protected ResourceLocation getTexture() {
+      return this.texture;
+   }
+
+   protected HumanoidModel<LivingEntity> getModel() {
+      return this.model;
+   }
+
+   @Override
+   public void render(
+      ItemStack stack,
+      LivingEntity entity,
+      int slotIndex,
+      PoseStack poseStack,
+      MultiBufferSource multiBufferSource,
+      int light,
+      float limbSwing,
+      float limbSwingAmount,
+      float partialTicks,
+      float ageInTicks,
+      float netHeadYaw,
+      float headPitch
+   ) {
+      poseStack.pushPose();
+      HumanoidModel<LivingEntity> model = this.getModel();
+      model.setupAnim(entity, limbSwing, limbSwingAmount, ageInTicks, netHeadYaw, headPitch);
+      model.prepareMobModel(entity, limbSwing, limbSwingAmount, partialTicks);
+      ArtifactRenderer.followBodyRotations(entity, model);
+      if (entity instanceof Ghast) {
+         model.head.yRot = model.body.yRot;
+         poseStack.scale(2.5F, 2.5F, 2.5F);
+         poseStack.translate(0.0, -0.15625, 0.0);
+      }
+
+      this.render(poseStack, multiBufferSource, light, stack.hasFoil());
+      poseStack.popPose();
+   }
+
+   protected void render(PoseStack matrixStack, MultiBufferSource buffer, int light, boolean hasFoil) {
+      RenderType renderType = this.model.renderType(this.getTexture());
+      VertexConsumer vertexBuilder = ItemRenderer.getFoilBuffer(buffer, renderType, false, hasFoil);
+      this.model.renderToBuffer(matrixStack, vertexBuilder, light, OverlayTexture.NO_OVERLAY, -1);
+   }
+}

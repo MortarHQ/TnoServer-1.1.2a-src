@@ -1,0 +1,78 @@
+package com.iafenvoy.iceandfire.item.block;
+
+import com.iafenvoy.iceandfire.item.block.util.DragonProof;
+import com.iafenvoy.iceandfire.item.block.util.DreadBlock;
+import com.iafenvoy.iceandfire.registry.IafBlocks;
+import com.iafenvoy.iceandfire.registry.IafItems;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.ItemInteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.BlockBehaviour.Properties;
+import net.minecraft.world.level.block.state.StateDefinition.Builder;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.state.properties.NoteBlockInstrument;
+import net.minecraft.world.level.block.state.properties.Property;
+import net.minecraft.world.level.material.MapColor;
+import net.minecraft.world.phys.BlockHitResult;
+
+public class DreadWoodLockBlock extends Block implements DragonProof, DreadBlock {
+   public static final BooleanProperty PLAYER_PLACED = BooleanProperty.create("player_placed");
+
+   public DreadWoodLockBlock() {
+      super(Properties.of().mapColor(MapColor.WOOD).instrument(NoteBlockInstrument.BASS).ignitedByLava().strength(-1.0F, 1000000.0F).sound(SoundType.WOOD));
+      this.registerDefaultState((BlockState)((BlockState)this.getStateDefinition().any()).setValue(PLAYER_PLACED, Boolean.FALSE));
+   }
+
+   public float getDestroyProgress(BlockState state, Player player, BlockGetter worldIn, BlockPos pos) {
+      if ((Boolean)state.getValue(PLAYER_PLACED)) {
+         float f = 8.0F;
+         return player.getDestroySpeed(state) / f / 30.0F;
+      } else {
+         return super.getDestroyProgress(state, player, worldIn, pos);
+      }
+   }
+
+   protected ItemInteractionResult useItemOn(
+      ItemStack stack, BlockState state, Level world, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit
+   ) {
+      if (stack.is((Item)IafItems.DREAD_KEY.get())) {
+         if (!player.isCreative()) {
+            stack.shrink(1);
+         }
+
+         this.deleteNearbyWood(world, pos, pos);
+         world.playLocalSound(pos.getX(), pos.getY(), pos.getZ(), SoundEvents.ZOMBIE_ATTACK_IRON_DOOR, SoundSource.BLOCKS, 1.0F, 1.0F, false);
+         world.playLocalSound(pos.getX(), pos.getY(), pos.getZ(), SoundEvents.CHEST_OPEN, SoundSource.BLOCKS, 1.0F, 2.0F, false);
+      }
+
+      return ItemInteractionResult.SUCCESS;
+   }
+
+   private void deleteNearbyWood(Level world, BlockPos pos, BlockPos startPos) {
+      if (pos.distSqr(startPos) < 32.0
+         && (world.getBlockState(pos).is((Block)IafBlocks.DREADWOOD_PLANKS.get()) || world.getBlockState(pos).is((Block)IafBlocks.DREADWOOD_PLANKS_LOCK.get()))
+         )
+       {
+         world.destroyBlock(pos, false);
+
+         for (Direction facing : Direction.values()) {
+            this.deleteNearbyWood(world, pos.relative(facing), startPos);
+         }
+      }
+   }
+
+   protected void createBlockStateDefinition(Builder<Block, BlockState> builder) {
+      builder.add(new Property[]{PLAYER_PLACED});
+   }
+}

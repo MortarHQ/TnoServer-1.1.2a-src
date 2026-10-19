@@ -1,0 +1,73 @@
+package com.iafenvoy.iceandfire.item.block.entity;
+
+import com.iafenvoy.iceandfire.config.IafCommonConfig;
+import com.iafenvoy.iceandfire.entity.GhostEntity;
+import com.iafenvoy.iceandfire.registry.IafBlockEntities;
+import com.iafenvoy.iceandfire.registry.IafEntities;
+import java.util.concurrent.ThreadLocalRandom;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup.Provider;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.MobSpawnType;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.entity.ChestBlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+
+public class GhostChestBlockEntity extends ChestBlockEntity {
+   private boolean generatedGhost = false;
+
+   public GhostChestBlockEntity(BlockPos pos, BlockState state) {
+      super((BlockEntityType)IafBlockEntities.GHOST_CHEST.get(), pos, state);
+   }
+
+   protected void loadAdditional(CompoundTag nbt, Provider registryLookup) {
+      super.loadAdditional(nbt, registryLookup);
+      this.generatedGhost = nbt.getBoolean("generatedGhost");
+   }
+
+   protected void saveAdditional(CompoundTag nbt, Provider registryLookup) {
+      super.saveAdditional(nbt, registryLookup);
+      nbt.putBoolean("generatedGhost", this.generatedGhost);
+   }
+
+   public void startOpen(Player player) {
+      super.startOpen(player);
+      assert this.level != null;
+      if ((!this.generatedGhost || (Boolean)IafCommonConfig.INSTANCE.ghost.alwaysSpawnFromChest.getValue())
+         && this.level.getDifficulty() != Difficulty.PEACEFUL) {
+         this.generatedGhost = true;
+         GhostEntity ghost = (GhostEntity)((EntityType)IafEntities.GHOST.get()).create(this.level);
+         assert ghost != null;
+         ghost.absMoveTo(
+            this.worldPosition.getX() + 0.5F,
+            this.worldPosition.getY() + 0.5F,
+            this.worldPosition.getZ() + 0.5F,
+            ThreadLocalRandom.current().nextFloat() * 360.0F,
+            0.0F
+         );
+         if (this.level instanceof ServerLevel serverWorld) {
+            ghost.finalizeSpawn(serverWorld, this.level.getCurrentDifficultyAt(this.worldPosition), MobSpawnType.SPAWNER, null);
+            if (!player.isCreative()) {
+               ghost.setTarget(player);
+            }
+
+            ghost.setPersistenceRequired();
+            this.level.addFreshEntity(ghost);
+         }
+
+         ghost.setAnimation(GhostEntity.ANIMATION_SCARE);
+         ghost.restrictTo(this.worldPosition, 4);
+         ghost.setFromChest(true);
+      }
+   }
+
+   protected void signalOpenCount(Level level, BlockPos pos, BlockState state, int p_155336_, int p_155337_) {
+      super.signalOpenCount(level, pos, state, p_155336_, p_155337_);
+      level.updateNeighborsAt(pos.below(), state.getBlock());
+   }
+}

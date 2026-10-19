@@ -1,0 +1,13 @@
+[YogSothoth]
+	#Permanent maximum-magicule capacity consumed when the four prerequisite skills evolve into Yog-Sothoth.
+	acquisitionMaximumMagiculeCost = 5000000.0
+	#Mastery granted when Yog-Sothoth is acquired.
+	acquisitionGrantMastery = 0
+	#Magicules consumed once per second while Time Stop is active. This is current magicule, not permanent capacity.
+	timeStopMagiculeCostPerSecond = 100000.0
+	#Ticks between Time Stop magicule drains. 20 ticks equals one second.
+	timeStopDrainIntervalTicks = 20
+	#Number of pages in Yog-Sothoth's imaginary space. Each page contains 27 slots.
+	spatialStoragePages = 6
+	#Maximum stack size for items stored in Yog-Sothoth's imaginary space.
+	spatialStorageMaxStackSize = 999

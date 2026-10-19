@@ -1,0 +1,17 @@
+package net.p3pp3rf1y.sophisticatedbackpacks.backpack;
+
+import javax.annotation.Nullable;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.world.inventory.tooltip.TooltipComponent;
+import net.minecraft.world.item.ItemStack;
+
+public class BackpackItemClient {
+   @Nullable
+   public static TooltipComponent getTooltipImage(ItemStack stack) {
+      Minecraft mc = Minecraft.getInstance();
+      return !Screen.hasShiftDown() && (mc.player == null || mc.player.containerMenu.getCarried().isEmpty())
+         ? null
+         : new BackpackItem.BackpackContentsTooltip(stack);
+   }
+}

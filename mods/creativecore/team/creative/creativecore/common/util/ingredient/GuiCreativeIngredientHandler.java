@@ -1,0 +1,298 @@
+package team.creative.creativecore.common.util.ingredient;
+
+import it.unimi.dsi.fastutil.objects.Object2BooleanArrayMap;
+import it.unimi.dsi.fastutil.objects.Object2BooleanMap;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.HolderSet.Named;
+import net.minecraft.core.component.DataComponentType;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.ItemLike;
+import net.minecraft.world.level.block.AirBlock;
+import net.minecraft.world.level.block.Block;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.api.distmarker.OnlyIn;
+import team.creative.creativecore.common.gui.Align;
+import team.creative.creativecore.common.gui.GuiParent;
+import team.creative.creativecore.common.gui.control.collection.GuiCheckList;
+import team.creative.creativecore.common.gui.control.collection.GuiComboBox;
+import team.creative.creativecore.common.gui.control.collection.GuiStackSelector;
+import team.creative.creativecore.common.gui.control.simple.GuiLabel;
+import team.creative.creativecore.common.gui.control.simple.GuiTextfield;
+import team.creative.creativecore.common.gui.event.GuiControlChangedEvent;
+import team.creative.creativecore.common.gui.flow.GuiFlow;
+import team.creative.creativecore.common.util.registry.NamedHandlerRegistry;
+import team.creative.creativecore.common.util.text.TextBuilder;
+import team.creative.creativecore.common.util.text.TextMapBuilder;
+
+@OnlyIn(Dist.CLIENT)
+@Environment(EnvType.CLIENT)
+public abstract class GuiCreativeIngredientHandler {
+   public static final NamedHandlerRegistry<GuiCreativeIngredientHandler> REGISTRY = new NamedHandlerRegistry<>(null);
+
+   public static GuiCreativeIngredientHandler find(CreativeIngredient info) {
+      if (info != null) {
+         for (GuiCreativeIngredientHandler handler : REGISTRY.values()) {
+            if (handler.canHandle(info)) {
+               return handler;
+            }
+         }
+      }
+
+      return REGISTRY.getDefault();
+   }
+
+   public abstract boolean canHandle(CreativeIngredient var1);
+
+   public abstract void createControls(GuiParent var1, CreativeIngredient var2);
+
+   public abstract CreativeIngredient parseControls(GuiParent var1);
+
+   public void onChanged(GuiParent gui, GuiControlChangedEvent event) {
+   }
+
+   static {
+      REGISTRY.registerDefault(
+         "Default",
+         new GuiCreativeIngredientHandler() {
+            @Override
+            public void createControls(GuiParent gui, CreativeIngredient info) {
+               GuiStackSelector selector = (GuiStackSelector)new GuiStackSelector(
+                     "inv", gui.getPlayer(), new GuiStackSelector.CreativeCollector(new GuiStackSelector.SearchSelector())
+                  )
+                  .setExpandableX();
+               gui.add(selector);
+               gui.add(
+                  new GuiCreativeIngredientHandler.GuiDataCheckList(
+                        "list", false, null, info instanceof CreativeIngredientItemStack s ? s.getIncluded() : new ArrayList<>()
+                     )
+                     .setExpandable()
+               );
+               if (info instanceof CreativeIngredientBlock || info instanceof CreativeIngredientItem || info instanceof CreativeIngredientItemStack) {
+                  selector.setSelectedForce(info.getExample().copy());
+               }
+
+               this.onChanged(gui, new GuiControlChangedEvent<>(selector));
+            }
+
+            @Override
+            public boolean canHandle(CreativeIngredient info) {
+               return info instanceof CreativeIngredientBlock || info instanceof CreativeIngredientItem || info instanceof CreativeIngredientItemStack;
+            }
+
+            @Override
+            public CreativeIngredient parseControls(GuiParent gui) {
+               ItemStack stack = gui.get("inv", GuiStackSelector.class).getSelected();
+               if (stack != null) {
+                  GuiCreativeIngredientHandler.GuiDataCheckList list = gui.get("list");
+                  List<ResourceLocation> included = list.getConfiguredIncluded();
+                  if (included.isEmpty()) {
+                     return !(Block.byItem(stack.getItem()) instanceof AirBlock)
+                        ? new CreativeIngredientBlock(Block.byItem(stack.getItem()))
+                        : new CreativeIngredientItem(stack.getItem());
+                  } else {
+                     return new CreativeIngredientItemStack(stack, included);
+                  }
+               } else {
+                  return null;
+               }
+            }
+
+            @Override
+            public void onChanged(GuiParent gui, GuiControlChangedEvent event) {
+               if (event.control.is("inv") && event.control instanceof GuiStackSelector selector) {
+                  GuiCreativeIngredientHandler.GuiDataCheckList list = gui.get("list");
+                  ItemStack stack = selector.getSelected();
+                  TextMapBuilder<DataComponentType<?>> map = new TextMapBuilder<>();
+                  Object2BooleanMap<DataComponentType<?>> selected = new Object2BooleanArrayMap();
+                  CompoundTag nbt = (CompoundTag)stack.saveOptional(gui.provider());
+                  nbt = nbt.getCompound("components");
+                  if (!nbt.isEmpty()) {
+                     for (String component : nbt.getAllKeys()) {
+                        ResourceLocation location = ResourceLocation.parse(component);
+                        DataComponentType<?> type = (DataComponentType<?>)BuiltInRegistries.DATA_COMPONENT_TYPE.get(location);
+                        map.addComponent(
+                           type,
+                           Component.literal(component).append(": ").append(Component.literal(nbt.get(component).getAsString()).withStyle(ChatFormatting.GRAY))
+                        );
+                        if (list.includes(type)) {
+                           selected.put(type, true);
+                        }
+                     }
+                  }
+
+                  list.set(map, selected);
+                  gui.reflow();
+               }
+            }
+         }
+      );
+      REGISTRY.register(
+         "Blocktag",
+         new GuiCreativeIngredientHandler() {
+            @Override
+            public CreativeIngredient parseControls(GuiParent gui) {
+               GuiComboBox<TagKey<Block>> box = gui.get("tag");
+               TagKey<Block> tag = box.selected();
+               return tag != null ? new CreativeIngredientBlockTag(tag) : null;
+            }
+
+            @Override
+            public void createControls(GuiParent gui, CreativeIngredient info) {
+               gui.flow = GuiFlow.STACK_Y;
+               gui.align = Align.STRETCH;
+               GuiComboBox<TagKey<Block>> box = new GuiComboBox<>(
+                  "tag", new TextMapBuilder<TagKey<Block>>().addComponents(BuiltInRegistries.BLOCK.getTagNames().toList(), x -> {
+                     TextBuilder builder = new TextBuilder();
+                     Optional<Named<Block>> tag = BuiltInRegistries.BLOCK.getTag(x);
+                     if (tag.isPresent() && tag.get().size() > 0) {
+                        builder.stack(new ItemStack((ItemLike)tag.get().get(0).value()));
+                     }
+
+                     return builder.text(x.location().toString()).build();
+                  })
+               );
+               gui.add(box);
+               gui.add(new GuiTextfield("search"));
+               if (info instanceof CreativeIngredientBlockTag) {
+                  box.select(((CreativeIngredientBlockTag)info).tag);
+               }
+            }
+
+            @Override
+            public boolean canHandle(CreativeIngredient info) {
+               return info instanceof CreativeIngredientBlockTag;
+            }
+
+            @Override
+            public void onChanged(GuiParent gui, GuiControlChangedEvent event) {
+               if (event.control.is("search")) {
+                  GuiComboBox<TagKey<Block>> box = gui.get("tag");
+                  box.set(
+                     new TextMapBuilder<TagKey<Block>>()
+                        .setFilter(x -> x.toLowerCase().contains(((GuiTextfield)event.control).getText()))
+                        .addComponents(BuiltInRegistries.BLOCK.getTagNames().toList(), x -> {
+                           TextBuilder builder = new TextBuilder();
+                           Optional<Named<Block>> tag = BuiltInRegistries.BLOCK.getTag(x);
+                           if (tag.isPresent() && tag.get().size() > 0) {
+                              builder.stack(new ItemStack((ItemLike)tag.get().get(0).value()));
+                           }
+
+                           return builder.text(x.location().toString()).build();
+                        })
+                  );
+               }
+            }
+         }
+      );
+      REGISTRY.register(
+         "Itemtag",
+         new GuiCreativeIngredientHandler() {
+            @Override
+            public CreativeIngredient parseControls(GuiParent gui) {
+               GuiComboBox<TagKey<Item>> box = gui.get("tag");
+               TagKey<Item> tag = box.selected();
+               return tag != null ? new CreativeIngredientItemTag(tag) : null;
+            }
+
+            @Override
+            public void createControls(GuiParent gui, CreativeIngredient info) {
+               gui.flow = GuiFlow.STACK_Y;
+               gui.align = Align.STRETCH;
+               GuiComboBox<TagKey<Item>> box = new GuiComboBox<>(
+                  "tag", new TextMapBuilder<TagKey<Item>>().addComponents(BuiltInRegistries.ITEM.getTagNames().toList(), x -> {
+                     TextBuilder builder = new TextBuilder();
+                     Optional<Named<Item>> tag = BuiltInRegistries.ITEM.getTag(x);
+                     if (tag.isPresent() && tag.get().size() > 0) {
+                        builder.stack(new ItemStack((ItemLike)tag.get().get(0).value()));
+                     }
+
+                     return builder.text(x.location().toString()).build();
+                  })
+               );
+               gui.add(box);
+               gui.add(new GuiTextfield("search"));
+               if (info instanceof CreativeIngredientItemTag) {
+                  box.select(((CreativeIngredientItemTag)info).tag);
+               }
+            }
+
+            @Override
+            public boolean canHandle(CreativeIngredient info) {
+               return info instanceof CreativeIngredientItemTag;
+            }
+
+            @Override
+            public void onChanged(GuiParent gui, GuiControlChangedEvent event) {
+               if (event.control.is("search")) {
+                  GuiComboBox<TagKey<Item>> box = gui.get("tag");
+                  box.set(
+                     new TextMapBuilder<TagKey<Item>>()
+                        .setFilter(x -> x.toLowerCase().contains(((GuiTextfield)event.control).getText()))
+                        .addComponents(BuiltInRegistries.ITEM.getTagNames().toList(), x -> {
+                           TextBuilder builder = new TextBuilder();
+                           Optional<Named<Item>> tag = BuiltInRegistries.ITEM.getTag(x);
+                           if (tag.isPresent() && tag.get().size() > 0) {
+                              builder.stack(new ItemStack((ItemLike)tag.get().get(0).value()));
+                           }
+
+                           return builder.text(x.location().toString()).build();
+                        })
+                  );
+               }
+            }
+         }
+      );
+      REGISTRY.register("Fuel", new GuiCreativeIngredientHandler() {
+         @Override
+         public CreativeIngredient parseControls(GuiParent gui) {
+            return new CreativeIngredientFuel();
+         }
+
+         @Override
+         public void createControls(GuiParent gui, CreativeIngredient info) {
+            gui.add(new GuiLabel("info").setTitle(Component.literal("Nothing to select")));
+         }
+
+         @Override
+         public boolean canHandle(CreativeIngredient info) {
+            return info instanceof CreativeIngredientFuel;
+         }
+      });
+   }
+
+   public static class GuiDataCheckList extends GuiCheckList<DataComponentType<?>> {
+      public List<ResourceLocation> included;
+
+      public GuiDataCheckList(String name, boolean modifiable, TextMapBuilder<DataComponentType<?>> map, List<ResourceLocation> included) {
+         super(name, modifiable, map, null);
+         this.included = included;
+      }
+
+      public boolean includes(DataComponentType<?> type) {
+         return this.included.contains(BuiltInRegistries.DATA_COMPONENT_TYPE.getKey(type));
+      }
+
+      public List<ResourceLocation> getConfiguredIncluded() {
+         List<ResourceLocation> included = new ArrayList<>();
+
+         for (GuiCheckList<DataComponentType<?>>.GuiCheckListRow row : this.rows) {
+            if (row.checkBox.value) {
+               included.add(BuiltInRegistries.DATA_COMPONENT_TYPE.getKey(row.value));
+            }
+         }
+
+         return included;
+      }
+   }
+}

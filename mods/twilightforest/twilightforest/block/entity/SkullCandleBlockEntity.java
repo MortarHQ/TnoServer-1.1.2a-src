@@ -1,0 +1,72 @@
+package twilightforest.block.entity;
+
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup.Provider;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.entity.SkullBlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import twilightforest.init.TFBlockEntities;
+
+public class SkullCandleBlockEntity extends SkullBlockEntity {
+   private int candleColor;
+   private int animationTickCount;
+   private boolean isAnimating;
+
+   public SkullCandleBlockEntity(BlockPos pos, BlockState state) {
+      super(pos, state);
+   }
+
+   public SkullCandleBlockEntity(BlockPos pos, BlockState state, int color) {
+      super(pos, state);
+      this.candleColor = color;
+   }
+
+   public boolean isValidBlockState(BlockState state) {
+      return this.getType().isValid(state);
+   }
+
+   public static void tick(Level level, BlockPos pos, BlockState state, SkullCandleBlockEntity entity) {
+      if (level.hasNeighborSignal(pos)) {
+         entity.isAnimating = true;
+         entity.animationTickCount++;
+      } else {
+         entity.isAnimating = false;
+      }
+   }
+
+   public BlockEntityType<?> getType() {
+      return (BlockEntityType<?>)TFBlockEntities.SKULL_CANDLE.get();
+   }
+
+   protected void saveAdditional(CompoundTag tag, Provider provider) {
+      super.saveAdditional(tag, provider);
+      tag.putInt("CandleColor", this.candleColor);
+   }
+
+   protected void loadAdditional(CompoundTag tag, Provider provider) {
+      super.loadAdditional(tag, provider);
+      this.candleColor = tag.getInt("CandleColor");
+   }
+
+   public CompoundTag getUpdateTag(Provider provider) {
+      CompoundTag tag = super.getUpdateTag(provider);
+      tag.putInt("CandleColor", this.candleColor);
+      return tag;
+   }
+
+   public int getCandleColor() {
+      return this.candleColor;
+   }
+
+   public void setCandleColor(int color) {
+      this.candleColor = color;
+      this.setChanged();
+      this.getLevel().sendBlockUpdated(this.getBlockPos(), this.getBlockState(), this.getBlockState(), 3);
+   }
+
+   public float getAnimation(float partialTick) {
+      return this.isAnimating ? this.animationTickCount + partialTick : this.animationTickCount;
+   }
+}

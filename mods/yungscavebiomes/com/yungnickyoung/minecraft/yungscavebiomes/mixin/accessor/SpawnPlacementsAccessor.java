@@ -1,0 +1,18 @@
+package com.yungnickyoung.minecraft.yungscavebiomes.mixin.accessor;
+
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.SpawnPlacementType;
+import net.minecraft.world.entity.SpawnPlacements;
+import net.minecraft.world.entity.SpawnPlacements.SpawnPredicate;
+import net.minecraft.world.level.levelgen.Heightmap.Types;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.gen.Invoker;
+
+@Mixin(SpawnPlacements.class)
+public interface SpawnPlacementsAccessor {
+   @Invoker
+   static <T extends Mob> void callRegister(EntityType<T> $$0, SpawnPlacementType $$1, Types $$2, SpawnPredicate<T> $$3) {
+      throw new AssertionError();
+   }
+}

@@ -1,0 +1,26 @@
+package com.blamejared.crafttweaker.natives.loot.condition;
+
+import com.blamejared.crafttweaker.api.annotation.ZenRegister;
+import com.blamejared.crafttweaker_annotations.annotations.Document;
+import com.blamejared.crafttweaker_annotations.annotations.NativeTypeRegistration;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.storage.loot.predicates.ConditionReference;
+import net.minecraft.world.level.storage.loot.predicates.LootItemCondition.Builder;
+import org.openzen.zencode.java.ZenCodeType;
+
+@ZenRegister
+@Document("vanilla/api/loot/condition/ConditionReferenceLootCondition")
+@NativeTypeRegistration(value = ConditionReference.class, zenCodeName = "crafttweaker.api.loot.condition.ConditionReferenceLootCondition")
+public final class ExpandConditionReference {
+   @ZenCodeType.StaticExpansionMethod
+   public static Builder create(ResourceLocation name) {
+      return ConditionReference.conditionReference(ResourceKey.create(Registries.PREDICATE, name));
+   }
+
+   @ZenCodeType.StaticExpansionMethod
+   public static Builder create(String name) {
+      return create(ResourceLocation.parse(name));
+   }
+}

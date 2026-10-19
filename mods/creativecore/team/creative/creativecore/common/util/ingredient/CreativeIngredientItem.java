@@ -1,0 +1,77 @@
+package team.creative.creativecore.common.util.ingredient;
+
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.HolderLookup.Provider;
+import net.minecraft.core.HolderLookup.RegistryLookup;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+
+public class CreativeIngredientItem extends CreativeIngredient {
+   public Item item;
+
+   public CreativeIngredientItem(Item item) {
+      this.item = item;
+   }
+
+   public CreativeIngredientItem() {
+   }
+
+   @Override
+   protected void saveExtra(Provider provider, CompoundTag nbt) {
+      nbt.putString("item", this.item.builtInRegistryHolder().getRegisteredName());
+   }
+
+   @Override
+   protected void loadExtra(Provider provider, CompoundTag nbt) {
+      this.item = (Item)((RegistryLookup)provider.lookup(Registries.ITEM).get())
+         .get(ResourceKey.create(Registries.ITEM, ResourceLocation.parse(nbt.getString("item"))))
+         .orElse(Items.AIR.builtInRegistryHolder())
+         .value();
+   }
+
+   @Override
+   public ItemStack getExample() {
+      return new ItemStack(this.item);
+   }
+
+   @Override
+   public boolean is(CreativeIngredient info) {
+      if (info instanceof CreativeIngredientItem) {
+         return ((CreativeIngredientItem)info).item == this.item;
+      } else {
+         return info instanceof CreativeIngredientItemStack ? this.item == ((CreativeIngredientItemStack)info).stack.getItem() : false;
+      }
+   }
+
+   @Override
+   public boolean is(ItemStack stack) {
+      return stack.getItem() == this.item;
+   }
+
+   @Override
+   public boolean equals(CreativeIngredient object) {
+      return object instanceof CreativeIngredientItem && ((CreativeIngredientItem)object).item == this.item;
+   }
+
+   @Override
+   public CreativeIngredient copy() {
+      return new CreativeIngredientItem(this.item);
+   }
+
+   @Override
+   public Component description() {
+      return Component.translatable(this.item.getDescriptionId());
+   }
+
+   @Override
+   public Component descriptionDetail() {
+      return Component.translatable("minecraft.item").append(": " + ChatFormatting.YELLOW + BuiltInRegistries.ITEM.getKey(this.item));
+   }
+}

@@ -1,0 +1,338 @@
+package dev.latvian.mods.kubejs.util;
+
+import com.google.common.collect.Lists;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonNull;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
+import io.netty.buffer.ByteBufInputStream;
+import io.netty.handler.codec.EncoderException;
+import java.io.DataInput;
+import java.io.DataInputStream;
+import java.io.IOException;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import net.minecraft.nbt.CollectionTag;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.EndTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.NbtAccounter;
+import net.minecraft.nbt.NbtFormatException;
+import net.minecraft.nbt.NumericTag;
+import net.minecraft.nbt.StreamTagVisitor;
+import net.minecraft.nbt.StringTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.nbt.TagType;
+import net.minecraft.nbt.TagTypes;
+import net.minecraft.nbt.StreamTagVisitor.ValueResult;
+import net.minecraft.nbt.TagType.VariableSize;
+import net.minecraft.network.FriendlyByteBuf;
+import org.jetbrains.annotations.Nullable;
+
+public interface NBTUtils {
+   TagType<OrderedCompoundTag> COMPOUND_TYPE = new VariableSize<OrderedCompoundTag>() {
+      public OrderedCompoundTag load(DataInput dataInput, NbtAccounter accounter) throws IOException {
+         accounter.pushDepth();
+
+         try {
+            accounter.accountBytes(48L);
+            Map<String, Tag> map = new LinkedHashMap<>();
+
+            byte typeId;
+            while ((typeId = dataInput.readByte()) != 0) {
+               String key = readString(dataInput, accounter);
+               TagType<?> valueType = NBTUtils.convertType(TagTypes.getType(typeId));
+               Tag tag = CompoundTag.readNamedTagData(valueType, key, dataInput, accounter);
+               if (map.put(key, tag) == null) {
+                  accounter.accountBytes(36L);
+               }
+            }
+
+            return new OrderedCompoundTag(map);
+         } finally {
+            accounter.popDepth();
+         }
+      }
+
+      public ValueResult parse(DataInput dataInput, StreamTagVisitor visitor, NbtAccounter accounter) throws IOException {
+         accounter.pushDepth();
+
+         try {
+            accounter.accountBytes(48L);
+
+            byte typeId;
+            label78:
+            while ((typeId = dataInput.readByte()) != 0) {
+               TagType<?> valueType = NBTUtils.convertType(TagTypes.getType(typeId));
+               switch (visitor.visitEntry(valueType)) {
+                  case HALT:
+                     return ValueResult.HALT;
+                  case BREAK:
+                     StringTag.skipString(dataInput);
+                     valueType.skip(dataInput, accounter);
+                     break label78;
+                  case SKIP:
+                     StringTag.skipString(dataInput);
+                     valueType.skip(dataInput, accounter);
+                     break;
+                  default:
+                     String key = readString(dataInput, accounter);
+                     switch (visitor.visitEntry(valueType, key)) {
+                        case HALT:
+                           return ValueResult.HALT;
+                        case BREAK:
+                           valueType.skip(dataInput, accounter);
+                           break label78;
+                        case SKIP:
+                           valueType.skip(dataInput, accounter);
+                           break;
+                        default:
+                           accounter.accountBytes(36L);
+                           switch (valueType.parse(dataInput, visitor, accounter)) {
+                              case HALT:
+                                 return ValueResult.HALT;
+                              case BREAK:
+                           }
+                     }
+               }
+            }
+
+            if (typeId != 0) {
+               while ((typeId = dataInput.readByte()) != 0) {
+                  StringTag.skipString(dataInput);
+                  NBTUtils.convertType(TagTypes.getType(typeId)).skip(dataInput, accounter);
+               }
+            }
+
+            return visitor.visitContainerEnd();
+         } finally {
+            accounter.popDepth();
+         }
+      }
+
+      public void skip(DataInput dataInput, NbtAccounter accounter) throws IOException {
+         accounter.pushDepth();
+
+         byte typeId;
+         try {
+            while ((typeId = dataInput.readByte()) != 0) {
+               StringTag.skipString(dataInput);
+               NBTUtils.convertType(TagTypes.getType(typeId)).skip(dataInput, accounter);
+            }
+         } finally {
+            accounter.popDepth();
+         }
+      }
+
+      public String getName() {
+         return "COMPOUND";
+      }
+
+      public String getPrettyName() {
+         return "TAG_Compound";
+      }
+
+      private static String readString(DataInput dataInput, NbtAccounter nbtAccounter) throws IOException {
+         String string = dataInput.readUTF();
+         nbtAccounter.accountBytes(28L);
+         nbtAccounter.accountBytes(2L, string.length());
+         return string;
+      }
+   };
+   TagType<ListTag> LIST_TYPE = new VariableSize<ListTag>() {
+      public ListTag load(DataInput dataInput, NbtAccounter accounter) throws IOException {
+         accounter.pushDepth();
+
+         try {
+            accounter.accountBytes(37L);
+            byte typeId = dataInput.readByte();
+            int size = dataInput.readInt();
+            if (typeId == 0 && size > 0) {
+               throw new NbtFormatException("Missing type on ListTag");
+            }
+
+            accounter.accountBytes(4L, size);
+            TagType<?> valueType = NBTUtils.convertType(TagTypes.getType(typeId));
+            List<Tag> list = Lists.newArrayListWithCapacity(size);
+
+            for (int j = 0; j < size; j++) {
+               list.add(valueType.load(dataInput, accounter));
+            }
+
+            return new ListTag(list, typeId);
+         } finally {
+            accounter.popDepth();
+         }
+      }
+
+      public ValueResult parse(DataInput dataInput, StreamTagVisitor visitor, NbtAccounter accounter) throws IOException {
+         accounter.pushDepth();
+
+         try {
+            accounter.accountBytes(37L);
+            TagType<?> tagType = NBTUtils.convertType(TagTypes.getType(dataInput.readByte()));
+            int size = dataInput.readInt();
+            switch (visitor.visitList(tagType, size)) {
+               case HALT:
+                  return ValueResult.HALT;
+               case BREAK:
+                  tagType.skip(dataInput, size, accounter);
+                  return visitor.visitContainerEnd();
+               default:
+                  accounter.accountBytes(4L, size);
+                  int i = 0;
+
+                  while (true) {
+                     label97: {
+                        if (i < size) {
+                           switch (visitor.visitElement(tagType, i)) {
+                              case HALT:
+                                 return ValueResult.HALT;
+                              case BREAK:
+                                 tagType.skip(dataInput, accounter);
+                                 break;
+                              case SKIP:
+                                 tagType.skip(dataInput, accounter);
+                                 break label97;
+                              default:
+                                 switch (tagType.parse(dataInput, visitor, accounter)) {
+                                    case HALT:
+                                       return ValueResult.HALT;
+                                    case BREAK:
+                                       break;
+                                    default:
+                                       break label97;
+                                 }
+                           }
+                        }
+
+                        int toSkip = size - 1 - i;
+                        if (toSkip > 0) {
+                           tagType.skip(dataInput, toSkip, accounter);
+                        }
+
+                        return visitor.visitContainerEnd();
+                     }
+
+                     i++;
+                  }
+            }
+         } finally {
+            accounter.popDepth();
+         }
+      }
+
+      public void skip(DataInput dataInput, NbtAccounter accounter) throws IOException {
+         accounter.pushDepth();
+
+         try {
+            TagType<?> tagType = NBTUtils.convertType(TagTypes.getType(dataInput.readByte()));
+            int i = dataInput.readInt();
+            tagType.skip(dataInput, i, accounter);
+         } finally {
+            accounter.popDepth();
+         }
+      }
+
+      public String getName() {
+         return "LIST";
+      }
+
+      public String getPrettyName() {
+         return "TAG_List";
+      }
+   };
+
+   static void quoteAndEscape(StringBuilder stringBuilder, String string) {
+      int start = stringBuilder.length();
+      stringBuilder.append(' ');
+      char c = 0;
+
+      for (int i = 0; i < string.length(); i++) {
+         char d = string.charAt(i);
+         if (d == '\\') {
+            stringBuilder.append('\\');
+         } else if (d == '"' || d == '\'') {
+            if (c == 0) {
+               c = (char)(d == '\'' ? 34 : 39);
+            }
+
+            if (c == d) {
+               stringBuilder.append('\\');
+            }
+         }
+
+         stringBuilder.append(d);
+      }
+
+      if (c == 0) {
+         c = '\'';
+      }
+
+      stringBuilder.setCharAt(start, c);
+      stringBuilder.append(c);
+   }
+
+   static TagType<?> convertType(TagType<?> tagType) {
+      return tagType == CompoundTag.TYPE ? COMPOUND_TYPE : (tagType == ListTag.TYPE ? LIST_TYPE : tagType);
+   }
+
+   static JsonElement toJson(@Nullable Tag t) {
+      return (JsonElement)(switch (t) {
+         case null -> JsonNull.INSTANCE;
+         case EndTag endTag -> JsonNull.INSTANCE;
+         case StringTag stringTag -> new JsonPrimitive(stringTag.getAsString());
+         case NumericTag numericTag -> new JsonPrimitive(numericTag.getAsNumber());
+         case CollectionTag<?> l -> {
+            JsonArray array = new JsonArray();
+
+            for (Tag tag : l) {
+               array.add(toJson(tag));
+            }
+
+            yield array;
+         }
+         case CompoundTag c -> {
+            JsonObject object = new JsonObject();
+
+            for (String key : c.getAllKeys()) {
+               object.add(key, toJson(c.get(key)));
+            }
+
+            yield object;
+         }
+         default -> JsonNull.INSTANCE;
+      });
+   }
+
+   @Nullable
+   static OrderedCompoundTag read(FriendlyByteBuf buf) {
+      int i = buf.readerIndex();
+      byte b = buf.readByte();
+      if (b == 0) {
+         return null;
+      }
+
+      buf.readerIndex(i);
+
+      try {
+         DataInputStream stream = new DataInputStream(new ByteBufInputStream(buf));
+         byte b1 = stream.readByte();
+         if (b1 == 0) {
+            return null;
+         }
+
+         stream.readUTF();
+         TagType<?> tagType = convertType(TagTypes.getType(b1));
+         return tagType != COMPOUND_TYPE ? null : (OrderedCompoundTag)COMPOUND_TYPE.load(stream, NbtAccounter.unlimitedHeap());
+      } catch (IOException var5) {
+         throw new EncoderException(var5);
+      }
+   }
+
+   static Map<String, Tag> accessTagMap(CompoundTag tag) {
+      return tag.tags;
+   }
+}

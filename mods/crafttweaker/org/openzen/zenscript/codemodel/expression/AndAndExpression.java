@@ -1,0 +1,38 @@
+package org.openzen.zenscript.codemodel.expression;
+
+import org.openzen.zencode.shared.CodePosition;
+import org.openzen.zenscript.codemodel.scope.TypeScope;
+import org.openzen.zenscript.codemodel.type.BasicTypeID;
+
+public class AndAndExpression extends Expression {
+   public final Expression left;
+   public final Expression right;
+
+   public AndAndExpression(CodePosition position, Expression left, Expression right) {
+      super(position, BasicTypeID.BOOL, binaryThrow(position, left.thrownType, right.thrownType));
+      this.left = left;
+      this.right = right;
+   }
+
+   @Override
+   public <T> T accept(ExpressionVisitor<T> visitor) {
+      return visitor.visitAndAnd(this);
+   }
+
+   @Override
+   public <C, R> R accept(C context, ExpressionVisitorWithContext<C, R> visitor) {
+      return visitor.visitAndAnd(context, this);
+   }
+
+   @Override
+   public Expression transform(ExpressionTransformer transformer) {
+      Expression tLeft = this.left.transform(transformer);
+      Expression tRight = this.right.transform(transformer);
+      return tLeft == this.left && tRight == this.right ? this : new AndAndExpression(this.position, tLeft, tRight);
+   }
+
+   @Override
+   public Expression normalize(TypeScope scope) {
+      return new AndAndExpression(this.position, this.left.normalize(scope), this.right.normalize(scope));
+   }
+}

@@ -1,0 +1,135 @@
+package noobanidus.mods.lootr.common.block;
+
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.Mth;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.MenuProvider;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelAccessor;
+import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityTicker;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.BlockBehaviour.Properties;
+import net.minecraft.world.level.block.state.properties.ChestType;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.level.material.Fluids;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.VoxelShape;
+import noobanidus.mods.lootr.common.api.LootrAPI;
+import noobanidus.mods.lootr.common.api.data.ILootrInfoProvider;
+import noobanidus.mods.lootr.common.api.data.blockentity.ILootrBlockEntity;
+import noobanidus.mods.lootr.common.api.registry.LootrRegistry;
+import noobanidus.mods.lootr.common.block.entity.LootrChestBlockEntity;
+import noobanidus.mods.lootr.common.block.entity.LootrInventoryBlockEntity;
+import org.jetbrains.annotations.Nullable;
+
+public class LootrInventoryBlock extends ChestBlock {
+   public LootrInventoryBlock(Properties properties) {
+      super(properties, LootrRegistry::getInventoryBlockEntity);
+   }
+
+   public float getExplosionResistance() {
+      return LootrAPI.getExplosionResistance(this, super.getExplosionResistance());
+   }
+
+   public InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult trace) {
+      if (!level.isClientSide() && !player.isSpectator() && player instanceof ServerPlayer serverPlayer) {
+         if (serverPlayer.isShiftKeyDown()) {
+            LootrAPI.handleProviderSneak(ILootrInfoProvider.of(pos, level), serverPlayer);
+         } else if (!isChestBlockedAt(level, pos)) {
+            LootrAPI.handleProviderOpen(ILootrInfoProvider.of(pos, level), serverPlayer);
+         }
+
+         return InteractionResult.SUCCESS;
+      } else {
+         return InteractionResult.CONSUME;
+      }
+   }
+
+   public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
+      return new LootrInventoryBlockEntity(pos, state);
+   }
+
+   public BlockState updateShape(BlockState stateIn, Direction facing, BlockState facingState, LevelAccessor worldIn, BlockPos currentPos, BlockPos facingPos) {
+      if ((Boolean)stateIn.getValue(WATERLOGGED)) {
+         worldIn.scheduleTick(currentPos, Fluids.WATER, Fluids.WATER.getTickDelay(worldIn));
+      }
+
+      return stateIn;
+   }
+
+   public VoxelShape getShape(BlockState state, BlockGetter worldIn, BlockPos pos, CollisionContext context) {
+      return AABB;
+   }
+
+   public BlockState getStateForPlacement(BlockPlaceContext context) {
+      Direction direction = context.getHorizontalDirection().getOpposite();
+      FluidState fluidstate = context.getLevel().getFluidState(context.getClickedPos());
+      return (BlockState)((BlockState)((BlockState)this.defaultBlockState().setValue(FACING, direction)).setValue(TYPE, ChestType.SINGLE))
+         .setValue(WATERLOGGED, fluidstate.getType() == Fluids.WATER);
+   }
+
+   public FluidState getFluidState(BlockState state) {
+      return state.getValue(WATERLOGGED) ? Fluids.WATER.getSource(false) : super.getFluidState(state);
+   }
+
+   @Nullable
+   public MenuProvider getMenuProvider(BlockState state, Level worldIn, BlockPos pos) {
+      return null;
+   }
+
+   public boolean hasAnalogOutputSignal(BlockState pState) {
+      return true;
+   }
+
+   public float getDestroyProgress(BlockState p_60466_, Player p_60467_, BlockGetter p_60468_, BlockPos p_60469_) {
+      return LootrAPI.getDestroyProgress(p_60466_, p_60467_, p_60468_, p_60469_, super.getDestroyProgress(p_60466_, p_60467_, p_60468_, p_60469_));
+   }
+
+   public int getAnalogOutputSignal(BlockState pBlockState, Level pLevel, BlockPos pPos) {
+      return LootrAPI.getAnalogOutputSignal(pBlockState, pLevel, pPos, 0);
+   }
+
+   public boolean isSignalSource(BlockState pState) {
+      return LootrAPI.isCustomTrapped();
+   }
+
+   public int getSignal(BlockState pBlockState, BlockGetter pBlockAccess, BlockPos pPos, Direction pSide) {
+      return LootrAPI.isCustomTrapped() ? Mth.clamp(LootrChestBlockEntity.getOpenCount(pBlockAccess, pPos), 0, 15) : 0;
+   }
+
+   public int getDirectSignal(BlockState pBlockState, BlockGetter pBlockAccess, BlockPos pPos, Direction pSide) {
+      if (LootrAPI.isCustomTrapped()) {
+         return pSide == Direction.UP ? pBlockState.getSignal(pBlockAccess, pPos, pSide) : 0;
+      } else {
+         return 0;
+      }
+   }
+
+   @Nullable
+   public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level pLevel, BlockState pState, BlockEntityType<T> pBlockEntityType) {
+      return ILootrBlockEntity::ticker;
+   }
+
+   public void tick(BlockState pState, ServerLevel pLevel, BlockPos pPos, RandomSource pRandom) {
+      if (pLevel.getBlockEntity(pPos) instanceof LootrInventoryBlockEntity inventory) {
+         inventory.recheckOpen();
+      }
+   }
+
+   public void playerDestroy(Level level, Player player, BlockPos blockPos, BlockState blockState, @Nullable BlockEntity blockEntity, ItemStack itemStack) {
+      super.playerDestroy(level, player, blockPos, blockState, blockEntity, itemStack);
+      LootrAPI.playerDestroyed(level, player, blockPos, blockEntity);
+   }
+}

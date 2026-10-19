@@ -1,0 +1,24 @@
+package com.blackgear.vanillabackport.common.level.features;
+
+import com.mojang.serialization.Codec;
+import net.minecraft.core.Holder;
+import net.minecraft.world.level.levelgen.feature.Feature;
+import net.minecraft.world.level.levelgen.feature.FeaturePlaceContext;
+import net.minecraft.world.level.levelgen.feature.configurations.SimpleRandomFeatureConfiguration;
+import net.minecraft.world.level.levelgen.placement.PlacedFeature;
+
+public class SequenceFeature extends Feature<SimpleRandomFeatureConfiguration> {
+   public SequenceFeature(Codec<SimpleRandomFeatureConfiguration> codec) {
+      super(codec);
+   }
+
+   public boolean place(FeaturePlaceContext<SimpleRandomFeatureConfiguration> context) {
+      for (Holder<PlacedFeature> feature : ((SimpleRandomFeatureConfiguration)context.config()).features) {
+         if (!((PlacedFeature)feature.value()).place(context.level(), context.chunkGenerator(), context.random(), context.origin())) {
+            return false;
+         }
+      }
+
+      return true;
+   }
+}

@@ -1,0 +1,44 @@
+package twilightforest.item;
+
+import net.minecraft.core.particles.ParticleOptions;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.SwordItem;
+import net.minecraft.world.item.Tier;
+import net.minecraft.world.item.Item.Properties;
+import net.neoforged.neoforge.network.PacketDistributor;
+import twilightforest.enchantment.ApplyFrostedEffect;
+import twilightforest.init.TFParticleType;
+import twilightforest.network.ParticlePacket;
+
+public class IceSwordItem extends SwordItem {
+   public IceSwordItem(Tier toolMaterial, Properties properties) {
+      super(toolMaterial, properties);
+   }
+
+   public boolean hurtEnemy(ItemStack stack, LivingEntity target, LivingEntity attacker) {
+      if (!super.hurtEnemy(stack, target, attacker)) {
+         return false;
+      }
+
+      ApplyFrostedEffect.doChillAuraEffect(target, 200, 2, true);
+      ParticlePacket particlePacket = new ParticlePacket();
+
+      for (int i = 0; i < 20; i++) {
+         particlePacket.queueParticle(
+            (ParticleOptions)TFParticleType.SNOW.get(),
+            false,
+            target.getX() + target.getRandom().nextGaussian() * target.getBbWidth() * 0.5,
+            target.getY() + target.getBbHeight() * 0.5F + target.getRandom().nextGaussian() * target.getBbHeight() * 0.5,
+            target.getZ() + target.getRandom().nextGaussian() * target.getBbWidth() * 0.5,
+            0.0,
+            0.0,
+            0.0
+         );
+      }
+
+      PacketDistributor.sendToPlayersTrackingEntity(target, particlePacket, new CustomPacketPayload[0]);
+      return true;
+   }
+}

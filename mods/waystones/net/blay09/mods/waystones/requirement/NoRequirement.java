@@ -1,0 +1,32 @@
+package net.blay09.mods.waystones.requirement;
+
+import java.util.List;
+import net.blay09.mods.waystones.api.requirement.WarpRequirement;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.player.Player;
+
+public class NoRequirement implements WarpRequirement {
+   public static final WarpRequirement INSTANCE = new NoRequirement();
+
+   @Override
+   public boolean canAfford(Player player) {
+      return true;
+   }
+
+   @Override
+   public void consume(Player player) {
+   }
+
+   @Override
+   public void rollback(Player player) {
+   }
+
+   @Override
+   public void appendHoverText(Player player, List<Component> tooltip) {
+   }
+
+   @Override
+   public boolean isEmpty() {
+      return true;
+   }
+}

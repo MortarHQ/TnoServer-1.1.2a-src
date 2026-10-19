@@ -1,0 +1,37 @@
+package cn.leolezury.eternalstarlight.common.mixin;
+
+import cn.leolezury.eternalstarlight.common.registry.ESMobEffects;
+import cn.leolezury.eternalstarlight.common.util.ESTags;
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import net.minecraft.core.BlockPos;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockBehaviour.BlockStateBase;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.EntityCollisionContext;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.phys.shapes.VoxelShape;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+
+@Mixin(BlockStateBase.class)
+public abstract class BlockStateBaseMixin {
+   @Shadow
+   public abstract boolean is(TagKey<Block> var1);
+
+   @WrapMethod(
+      method = "getCollisionShape(Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/phys/shapes/CollisionContext;)Lnet/minecraft/world/phys/shapes/VoxelShape;"
+   )
+   private VoxelShape getCollisionShape(BlockGetter level, BlockPos pos, CollisionContext context, Operation<VoxelShape> original) {
+      VoxelShape result = (VoxelShape)original.call(new Object[]{level, pos, context});
+      if (!(!this.is(ESTags.Blocks.UNAFFECTED_BY_OBLIVION) && context instanceof EntityCollisionContext entityContext)
+         || !(entityContext.getEntity() instanceof LivingEntity living && living.hasEffect(ESMobEffects.OBLIVION.asHolder()))) {
+         return result;
+      } else {
+         return context.isAbove(result, pos, true) && !context.isDescending() ? result : Shapes.empty();
+      }
+   }
+}

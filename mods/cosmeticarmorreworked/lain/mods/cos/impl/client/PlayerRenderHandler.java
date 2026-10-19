@@ -1,0 +1,159 @@
+package lain.mods.cos.impl.client;
+
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
+import java.util.ArrayDeque;
+import java.util.Deque;
+import lain.mods.cos.impl.ModObjects;
+import lain.mods.cos.impl.inventory.InventoryCosArmor;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.NonNullList;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.neoforged.bus.api.EventPriority;
+import net.neoforged.neoforge.client.event.RenderArmEvent;
+import net.neoforged.neoforge.client.event.RenderHandEvent;
+import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut;
+import net.neoforged.neoforge.client.event.RenderPlayerEvent.Post;
+import net.neoforged.neoforge.client.event.RenderPlayerEvent.Pre;
+import net.neoforged.neoforge.common.NeoForge;
+
+public enum PlayerRenderHandler {
+   INSTANCE;
+
+   public static boolean Disabled = false;
+   private final LoadingCache<Object, Deque<Runnable>> cache = CacheBuilder.newBuilder().weakKeys().build(new CacheLoader<Object, Deque<Runnable>>() {
+      public Deque<Runnable> load(Object key) throws Exception {
+         return new ArrayDeque<>();
+      }
+   });
+
+   private void handleLoggedOut(LoggingOut event) {
+      Disabled = false;
+   }
+
+   private void handlePreRenderPlayer_High(Pre event) {
+      Player player = event.getEntity();
+      Deque<Runnable> queue = (Deque<Runnable>)this.cache.getUnchecked(player);
+      this.restoreItems(queue);
+      NonNullList<ItemStack> armor = player.getInventory().armor;
+
+      for (int i = 0; i < armor.size(); i++) {
+         int slot = i;
+         ItemStack stack = (ItemStack)armor.get(slot);
+         queue.add(() -> armor.set(slot, stack));
+      }
+
+      if (!Disabled) {
+         InventoryCosArmor invCosArmor = ModObjects.invMan.getCosArmorInventoryClient(player.getUUID());
+
+         for (int i = 0; i < armor.size(); i++) {
+            if (invCosArmor.isSkinArmor(i)) {
+               armor.set(i, ItemStack.EMPTY);
+            } else {
+               ItemStack stack;
+               if (!(stack = invCosArmor.getStackInSlot(i)).isEmpty()) {
+                  armor.set(i, stack);
+               }
+            }
+         }
+      }
+   }
+
+   private void handlePostRenderPlayer_Low(Post event) {
+      this.restoreItems((Deque<Runnable>)this.cache.getUnchecked(event.getEntity()));
+   }
+
+   private void handlePreRenderPlayer_LowestCanceled(Pre event) {
+      if (event.isCanceled()) {
+         this.restoreItems((Deque<Runnable>)this.cache.getUnchecked(event.getEntity()));
+      }
+   }
+
+   private void handleRenderHand_High(RenderHandEvent event) {
+      Player player = Minecraft.getInstance().player;
+      Deque<Runnable> queue = (Deque<Runnable>)this.cache.getUnchecked(player);
+      this.restoreItems(queue);
+      NonNullList<ItemStack> armor = player.getInventory().armor;
+
+      for (int i = 0; i < armor.size(); i++) {
+         int slot = i;
+         ItemStack stack = (ItemStack)armor.get(slot);
+         queue.add(() -> armor.set(slot, stack));
+      }
+
+      if (!Disabled) {
+         InventoryCosArmor invCosArmor = ModObjects.invMan.getCosArmorInventoryClient(player.getUUID());
+
+         for (int i = 0; i < armor.size(); i++) {
+            if (invCosArmor.isSkinArmor(i)) {
+               armor.set(i, ItemStack.EMPTY);
+            } else {
+               ItemStack stack;
+               if (!(stack = invCosArmor.getStackInSlot(i)).isEmpty()) {
+                  armor.set(i, stack);
+               }
+            }
+         }
+      }
+   }
+
+   private void handleRenderHand_LowestCanceled(RenderHandEvent event) {
+      this.restoreItems((Deque<Runnable>)this.cache.getUnchecked(Minecraft.getInstance().player));
+   }
+
+   private void handleRenderArm_High(RenderArmEvent event) {
+      Player player = Minecraft.getInstance().player;
+      Deque<Runnable> queue = (Deque<Runnable>)this.cache.getUnchecked(player);
+      this.restoreItems(queue);
+      NonNullList<ItemStack> armor = player.getInventory().armor;
+
+      for (int i = 0; i < armor.size(); i++) {
+         int slot = i;
+         ItemStack stack = (ItemStack)armor.get(slot);
+         queue.add(() -> armor.set(slot, stack));
+      }
+
+      if (!Disabled) {
+         InventoryCosArmor invCosArmor = ModObjects.invMan.getCosArmorInventoryClient(player.getUUID());
+
+         for (int i = 0; i < armor.size(); i++) {
+            if (invCosArmor.isSkinArmor(i)) {
+               armor.set(i, ItemStack.EMPTY);
+            } else {
+               ItemStack stack;
+               if (!(stack = invCosArmor.getStackInSlot(i)).isEmpty()) {
+                  armor.set(i, stack);
+               }
+            }
+         }
+      }
+   }
+
+   private void handleRenderArm_LowestCanceled(RenderArmEvent event) {
+      this.restoreItems((Deque<Runnable>)this.cache.getUnchecked(Minecraft.getInstance().player));
+   }
+
+   public void registerEvents() {
+      NeoForge.EVENT_BUS.addListener(EventPriority.HIGH, this::handlePreRenderPlayer_High);
+      NeoForge.EVENT_BUS.addListener(EventPriority.LOW, this::handlePostRenderPlayer_Low);
+      NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, true, this::handlePreRenderPlayer_LowestCanceled);
+      NeoForge.EVENT_BUS.addListener(EventPriority.HIGH, this::handleRenderHand_High);
+      NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, true, this::handleRenderHand_LowestCanceled);
+      NeoForge.EVENT_BUS.addListener(EventPriority.HIGH, this::handleRenderArm_High);
+      NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, true, this::handleRenderArm_LowestCanceled);
+      NeoForge.EVENT_BUS.addListener(this::handleLoggedOut);
+   }
+
+   private void restoreItems(Deque<Runnable> queue) {
+      Runnable runnable;
+      while ((runnable = queue.poll()) != null) {
+         try {
+            runnable.run();
+         } catch (Throwable e) {
+            ModObjects.logger.error("Failed in restoring client player items", e);
+         }
+      }
+   }
+}

@@ -1,0 +1,27 @@
+[General]
+	#Play the corresponding voice/sound when a Fox Ablaze Ultimate skill is obtained. Default true.
+	playSkillAcquisitionSounds = true
+
+[SkillLocking]
+	#When true, Wisdom Crystals cannot make Raphael lockable. Default false.
+	disableRaphaelLocking = false
+	#When true, Gluttony Crystals cannot make Beelzebub lockable. Default false.
+	disableBeelzebubLocking = false
+	#When true, Covenant Crystals cannot make Uriel lockable. Default false.
+	disableUrielLocking = false
+	#When true, Dragon Essence cannot make Veldora lockable. Default false.
+	disableVeldoraLocking = false
+	#When true, Wrath Crystals cannot make Satanael lockable. Default false.
+	disableSatanaelLocking = false
+	#When true, Harvest Crystals cannot make Shub-Niggurath lockable. Default false.
+	disableShubNiggurathLocking = false
+	#When true, Wisdom Crystals cannot make Fortuna lockable. Default false.
+	disableFortunaLocking = false
+	#When true, no crystal permission can make Mammon lockable. Default false.
+	disableMammonLocking = false
+	#When true, Time Crystals cannot make Yog-Sothoth lockable. Default false.
+	disableYogSothothLocking = false
+	#When true, Flame Crystals cannot make Velgrynd lockable. Default false.
+	disableVelgryndLocking = false
+	#When true, Void Crystals cannot make Azathoth lockable. Default false.
+	disableAzathothLocking = false

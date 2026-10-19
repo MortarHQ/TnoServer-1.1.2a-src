@@ -1,0 +1,29 @@
+[appearance]
+	#Your server's name. Use #SERVERNAME in header/footer to insert it.
+	server_name = "Your Server"
+	#Text shown above the player list. Multiple entries create animation frames.
+	header = ["#N        &#FF5555&l#SERVERNAME        #N&#AAAAAA&m            #N", "#N        &#5555FF&l#SERVERNAME        #N&#AAAAAA&m            #N"]
+	#Text shown below the player list. Multiple entries create animation frames.
+	footer = ["&fOnline: &e#PLAYERCOUNT&7/&e#MAXPLAYERS #N&7TPS: #CTPS &7| MSPT: &#55FFFF#MSPT #N&7Memory: &#AA55FF#MEMORY &7| Uptime: &#FFAA00#UPTIME", "&fOnline: &e#PLAYERCOUNT&7/&e#MAXPLAYERS #N&7TPS: #CTPS &7| Ping: &#55FFFF#PING&7ms #N&7Memory: &#AA55FF#MEMORY &7| Uptime: &#FFAA00#UPTIME"]
+	#Display name format. Supports {name}, {rank}, {prefix}, {suffix}, {primary_group}, {dimension}, {health}, {world}, {ping}, {gamemode}, #AFK + & color codes.
+	display_name_format = "{name} &7#AFK"
+	#How often (ms) the tab list refreshes. Range: 1-10000. Default: 500.
+	update_interval = 500
+	#Update cycles between animation frame changes. Range: 1-200. Default: 4.
+	animation_interval = 4
+	#Name formatting and rank sorting provider: NONE, FTB, or LP (LuckPerms). Optional integrations must be installed separately.
+	name_formatting_provider = "FTB"
+
+[sorting]
+	#How to sort players: NONE, ALPHABETICAL, or RANK.
+	sort_mode = "NONE"
+
+[afk]
+	#Enable AFK detection. AFK players have greyed-out names.
+	afk_enabled = true
+	#Seconds of inactivity before AFK. Range: 10-3600. Default: 300.
+	afk_timeout = 300
+
+[performance]
+	#Metrics provider: VANILLA or SPARK. SPARK falls back to vanilla when unavailable. Rolling TPS and MSPT percentiles require spark.
+	metrics_provider = "VANILLA"

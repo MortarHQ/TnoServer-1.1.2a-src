@@ -1,0 +1,39 @@
+package com.yungnickyoung.minecraft.yungscavebiomes.module;
+
+import com.mojang.serialization.MapCodec;
+import com.yungnickyoung.minecraft.yungsapi.api.autoregister.AutoRegister;
+import com.yungnickyoung.minecraft.yungsapi.api.autoregister.AutoRegisterParticleType;
+import net.minecraft.core.particles.BlockParticleOption;
+import net.minecraft.core.particles.ParticleType;
+import net.minecraft.core.particles.SimpleParticleType;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import org.jetbrains.annotations.NotNull;
+
+@AutoRegister("yungscavebiomes")
+public class ParticleTypeModule {
+   @AutoRegister("ice_shatter")
+   public static final AutoRegisterParticleType<SimpleParticleType> ICE_SHATTER = AutoRegisterParticleType.simple();
+   @AutoRegister("ancient_dust")
+   public static final AutoRegisterParticleType<BlockParticleOption> ANCIENT_DUST = AutoRegisterParticleType.of(ParticleTypeModule.BlockParticleType::new);
+   @AutoRegister("sandstorm")
+   public static final AutoRegisterParticleType<SimpleParticleType> SANDSTORM = AutoRegisterParticleType.simple();
+   @AutoRegister("lost_caves_ambient")
+   public static final AutoRegisterParticleType<SimpleParticleType> LOST_CAVES_AMBIENT = AutoRegisterParticleType.simple();
+
+   private static class BlockParticleType extends ParticleType<BlockParticleOption> {
+      protected BlockParticleType() {
+         super(false);
+      }
+
+      @NotNull
+      public MapCodec<BlockParticleOption> codec() {
+         return BlockParticleOption.codec(this);
+      }
+
+      @NotNull
+      public StreamCodec<? super RegistryFriendlyByteBuf, BlockParticleOption> streamCodec() {
+         return BlockParticleOption.streamCodec(this);
+      }
+   }
+}

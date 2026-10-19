@@ -1,0 +1,138 @@
+package com.nododiiiii.ponderer.network;
+
+import com.nododiiiii.ponderer.platform.PondererServices;
+import com.nododiiiii.ponderer.ponder.SceneStore;
+import com.nododiiiii.ponderer.ponder.SyncMeta;
+import com.nododiiiii.ponderer.ponder.UploadPermissions;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload.Type;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import org.jetbrains.annotations.Nullable;
+
+public record UploadScenePayload(
+   String sceneId, @Nullable String pack, String json, List<UploadScenePayload.StructureEntry> structures, String mode, String lastSyncHash
+) implements CustomPacketPayload {
+   public static final Type<UploadScenePayload> TYPE = new Type(ResourceLocation.fromNamespaceAndPath("ponderer", "upload_scene"));
+   public static final StreamCodec<RegistryFriendlyByteBuf, UploadScenePayload> CODEC = StreamCodec.of(UploadScenePayload::encode, UploadScenePayload::decode);
+
+   public Type<? extends CustomPacketPayload> type() {
+      return TYPE;
+   }
+
+   private static void encode(RegistryFriendlyByteBuf buf, UploadScenePayload payload) {
+      buf.writeUtf(payload.sceneId());
+      writeOptionalUtf(buf, payload.pack());
+      buf.writeUtf(payload.json());
+      buf.writeVarInt(payload.structures().size());
+
+      for (UploadScenePayload.StructureEntry entry : payload.structures()) {
+         buf.writeUtf(entry.id());
+         writeOptionalUtf(buf, entry.pack());
+         buf.writeByteArray(entry.bytes());
+      }
+
+      buf.writeUtf(payload.mode() == null ? "check" : payload.mode());
+      buf.writeUtf(payload.lastSyncHash() == null ? "" : payload.lastSyncHash());
+   }
+
+   private static UploadScenePayload decode(RegistryFriendlyByteBuf buf) {
+      String sceneId = buf.readUtf();
+      String pack = readOptionalUtf(buf);
+      String json = buf.readUtf();
+      int size = buf.readVarInt();
+      List<UploadScenePayload.StructureEntry> structures = new ArrayList<>(size);
+
+      for (int i = 0; i < size; i++) {
+         structures.add(new UploadScenePayload.StructureEntry(buf.readUtf(), readOptionalUtf(buf), buf.readByteArray()));
+      }
+
+      String mode = buf.readUtf();
+      String lastSyncHash = buf.readUtf();
+      return new UploadScenePayload(sceneId, pack, json, structures, mode, lastSyncHash);
+   }
+
+   public static void handle(UploadScenePayload payload, @Nullable ServerPlayer player) {
+      if (player != null) {
+         if (!UploadPermissions.canUpload(player)) {
+            player.sendSystemMessage(Component.translatable("ponderer.cmd.push.no_permission"));
+         } else {
+            String pushMode = payload.mode() == null ? "check" : payload.mode();
+            String displayId = SceneStore.displaySceneKey(payload.sceneId(), payload.pack());
+            if (!"force".equals(pushMode)) {
+               String lastSyncHash = payload.lastSyncHash() == null ? "" : payload.lastSyncHash();
+               String serverHash = computeServerSceneHash(player.server, payload.sceneId(), payload.pack());
+               if (!serverHash.isEmpty() && !lastSyncHash.isEmpty() && !serverHash.equals(lastSyncHash)) {
+                  player.sendSystemMessage(Component.translatable("ponderer.cmd.push.server_conflict", new Object[]{displayId}));
+                  PondererServices.NETWORK.sendToPlayer(player, new UploadResponsePayload(payload.sceneId(), payload.pack(), "conflict"));
+                  return;
+               }
+            }
+
+            boolean ok = SceneStore.saveToServer(player.server, payload.sceneId(), payload.pack(), payload.json());
+            if (ok && payload.structures() != null) {
+               for (UploadScenePayload.StructureEntry entry : payload.structures()) {
+                  if (entry != null && entry.id() != null && !entry.id().isBlank() && entry.bytes() != null) {
+                     ok = SceneStore.saveStructureToServer(player.server, entry.id(), entry.pack(), entry.bytes()) && ok;
+                  }
+               }
+            }
+
+            if (ok) {
+               player.sendSystemMessage(Component.translatable("ponderer.cmd.push.upload_ok", new Object[]{displayId}));
+               String newHash = computeServerSceneHash(player.server, payload.sceneId(), payload.pack());
+               PondererServices.NETWORK.sendToPlayer(player, new UploadResponsePayload(payload.sceneId(), payload.pack(), "ok:" + newHash));
+            } else {
+               player.sendSystemMessage(Component.translatable("ponderer.cmd.push.upload_failed", new Object[]{displayId}));
+               PondererServices.NETWORK.sendToPlayer(player, new UploadResponsePayload(payload.sceneId(), payload.pack(), "error"));
+            }
+         }
+      }
+   }
+
+   private static String computeServerSceneHash(MinecraftServer server, String sceneId, @Nullable String pack) {
+      ResourceLocation loc = ResourceLocation.tryParse(sceneId);
+      if (loc == null) {
+         return "";
+      }
+
+      Path path = SceneStore.resolveServerScenePath(server, loc, pack);
+      if (path == null) {
+         return "";
+      }
+
+      if (!Files.exists(path)) {
+         return "";
+      }
+
+      try {
+         return SyncMeta.sha256(Files.readAllBytes(path));
+      } catch (Exception e) {
+         return "";
+      }
+   }
+
+   private static void writeOptionalUtf(RegistryFriendlyByteBuf buf, @Nullable String value) {
+      boolean present = value != null && !value.isBlank();
+      buf.writeBoolean(present);
+      if (present) {
+         buf.writeUtf(value);
+      }
+   }
+
+   @Nullable
+   private static String readOptionalUtf(RegistryFriendlyByteBuf buf) {
+      return buf.readBoolean() ? buf.readUtf() : null;
+   }
+
+   public record StructureEntry(String id, @Nullable String pack, byte[] bytes) {
+   }
+}

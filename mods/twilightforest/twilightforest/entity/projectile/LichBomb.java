@@ -1,0 +1,105 @@
+package twilightforest.entity.projectile;
+
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.tags.DamageTypeTags;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Explosion;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.Level.ExplosionInteraction;
+import net.minecraft.world.phys.HitResult;
+import twilightforest.entity.boss.Lich;
+import twilightforest.init.TFDamageTypes;
+import twilightforest.init.TFEntities;
+
+public class LichBomb extends TFThrowable {
+   public LichBomb(EntityType<? extends LichBomb> type, Level world) {
+      super(type, world);
+   }
+
+   public LichBomb(Level world, LivingEntity thrower) {
+      super((EntityType<? extends TFThrowable>)TFEntities.LICH_BOMB.get(), world, thrower);
+   }
+
+   public void tick() {
+      super.tick();
+      this.makeTrail();
+   }
+
+   private void makeTrail() {
+      for (int i = 0; i < 1; i++) {
+         double sx = 0.5 * (this.random.nextDouble() - this.random.nextDouble()) + this.getDeltaMovement().x();
+         double sy = 0.5 * (this.random.nextDouble() - this.random.nextDouble()) + this.getDeltaMovement().y();
+         double sz = 0.5 * (this.random.nextDouble() - this.random.nextDouble()) + this.getDeltaMovement().z();
+         double dx = this.getX() - sx;
+         double dy = this.getY() - sy;
+         double dz = this.getZ() - sz;
+         this.level().addParticle(ParticleTypes.FLAME, dx, dy, dz, sx * -0.25, sy * -0.25, sz * -0.25);
+      }
+   }
+
+   public boolean isOnFire() {
+      return true;
+   }
+
+   public boolean isPickable() {
+      return true;
+   }
+
+   public float getPickRadius() {
+      return 1.0F;
+   }
+
+   public boolean hurt(DamageSource source, float amount) {
+      super.hurt(source, amount);
+      if (source.getDirectEntity() != null) {
+         if (!source.is(DamageTypeTags.IS_EXPLOSION)) {
+            this.explode();
+         }
+
+         return true;
+      } else {
+         return false;
+      }
+   }
+
+   private void explode() {
+      if (!this.level().isClientSide()) {
+         this.level()
+            .explode(
+               this,
+               TFDamageTypes.getIndirectEntityDamageSource(this.level(), TFDamageTypes.LICH_BOMB, this, this.getOwner(), (EntityType)TFEntities.LICH.get()),
+               null,
+               this.getX(),
+               this.getY(),
+               this.getZ(),
+               2.0F,
+               false,
+               ExplosionInteraction.NONE
+            );
+         this.discard();
+      }
+   }
+
+   protected double getDefaultGravity() {
+      return 0.001F;
+   }
+
+   protected void onHit(HitResult result) {
+      super.onHit(result);
+      this.explode();
+   }
+
+   protected boolean canHitEntity(Entity target) {
+      return !(target instanceof Lich lich && (lich.getTeleportInvisibility() > 0 || !(this.getOwner() instanceof Player)))
+         ? !(target instanceof LichBomb) && !(target instanceof Lich) && !(target instanceof LichBolt) && !(target instanceof TwilightWandBolt)
+         : false;
+   }
+
+   public boolean ignoreExplosion(Explosion explosion) {
+      return true;
+   }
+}

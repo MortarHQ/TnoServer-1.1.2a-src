@@ -1,0 +1,45 @@
+package me.wesley1808.servercore.neoforge.common;
+
+import me.wesley1808.servercore.common.ServerCore;
+import me.wesley1808.servercore.common.services.Events;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.Mod;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.neoforged.neoforge.event.server.ServerStartedEvent;
+import net.neoforged.neoforge.event.server.ServerStoppedEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent.Post;
+import net.neoforged.neoforge.server.permission.events.PermissionGatherEvent.Nodes;
+
+@Mod("servercore")
+public class ServerCoreNeoForge extends ServerCore {
+   public ServerCoreNeoForge() {
+      this.initialize();
+      NeoForge.EVENT_BUS.register(this);
+   }
+
+   @SubscribeEvent
+   public void onTick(Post event) {
+      Events.onTick(event.getServer());
+   }
+
+   @SubscribeEvent
+   public void onServerStarted(ServerStartedEvent event) {
+      Events.onServerStarted(event.getServer());
+   }
+
+   @SubscribeEvent
+   public void onServerStopped(ServerStoppedEvent event) {
+      Events.onShutdown(event.getServer());
+   }
+
+   @SubscribeEvent
+   public void onRegisterCommands(RegisterCommandsEvent event) {
+      Events.registerCommands(event.getDispatcher(), event.getBuildContext(), event.getCommandSelection());
+   }
+
+   @SubscribeEvent
+   public void handlePermissionNodesGather(Nodes event) {
+      NeoForgePermissions.addNodes(event);
+   }
+}

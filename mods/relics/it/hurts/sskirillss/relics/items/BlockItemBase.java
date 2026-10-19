@@ -1,0 +1,21 @@
+package it.hurts.sskirillss.relics.items;
+
+import it.hurts.sskirillss.relics.init.CreativeTabRegistry;
+import it.hurts.sskirillss.relics.items.misc.CreativeContentConstructor;
+import it.hurts.sskirillss.relics.items.misc.ICreativeTabContent;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.CreativeModeTab;
+import net.minecraft.world.item.CreativeModeTab.TabVisibility;
+import net.minecraft.world.item.Item.Properties;
+import net.minecraft.world.level.block.Block;
+
+public class BlockItemBase extends BlockItem implements ICreativeTabContent {
+   public BlockItemBase(Block block, Properties properties) {
+      super(block, properties);
+   }
+
+   @Override
+   public void gatherCreativeTabContent(CreativeContentConstructor constructor) {
+      constructor.entry((CreativeModeTab)CreativeTabRegistry.RELICS_TAB.get(), TabVisibility.PARENT_AND_SEARCH_TABS, this);
+   }
+}

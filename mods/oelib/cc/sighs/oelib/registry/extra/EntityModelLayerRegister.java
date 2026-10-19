@@ -1,0 +1,16 @@
+package cc.sighs.oelib.registry.extra;
+
+import cc.sighs.oelib.registry.RegistrationDispatcher;
+import cc.sighs.oelib.registry.action.EntityModelLayerAction;
+import java.util.function.Supplier;
+import net.minecraft.client.model.geom.ModelLayerLocation;
+import net.minecraft.client.model.geom.builders.LayerDefinition;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.api.distmarker.OnlyIn;
+
+@OnlyIn(Dist.CLIENT)
+public class EntityModelLayerRegister {
+   public static void register(ModelLayerLocation location, Supplier<LayerDefinition> definition) {
+      RegistrationDispatcher.perform(new EntityModelLayerAction(location, definition));
+   }
+}

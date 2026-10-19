@@ -1,0 +1,467 @@
+package artifacts.neoforge.data;
+
+import artifacts.Artifacts;
+import artifacts.config.value.Value;
+import artifacts.entity.MimicEntity;
+import artifacts.loot.ArtifactRarityAdjustedChance;
+import artifacts.loot.ConfigValueCondition;
+import artifacts.registry.ModItems;
+import artifacts.world.CampsiteFeature;
+import com.google.common.base.Preconditions;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
+import net.minecraft.core.Holder;
+import net.minecraft.core.HolderLookup.Provider;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.data.PackOutput;
+import net.minecraft.data.loot.LootTableProvider;
+import net.minecraft.data.loot.LootTableProvider.SubProviderEntry;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.PackType;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.ItemLike;
+import net.minecraft.world.level.storage.loot.LootPool;
+import net.minecraft.world.level.storage.loot.LootTable;
+import net.minecraft.world.level.storage.loot.LootTable.Builder;
+import net.minecraft.world.level.storage.loot.entries.AlternativesEntry;
+import net.minecraft.world.level.storage.loot.entries.EmptyLootItem;
+import net.minecraft.world.level.storage.loot.entries.LootItem;
+import net.minecraft.world.level.storage.loot.entries.NestedLootTable;
+import net.minecraft.world.level.storage.loot.functions.EnchantWithLevelsFunction;
+import net.minecraft.world.level.storage.loot.functions.SetItemCountFunction;
+import net.minecraft.world.level.storage.loot.parameters.LootContextParamSet;
+import net.minecraft.world.level.storage.loot.parameters.LootContextParamSets;
+import net.minecraft.world.level.storage.loot.predicates.LootItemRandomChanceCondition;
+import net.minecraft.world.level.storage.loot.providers.number.ConstantValue;
+import net.minecraft.world.level.storage.loot.providers.number.UniformGenerator;
+import net.neoforged.neoforge.common.data.ExistingFileHelper;
+
+public class LootTables extends LootTableProvider {
+   private final List<SubProviderEntry> tables = new ArrayList<>();
+   private final ExistingFileHelper existingFileHelper;
+   private final LootModifiers lootModifiers;
+
+   public LootTables(PackOutput packOutput, ExistingFileHelper existingFileHelper, LootModifiers lootModifiers, CompletableFuture<Provider> lookupProvider) {
+      super(packOutput, Set.of(), List.of(), lookupProvider);
+      this.existingFileHelper = existingFileHelper;
+      this.lootModifiers = lootModifiers;
+   }
+
+   public List<SubProviderEntry> getTables() {
+      this.tables.clear();
+      this.addDrinkingHatsLootTable();
+      this.addItemLootTables();
+      this.addArtifactsLootTable();
+      this.addChestLootTables();
+      new EntityEquipment(this).addLootTables();
+
+      for (LootModifiers.Builder lootBuilder : this.lootModifiers.lootBuilders) {
+         this.addLootTable("inject/" + lootBuilder.getName(), provider -> lootBuilder.createLootTable(), lootBuilder.getParameterSet());
+      }
+
+      this.addLootTable(
+         MimicEntity.LOOT_TABLE.location().getPath(), new Builder().withPool(new net.minecraft.world.level.storage.loot.LootPool.Builder().add(artifact(1)))
+      );
+      return this.tables;
+   }
+
+   private void addArtifactsLootTable() {
+      List<Item> items = new ArrayList<>();
+      BuiltInRegistries.ITEM
+         .stream()
+         .filter(item -> BuiltInRegistries.ITEM.getKey(item).getNamespace().equals("artifacts"))
+         .filter(item -> item != ModItems.MIMIC_SPAWN_EGG.value())
+         .sorted(Comparator.comparing(item -> BuiltInRegistries.ITEM.getKey(item).getPath()))
+         .forEach(items::add);
+      items.removeAll(
+         List.of(
+            (Item)ModItems.MIMIC_SPAWN_EGG.value(),
+            (Item)ModItems.NOVELTY_DRINKING_HAT.value(),
+            (Item)ModItems.PLASTIC_DRINKING_HAT.value(),
+            (Item)ModItems.WHOOPEE_CUSHION.value(),
+            (Item)ModItems.HELIUM_FLAMINGO.value(),
+            (Item)ModItems.ETERNAL_STEAK.value(),
+            (Item)ModItems.EVERLASTING_BEEF.value(),
+            (Item)ModItems.UMBRELLA.value()
+         )
+      );
+      net.minecraft.world.level.storage.loot.LootPool.Builder builder = LootPool.lootPool().name("main").setRolls(ConstantValue.exactly(1.0F));
+      items.forEach(item -> builder.add(itemWhenEnabled(item, 8)));
+      builder.add(drinkingHatWhenEnabled(8))
+         .add(itemWhenEnabled((Item)ModItems.UMBRELLA.value(), 5))
+         .add(itemWhenEnabled((Item)ModItems.WHOOPEE_CUSHION.value(), 5))
+         .add(itemWhenEnabled((Item)ModItems.HELIUM_FLAMINGO.value(), 4))
+         .add(itemWhenEnabled((Item)ModItems.EVERLASTING_BEEF.value(), 2));
+      this.addLootTable("artifact", LootTable.lootTable().withPool(builder));
+   }
+
+   private void addDrinkingHatsLootTable() {
+      this.addLootTable(
+         "items/drinking_hat",
+         LootTable.lootTable()
+            .withPool(
+               LootPool.lootPool()
+                  .name("main")
+                  .setRolls(ConstantValue.exactly(1.0F))
+                  .add(
+                     AlternativesEntry.alternatives(
+                        new net.minecraft.world.level.storage.loot.entries.LootPoolEntryContainer.Builder[]{
+                           LootItem.lootTableItem((ItemLike)ModItems.PLASTIC_DRINKING_HAT.value())
+                              .setWeight(3)
+                              .when(ConfigValueCondition.canGenerateAsLoot((Item)ModItems.PLASTIC_DRINKING_HAT.value())),
+                           EmptyLootItem.emptyItem().setWeight(3)
+                        }
+                     )
+                  )
+                  .add(
+                     AlternativesEntry.alternatives(
+                        new net.minecraft.world.level.storage.loot.entries.LootPoolEntryContainer.Builder[]{
+                           LootItem.lootTableItem((ItemLike)ModItems.NOVELTY_DRINKING_HAT.value())
+                              .setWeight(1)
+                              .when(ConfigValueCondition.canGenerateAsLoot((Item)ModItems.NOVELTY_DRINKING_HAT.value())),
+                           EmptyLootItem.emptyItem().setWeight(1)
+                        }
+                     )
+                  )
+            )
+      );
+   }
+
+   private void addItemLootTables() {
+      for (Holder<Item> item : ModItems.ITEMS.getEntries()) {
+         if (!List.of(
+               (Item)ModItems.MIMIC_SPAWN_EGG.value(),
+               (Item)ModItems.ETERNAL_STEAK.value(),
+               (Item)ModItems.PLASTIC_DRINKING_HAT.value(),
+               (Item)ModItems.NOVELTY_DRINKING_HAT.value()
+            )
+            .contains(item.value())) {
+            this.addLootTable(
+               "items/%s".formatted(((ResourceKey)item.unwrapKey().orElseThrow()).location().getPath()),
+               LootTable.lootTable()
+                  .withPool(
+                     LootPool.lootPool()
+                        .name("main")
+                        .setRolls(ConstantValue.exactly(1.0F))
+                        .add(
+                           AlternativesEntry.alternatives(
+                              new net.minecraft.world.level.storage.loot.entries.LootPoolEntryContainer.Builder[]{
+                                 LootItem.lootTableItem((ItemLike)item.value()).setWeight(1).when(ConfigValueCondition.canGenerateAsLoot((Item)item.value())),
+                                 EmptyLootItem.emptyItem().setWeight(1)
+                              }
+                           )
+                        )
+                  )
+            );
+         }
+      }
+   }
+
+   private void addChestLootTables() {
+      String barrel = CampsiteFeature.BARREL_LOOT.location().getPath();
+      this.addLootTable(
+         barrel,
+         new Builder()
+            .withPool(
+               new net.minecraft.world.level.storage.loot.LootPool.Builder()
+                  .when(LootItemRandomChanceCondition.randomChance(0.7F))
+                  .add(item(Items.COD, 1).apply(SetItemCountFunction.setCount(UniformGenerator.between(4.0F, 16.0F))))
+                  .add(item(Items.SALMON, 1).apply(SetItemCountFunction.setCount(UniformGenerator.between(4.0F, 16.0F))))
+                  .add(item(Items.ROTTEN_FLESH, 1).apply(SetItemCountFunction.setCount(UniformGenerator.between(4.0F, 16.0F))))
+                  .add(item(Items.BONE, 1).apply(SetItemCountFunction.setCount(UniformGenerator.between(2.0F, 10.0F))))
+                  .add(item(Items.PAPER, 1).apply(SetItemCountFunction.setCount(UniformGenerator.between(4.0F, 16.0F))))
+                  .add(item(Items.SUGAR_CANE, 1).apply(SetItemCountFunction.setCount(UniformGenerator.between(4.0F, 16.0F))))
+                  .add(item(Items.WHEAT, 1).apply(SetItemCountFunction.setCount(UniformGenerator.between(4.0F, 16.0F))))
+                  .add(item(Items.BOOK, 1).apply(SetItemCountFunction.setCount(UniformGenerator.between(4.0F, 16.0F))))
+                  .add(item(Items.SUGAR, 1).apply(SetItemCountFunction.setCount(UniformGenerator.between(4.0F, 16.0F))))
+                  .add(item(Items.COAL, 1).apply(SetItemCountFunction.setCount(UniformGenerator.between(4.0F, 16.0F))))
+                  .add(lootTable(barrel + "/tnt", 1))
+                  .add(lootTable(barrel + "/cobwebs", 1))
+                  .add(lootTable(barrel + "/ores", 1))
+                  .add(lootTable(barrel + "/ingots", 1))
+                  .add(lootTable(barrel + "/gems", 1))
+                  .add(lootTable(barrel + "/crops", 1))
+                  .add(lootTable(barrel + "/food", 1))
+                  .add(lootTable(barrel + "/cobblestone", 1))
+                  .add(lootTable(barrel + "/rails", 1))
+                  .add(lootTable(barrel + "/minecarts", 1))
+            )
+      );
+      this.addLootTable(
+         barrel + "/tnt",
+         new Builder()
+            .withPool(
+               new net.minecraft.world.level.storage.loot.LootPool.Builder()
+                  .name("tnt")
+                  .setRolls(ConstantValue.exactly(3.0F))
+                  .add(item(Items.TNT, 1))
+                  .add(item(Items.GUNPOWDER, 4, 1, 5))
+            )
+            .withPool(
+               new net.minecraft.world.level.storage.loot.LootPool.Builder().name("sand").add(item(Items.SAND, 2, 8, 40)).add(item(Items.RED_SAND, 1, 8, 40))
+            )
+      );
+      this.addLootTable(
+         barrel + "/cobwebs",
+         new Builder()
+            .withPool(new net.minecraft.world.level.storage.loot.LootPool.Builder().add(item(Items.COBWEB, 1, 3, 8)))
+            .withPool(new net.minecraft.world.level.storage.loot.LootPool.Builder().add(item(Items.STRING, 1, 6, 16)))
+      );
+      this.addLootTable(
+         barrel + "/ores",
+         new Builder()
+            .withPool(
+               new net.minecraft.world.level.storage.loot.LootPool.Builder()
+                  .name("ores")
+                  .setRolls(ConstantValue.exactly(2.0F))
+                  .add(item(Items.RAW_GOLD, 1, 4, 20))
+                  .add(item(Items.RAW_IRON, 1, 4, 20))
+                  .add(item(Items.RAW_COPPER, 1, 4, 20))
+            )
+            .withPool(
+               new net.minecraft.world.level.storage.loot.LootPool.Builder()
+                  .name("blocks")
+                  .setRolls(ConstantValue.exactly(1.0F))
+                  .add(item(Items.RAW_GOLD_BLOCK, 1, 2, 8))
+                  .add(item(Items.RAW_IRON_BLOCK, 1, 2, 8))
+                  .add(item(Items.RAW_COPPER_BLOCK, 1, 2, 8))
+            )
+      );
+      this.addLootTable(
+         barrel + "/ingots",
+         new Builder()
+            .withPool(
+               new net.minecraft.world.level.storage.loot.LootPool.Builder()
+                  .name("ingots")
+                  .setRolls(ConstantValue.exactly(2.0F))
+                  .add(item(Items.GOLD_INGOT, 1, 4, 16))
+                  .add(item(Items.IRON_INGOT, 1, 4, 16))
+                  .add(item(Items.COPPER_INGOT, 1, 4, 16))
+            )
+            .withPool(
+               new net.minecraft.world.level.storage.loot.LootPool.Builder()
+                  .name("blocks")
+                  .setRolls(ConstantValue.exactly(1.0F))
+                  .add(item(Items.GOLD_BLOCK, 1, 1, 6))
+                  .add(item(Items.IRON_BLOCK, 1, 1, 6))
+                  .add(item(Items.COPPER_BLOCK, 1, 4, 16))
+            )
+      );
+      this.addLootTable(
+         barrel + "/gems",
+         new Builder()
+            .withPool(
+               new net.minecraft.world.level.storage.loot.LootPool.Builder()
+                  .setRolls(ConstantValue.exactly(3.0F))
+                  .add(item(Items.AMETHYST_SHARD, 3, 1, 8))
+                  .add(item(Items.DIAMOND, 1, 1, 4))
+                  .add(item(Items.EMERALD, 1, 1, 4))
+            )
+      );
+      this.addLootTable(
+         barrel + "/crops",
+         new Builder()
+            .withPool(
+               new net.minecraft.world.level.storage.loot.LootPool.Builder()
+                  .setRolls(ConstantValue.exactly(2.0F))
+                  .add(item(Items.POTATO, 1, 2, 12))
+                  .add(item(Items.CARROT, 1, 2, 12))
+                  .add(item(Items.BEETROOT, 1, 2, 12))
+                  .add(item(Items.WHEAT, 1, 2, 12))
+                  .add(item(Items.MELON_SLICE, 1, 2, 12))
+                  .add(item(Items.PUMPKIN, 1, 2, 12))
+                  .add(item(Items.APPLE, 1, 2, 12))
+            )
+      );
+      this.addLootTable(
+         barrel + "/food",
+         new Builder()
+            .withPool(
+               new net.minecraft.world.level.storage.loot.LootPool.Builder()
+                  .setRolls(ConstantValue.exactly(3.0F))
+                  .add(item(Items.BREAD, 1, 2, 12))
+                  .add(item(Items.PUMPKIN_PIE, 1, 2, 12))
+                  .add(item(Items.CAKE, 1))
+                  .add(item(Items.COOKIE, 1, 2, 12))
+                  .add(item(Items.MUSHROOM_STEW, 1, 1, 4))
+                  .add(item(Items.RABBIT_STEW, 1, 1, 4))
+            )
+      );
+      this.addLootTable(
+         barrel + "/cobblestone",
+         new Builder()
+            .withPool(
+               new net.minecraft.world.level.storage.loot.LootPool.Builder()
+                  .setRolls(ConstantValue.exactly(3.0F))
+                  .add(item(Items.COBBLESTONE, 1, 16, 64))
+                  .add(item(Items.COBBLED_DEEPSLATE, 1, 16, 64))
+            )
+      );
+      this.addLootTable(
+         barrel + "/rails",
+         new Builder()
+            .withPool(
+               new net.minecraft.world.level.storage.loot.LootPool.Builder()
+                  .setRolls(ConstantValue.exactly(4.0F))
+                  .add(item(Items.RAIL, 4, 4, 16))
+                  .add(item(Items.ACTIVATOR_RAIL, 1, 2, 5))
+                  .add(item(Items.DETECTOR_RAIL, 1, 2, 5))
+                  .add(item(Items.POWERED_RAIL, 2, 4, 16))
+            )
+      );
+      this.addLootTable(
+         barrel + "/minecarts",
+         new Builder()
+            .withPool(
+               new net.minecraft.world.level.storage.loot.LootPool.Builder()
+                  .name("minecarts")
+                  .setRolls(ConstantValue.exactly(5.0F))
+                  .add(item(Items.MINECART, 4))
+                  .add(item(Items.CHEST_MINECART, 1))
+                  .add(item(Items.FURNACE_MINECART, 1))
+                  .add(item(Items.HOPPER_MINECART, 1))
+            )
+            .withPool(new net.minecraft.world.level.storage.loot.LootPool.Builder().name("rails").add(item(Items.RAIL, 1, 4, 16)))
+      );
+      this.addLootTable(
+         CampsiteFeature.CHEST_LOOT.location().getPath(),
+         provider -> new Builder()
+            .withPool(
+               new net.minecraft.world.level.storage.loot.LootPool.Builder()
+                  .name("tools")
+                  .setRolls(UniformGenerator.between(1.0F, 3.0F))
+                  .add(item(Items.DIAMOND_PICKAXE, 2))
+                  .add(item(Items.DIAMOND_AXE, 1))
+                  .add(item(Items.DIAMOND_SHOVEL, 1))
+                  .add(item(Items.GOLDEN_PICKAXE, 4))
+                  .add(item(Items.GOLDEN_AXE, 2))
+                  .add(item(Items.GOLDEN_SHOVEL, 2))
+                  .add(item(Items.IRON_PICKAXE, 6))
+                  .add(item(Items.IRON_AXE, 3))
+                  .add(item(Items.IRON_SHOVEL, 3))
+                  .add(item(Items.IRON_HELMET, 2))
+                  .add(item(Items.IRON_CHESTPLATE, 2))
+                  .add(item(Items.IRON_LEGGINGS, 2))
+                  .add(item(Items.IRON_BOOTS, 2))
+                  .add(item(Items.CHAINMAIL_HELMET, 1))
+                  .add(item(Items.CHAINMAIL_CHESTPLATE, 1))
+                  .add(item(Items.CHAINMAIL_LEGGINGS, 1))
+                  .add(item(Items.CHAINMAIL_BOOTS, 1))
+            )
+            .withPool(
+               new net.minecraft.world.level.storage.loot.LootPool.Builder()
+                  .name("junk")
+                  .setRolls(UniformGenerator.between(1.0F, 4.0F))
+                  .add(item(Items.GUNPOWDER, 5, 2, 8))
+                  .add(item(Items.ROTTEN_FLESH, 5, 2, 8))
+                  .add(item(Items.SPIDER_EYE, 5, 2, 8))
+                  .add(item(Items.STRING, 5, 2, 8))
+                  .add(item(Items.PAPER, 5, 2, 8))
+                  .add(item(Items.BONE, 5, 2, 8))
+                  .add(item(Items.STICK, 3, 2, 8))
+                  .add(item(Items.GLASS_BOTTLE, 3, 2, 8))
+                  .add(item(Items.LEATHER, 3, 2, 8))
+                  .add(item(Items.FLINT, 3, 2, 8))
+                  .add(item(Items.FEATHER, 3, 2, 8))
+            )
+            .withPool(
+               new net.minecraft.world.level.storage.loot.LootPool.Builder()
+                  .name("ores")
+                  .setRolls(UniformGenerator.between(1.0F, 4.0F))
+                  .add(item(Items.RAW_COPPER, 3, 2, 8))
+                  .add(item(Items.RAW_IRON, 3, 2, 8))
+                  .add(item(Items.RAW_GOLD, 3, 2, 8))
+                  .add(item(Items.COAL, 6, 4, 8))
+                  .add(item(Items.DIAMOND, 1, 1, 4))
+            )
+            .withPool(
+               new net.minecraft.world.level.storage.loot.LootPool.Builder()
+                  .name("treasure")
+                  .when(LootItemRandomChanceCondition.randomChance(0.3F))
+                  .add(item(Items.BOOK, 8).apply(EnchantWithLevelsFunction.enchantWithLevels(provider, UniformGenerator.between(15.0F, 30.0F))))
+                  .add(item(Items.GOLDEN_APPLE, 4))
+                  .add(item(Items.ENCHANTED_GOLDEN_APPLE, 1))
+            )
+            .withPool(
+               new net.minecraft.world.level.storage.loot.LootPool.Builder()
+                  .name("artifact")
+                  .when(ArtifactRarityAdjustedChance.adjustedChance(0.15F))
+                  .add(artifact(1))
+            )
+      );
+   }
+
+   protected static net.minecraft.world.level.storage.loot.entries.LootPoolEntryContainer.Builder<?> itemWhenEnabled(Item item, int weight) {
+      return item(item, weight).when(ConfigValueCondition.canGenerateAsLoot(item));
+   }
+
+   protected static net.minecraft.world.level.storage.loot.entries.LootPoolSingletonContainer.Builder<?> item(Item item, int weight) {
+      Value<Boolean> generatesAsLoot = Artifacts.CONFIG.items.generatesAsLoot(item);
+      if (generatesAsLoot == null) {
+         return LootItem.lootTableItem(item).setWeight(weight);
+      } else if (item != ModItems.PLASTIC_DRINKING_HAT.value() && item != ModItems.NOVELTY_DRINKING_HAT.value()) {
+         String itemName = BuiltInRegistries.ITEM.getKey(item).getPath();
+         return NestedLootTable.lootTableReference(Artifacts.key(Registries.LOOT_TABLE, "items/%s".formatted(itemName))).setWeight(weight);
+      } else {
+         throw new IllegalArgumentException();
+      }
+   }
+
+   protected static net.minecraft.world.level.storage.loot.entries.LootPoolSingletonContainer.Builder<?> item(Item item, int weight, int min, int max) {
+      return LootItem.lootTableItem(item).setWeight(weight).apply(SetItemCountFunction.setCount(UniformGenerator.between(min, max)));
+   }
+
+   protected static net.minecraft.world.level.storage.loot.entries.LootPoolEntryContainer.Builder<?> artifact(int weight) {
+      return lootTable("artifact", weight);
+   }
+
+   protected static net.minecraft.world.level.storage.loot.entries.LootPoolEntryContainer.Builder<?> drinkingHat(int weight) {
+      return lootTable("items/drinking_hat", weight);
+   }
+
+   protected static net.minecraft.world.level.storage.loot.entries.LootPoolEntryContainer.Builder<?> drinkingHatWhenEnabled(int weight) {
+      return lootTable("items/drinking_hat", weight)
+         .when(
+            ConfigValueCondition.canGenerateAsLoot((Item)ModItems.PLASTIC_DRINKING_HAT.value())
+               .or(ConfigValueCondition.canGenerateAsLoot((Item)ModItems.NOVELTY_DRINKING_HAT.value()))
+         );
+   }
+
+   private static net.minecraft.world.level.storage.loot.entries.LootPoolEntryContainer.Builder<?> lootTable(String lootTable, int weight) {
+      return NestedLootTable.lootTableReference(Artifacts.key(Registries.LOOT_TABLE, lootTable)).setWeight(weight);
+   }
+
+   public void addLootTable(String location, Function<Provider, Builder> lootTable, LootContextParamSet lootParameterSet) {
+      if (location.startsWith("inject/")) {
+         String actualLocation = location.replace("inject/", "");
+         Preconditions.checkArgument(
+            this.existingFileHelper
+               .exists(ResourceLocation.parse(Registries.LOOT_TABLE.location().getPath() + "/" + actualLocation + ".json"), PackType.SERVER_DATA),
+            "Loot table %s does not exist in any known data pack",
+            actualLocation
+         );
+      }
+
+      this.tables
+         .add(
+            new SubProviderEntry(
+               provider -> biConsumer -> biConsumer.accept(Artifacts.key(Registries.LOOT_TABLE, location), lootTable.apply(provider)), lootParameterSet
+            )
+         );
+   }
+
+   private void addLootTable(String location, Function<Provider, Builder> lootTable) {
+      this.addLootTable(location, lootTable, LootContextParamSets.ALL_PARAMS);
+   }
+
+   private void addLootTable(String location, Builder lootTable) {
+      this.addLootTable(location, provider -> lootTable, LootContextParamSets.ALL_PARAMS);
+   }
+}

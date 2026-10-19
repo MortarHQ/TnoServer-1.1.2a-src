@@ -1,0 +1,165 @@
+package twilightforest.entity.monster;
+
+import net.minecraft.core.particles.ParticleOptions;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.DifficultyInstance;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.MobSpawnType;
+import net.minecraft.world.entity.SpawnGroupData;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.attributes.AttributeSupplier.Builder;
+import net.minecraft.world.entity.ai.goal.FloatGoal;
+import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
+import net.minecraft.world.entity.ai.goal.MeleeAttackGoal;
+import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
+import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
+import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
+import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
+import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ArmorItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.ServerLevelAccessor;
+import org.jetbrains.annotations.Nullable;
+import twilightforest.init.TFItems;
+import twilightforest.init.TFParticleType;
+import twilightforest.init.TFSounds;
+
+public class SnowGuardian extends BaseIceMob {
+   public SnowGuardian(EntityType<? extends SnowGuardian> type, Level world) {
+      super(type, world);
+   }
+
+   protected void registerGoals() {
+      this.goalSelector.addGoal(0, new FloatGoal(this));
+      this.goalSelector.addGoal(1, new MeleeAttackGoal(this, 1.0, false));
+      this.goalSelector.addGoal(2, new WaterAvoidingRandomStrollGoal(this, 1.0));
+      this.goalSelector.addGoal(3, new LookAtPlayerGoal(this, Player.class, 8.0F));
+      this.goalSelector.addGoal(3, new RandomLookAroundGoal(this));
+      this.targetSelector.addGoal(1, new HurtByTargetGoal(this, new Class[0]));
+      this.targetSelector.addGoal(2, new NearestAttackableTargetGoal(this, Player.class, true));
+   }
+
+   public static Builder registerAttributes() {
+      return Monster.createMonsterAttributes().add(Attributes.MOVEMENT_SPEED, 0.23).add(Attributes.ATTACK_DAMAGE, 3.0).add(Attributes.MAX_HEALTH, 10.0);
+   }
+
+   protected SoundEvent getAmbientSound() {
+      return (SoundEvent)TFSounds.SNOW_GUARDIAN_AMBIENT.get();
+   }
+
+   protected SoundEvent getHurtSound(DamageSource source) {
+      return (SoundEvent)TFSounds.SNOW_GUARDIAN_HURT.get();
+   }
+
+   protected SoundEvent getDeathSound() {
+      return (SoundEvent)TFSounds.SNOW_GUARDIAN_DEATH.get();
+   }
+
+   public float getVoicePitch() {
+      return (this.getRandom().nextFloat() - this.getRandom().nextFloat()) * 0.2F + 0.8F;
+   }
+
+   protected void populateDefaultEquipmentSlots(RandomSource random, DifficultyInstance difficulty) {
+      int type = random.nextInt(4);
+      this.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(this.makeItemForSlot(EquipmentSlot.MAINHAND, type)));
+      this.setItemSlot(EquipmentSlot.CHEST, new ItemStack(this.makeItemForSlot(EquipmentSlot.CHEST, type)));
+      this.setItemSlot(EquipmentSlot.HEAD, new ItemStack(this.makeItemForSlot(EquipmentSlot.HEAD, type)));
+   }
+
+   private Item makeItemForSlot(EquipmentSlot slot, int type) {
+      return (Item)(switch (slot) {
+         case FEET -> {
+            switch (type) {
+               case 1:
+                  yield (ArmorItem)TFItems.STEELEAF_BOOTS.get();
+               case 2:
+                  yield (ArmorItem)TFItems.KNIGHTMETAL_BOOTS.get();
+               case 3:
+                  yield (ArmorItem)TFItems.ARCTIC_BOOTS.get();
+               default:
+                  yield (ArmorItem)TFItems.IRONWOOD_BOOTS.get();
+            }
+         }
+         case LEGS -> {
+            switch (type) {
+               case 1:
+                  yield (ArmorItem)TFItems.STEELEAF_LEGGINGS.get();
+               case 2:
+                  yield (ArmorItem)TFItems.KNIGHTMETAL_LEGGINGS.get();
+               case 3:
+                  yield (ArmorItem)TFItems.ARCTIC_LEGGINGS.get();
+               default:
+                  yield (ArmorItem)TFItems.IRONWOOD_LEGGINGS.get();
+            }
+         }
+         case CHEST -> {
+            switch (type) {
+               case 1:
+                  yield (ArmorItem)TFItems.STEELEAF_CHESTPLATE.get();
+               case 2:
+                  yield (ArmorItem)TFItems.KNIGHTMETAL_CHESTPLATE.get();
+               case 3:
+                  yield (ArmorItem)TFItems.ARCTIC_CHESTPLATE.get();
+               default:
+                  yield (ArmorItem)TFItems.IRONWOOD_CHESTPLATE.get();
+            }
+         }
+         case HEAD -> {
+            switch (type) {
+               case 1:
+                  yield (ArmorItem)TFItems.STEELEAF_HELMET.get();
+               case 2:
+                  yield (ArmorItem)TFItems.KNIGHTMETAL_HELMET.get();
+               case 3:
+                  yield (ArmorItem)TFItems.ARCTIC_HELMET.get();
+               default:
+                  yield (ArmorItem)TFItems.IRONWOOD_HELMET.get();
+            }
+         }
+         default -> {
+            switch (type) {
+               case 1:
+                  yield (Item)TFItems.STEELEAF_SWORD.get();
+                  break;
+               case 2:
+               case 3:
+                  yield (Item)TFItems.KNIGHTMETAL_SWORD.get();
+                  break;
+               default:
+                  yield (Item)TFItems.IRONWOOD_SWORD.get();
+            }
+         }
+      });
+   }
+
+   @Nullable
+   public SpawnGroupData finalizeSpawn(ServerLevelAccessor accessor, DifficultyInstance difficulty, MobSpawnType reason, @Nullable SpawnGroupData spawnDataIn) {
+      SpawnGroupData data = super.finalizeSpawn(accessor, difficulty, reason, spawnDataIn);
+      this.populateDefaultEquipmentSlots(accessor.getRandom(), difficulty);
+      this.populateDefaultEquipmentEnchantments(accessor, accessor.getRandom(), difficulty);
+      return data;
+   }
+
+   @Override
+   public void aiStep() {
+      super.aiStep();
+      if (this.level().isClientSide()) {
+         for (int i = 0; i < 3; i++) {
+            float px = (this.getRandom().nextFloat() - this.getRandom().nextFloat()) * 0.3F;
+            float py = this.getEyeHeight() + (this.getRandom().nextFloat() - this.getRandom().nextFloat()) * 0.5F;
+            float pz = (this.getRandom().nextFloat() - this.getRandom().nextFloat()) * 0.3F;
+            this.level().addParticle((ParticleOptions)TFParticleType.SNOW_GUARDIAN.get(), this.xOld + px, this.yOld + py, this.zOld + pz, 0.0, 0.0, 0.0);
+         }
+      }
+   }
+
+   public int getMaxSpawnClusterSize() {
+      return 2;
+   }
+}

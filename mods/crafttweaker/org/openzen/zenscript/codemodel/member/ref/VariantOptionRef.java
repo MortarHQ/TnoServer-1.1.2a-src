@@ -1,0 +1,37 @@
+package org.openzen.zenscript.codemodel.member.ref;
+
+import org.openzen.zencode.shared.Tag;
+import org.openzen.zenscript.codemodel.definition.VariantDefinition;
+import org.openzen.zenscript.codemodel.type.TypeID;
+
+public class VariantOptionRef {
+   public final TypeID variant;
+   public final TypeID[] types;
+   private final VariantDefinition.Option option;
+
+   public VariantOptionRef(VariantDefinition.Option option, TypeID variant, TypeID[] types) {
+      this.option = option;
+      this.variant = variant;
+      this.types = types;
+   }
+
+   public String getName() {
+      return this.option.name;
+   }
+
+   public TypeID getParameterType(int index) {
+      return this.types[index];
+   }
+
+   public <T extends Tag> T getTag(Class<T> type) {
+      return this.option.getTag(type);
+   }
+
+   public int getOrdinal() {
+      return this.option.ordinal;
+   }
+
+   public VariantDefinition.Option getOption() {
+      return this.option;
+   }
+}

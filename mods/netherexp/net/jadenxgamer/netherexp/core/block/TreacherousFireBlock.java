@@ -1,0 +1,72 @@
+package net.jadenxgamer.netherexp.core.block;
+
+import com.mojang.serialization.MapCodec;
+import net.jadenxgamer.netherexp.core.keys.JNETags;
+import net.jadenxgamer.netherexp.registry.JNESoundEvents;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelAccessor;
+import net.minecraft.world.level.LevelReader;
+import net.minecraft.world.level.block.BaseFireBlock;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.SoulFireBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.BlockBehaviour.Properties;
+
+public class TreacherousFireBlock extends BaseFireBlock {
+   public static final MapCodec<TreacherousFireBlock> CODEC = simpleCodec(TreacherousFireBlock::new);
+
+   public TreacherousFireBlock(Properties properties) {
+      super(properties, 0.0F);
+   }
+
+   public BlockState getStateForPlacement(BlockPlaceContext context) {
+      Level level = context.getLevel();
+      BlockPos belowPos = context.getClickedPos().below();
+      BlockState belowState = level.getBlockState(belowPos);
+      return SoulFireBlock.canSurviveOnBlock(belowState) ? this.defaultBlockState() : Blocks.AIR.defaultBlockState();
+   }
+
+   protected BlockState updateShape(BlockState state, Direction direction, BlockState neighborState, LevelAccessor level, BlockPos pos, BlockPos neighborPos) {
+      return this.canSurvive(state, level, pos) ? this.defaultBlockState() : Blocks.AIR.defaultBlockState();
+   }
+
+   protected boolean canSurvive(BlockState state, LevelReader level, BlockPos pos) {
+      BlockPos belowPos = pos.below();
+      BlockState belowState = level.getBlockState(belowPos);
+      return state.is(net.jadenxgamer.elysium_api.api.tags.ElysiumTags.Blocks.NON_SOLID_FIRE_SUPPORT)
+         ? canSurviveOnBlock(belowState)
+         : canSurviveOnBlock(belowState) && belowState.isFaceSturdy(level, belowPos, Direction.UP);
+   }
+
+   public static boolean canSurviveOnBlock(BlockState state) {
+      return state.is(JNETags.Blocks.TREACHEROUS_FIRE_BASE_BLOCKS);
+   }
+
+   protected MapCodec<? extends BaseFireBlock> codec() {
+      return CODEC;
+   }
+
+   protected boolean canBurn(BlockState state) {
+      return true;
+   }
+
+   protected void entityInside(BlockState state, Level level, BlockPos pos, Entity entity) {
+      if (entity instanceof LivingEntity living) {
+         if (living.getHealth() <= living.getMaxHealth() / 2.0F) {
+            entity.hurt(level.damageSources().inFire(), 8.0F);
+            if (entity.tickCount % 20 == 0) {
+               level.playSound(null, pos, JNESoundEvents.TREACHEROUS_FIRE_MOCKING.get(), SoundSource.BLOCKS, 1.0F, Mth.randomBetween(level.random, 0.5F, 1.5F));
+            }
+         }
+
+         living.setRemainingFireTicks(18);
+      }
+   }
+}

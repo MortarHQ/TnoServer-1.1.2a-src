@@ -1,0 +1,34 @@
+package com.faboslav.friendsandfoes.common.client.render.entity.feature;
+
+import com.faboslav.friendsandfoes.common.FriendsAndFoes;
+import com.faboslav.friendsandfoes.common.client.render.entity.model.TuffGolemEntityModel;
+import com.faboslav.friendsandfoes.common.entity.TuffGolemEntity;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.entity.RenderLayerParent;
+import net.minecraft.client.renderer.entity.layers.RenderLayer;
+import net.minecraft.resources.ResourceLocation;
+
+public final class TuffGolemClothFeatureRenderer extends RenderLayer<TuffGolemEntity, TuffGolemEntityModel<TuffGolemEntity>> {
+   public TuffGolemClothFeatureRenderer(RenderLayerParent<TuffGolemEntity, TuffGolemEntityModel<TuffGolemEntity>> featureRendererContext) {
+      super(featureRendererContext);
+   }
+
+   public void render(
+      PoseStack poseStack,
+      MultiBufferSource bufferSource,
+      int packedLight,
+      TuffGolemEntity tuffGolem,
+      float limbAngle,
+      float limbDistance,
+      float tickDelta,
+      float animationProgress,
+      float headYaw,
+      float headPitch
+   ) {
+      if (!tuffGolem.isInvisible()) {
+         ResourceLocation clothTexture = FriendsAndFoes.makeID("textures/entity/tuff_golem/" + tuffGolem.getColor().getName() + ".png");
+         renderColoredCutoutModel(this.getParentModel(), clothTexture, poseStack, bufferSource, packedLight, tuffGolem, -1);
+      }
+   }
+}

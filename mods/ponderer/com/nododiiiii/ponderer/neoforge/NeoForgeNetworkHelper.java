@@ -1,0 +1,130 @@
+package com.nododiiiii.ponderer.neoforge;
+
+import com.nododiiiii.ponderer.neoforge.sticksnapshot.network.MirrorClosePacket;
+import com.nododiiiii.ponderer.neoforge.sticksnapshot.network.MirrorNeoForgeOpenPacket;
+import com.nododiiiii.ponderer.neoforge.sticksnapshot.network.ReplaySnapshotPacket;
+import com.nododiiiii.ponderer.neoforge.sticksnapshot.network.SaveSnapshotPacket;
+import com.nododiiiii.ponderer.network.BlueprintConfigRequestPayload;
+import com.nododiiiii.ponderer.network.BlueprintConfigResponsePayload;
+import com.nododiiiii.ponderer.network.BlueprintConfigUpdatePayload;
+import com.nododiiiii.ponderer.network.CaptureBlockEntityNbtRequestPayload;
+import com.nododiiiii.ponderer.network.CaptureBlockEntityNbtResponsePayload;
+import com.nododiiiii.ponderer.network.DownloadStructurePayload;
+import com.nododiiiii.ponderer.network.DownloadStructureResultPayload;
+import com.nododiiiii.ponderer.network.PermissionListRequestPayload;
+import com.nododiiiii.ponderer.network.PermissionListResponsePayload;
+import com.nododiiiii.ponderer.network.PermissionUpdateRequestPayload;
+import com.nododiiiii.ponderer.network.SyncRequestPayload;
+import com.nododiiiii.ponderer.network.SyncResponsePayload;
+import com.nododiiiii.ponderer.network.UploadResponsePayload;
+import com.nododiiiii.ponderer.network.UploadScenePayload;
+import com.nododiiiii.ponderer.platform.services.NetworkHelper;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
+import net.neoforged.neoforge.network.registration.PayloadRegistrar;
+
+public class NeoForgeNetworkHelper implements NetworkHelper {
+   public static final String VERSION = "1";
+
+   public void registerPayloads(RegisterPayloadHandlersEvent event) {
+      PayloadRegistrar registrar = event.registrar("1");
+      registrar.playToServer(
+         UploadScenePayload.TYPE,
+         UploadScenePayload.CODEC,
+         (payload, ctx) -> ctx.enqueueWork(() -> UploadScenePayload.handle(payload, (ServerPlayer)ctx.player()))
+      );
+      registrar.playToServer(
+         SyncRequestPayload.TYPE,
+         SyncRequestPayload.CODEC,
+         (payload, ctx) -> ctx.enqueueWork(() -> SyncRequestPayload.handle(payload, (ServerPlayer)ctx.player()))
+      );
+      registrar.playToServer(
+         DownloadStructurePayload.TYPE,
+         DownloadStructurePayload.CODEC,
+         (payload, ctx) -> ctx.enqueueWork(() -> DownloadStructurePayload.handle(payload, (ServerPlayer)ctx.player()))
+      );
+      registrar.playToServer(
+         CaptureBlockEntityNbtRequestPayload.TYPE,
+         CaptureBlockEntityNbtRequestPayload.CODEC,
+         (payload, ctx) -> ctx.enqueueWork(() -> CaptureBlockEntityNbtRequestPayload.handle(payload, (ServerPlayer)ctx.player()))
+      );
+      registrar.playToServer(
+         PermissionListRequestPayload.TYPE,
+         PermissionListRequestPayload.CODEC,
+         (payload, ctx) -> ctx.enqueueWork(() -> PermissionListRequestPayload.handle(payload, (ServerPlayer)ctx.player()))
+      );
+      registrar.playToServer(
+         PermissionUpdateRequestPayload.TYPE,
+         PermissionUpdateRequestPayload.CODEC,
+         (payload, ctx) -> ctx.enqueueWork(() -> PermissionUpdateRequestPayload.handle(payload, (ServerPlayer)ctx.player()))
+      );
+      registrar.playToServer(
+         BlueprintConfigRequestPayload.TYPE,
+         BlueprintConfigRequestPayload.CODEC,
+         (payload, ctx) -> ctx.enqueueWork(() -> BlueprintConfigRequestPayload.handle(payload, (ServerPlayer)ctx.player()))
+      );
+      registrar.playToServer(
+         BlueprintConfigUpdatePayload.TYPE,
+         BlueprintConfigUpdatePayload.CODEC,
+         (payload, ctx) -> ctx.enqueueWork(() -> BlueprintConfigUpdatePayload.handle(payload, (ServerPlayer)ctx.player()))
+      );
+      registrar.playToServer(
+         SaveSnapshotPacket.TYPE,
+         SaveSnapshotPacket.CODEC,
+         (payload, ctx) -> ctx.enqueueWork(() -> SaveSnapshotPacket.handle(payload, (ServerPlayer)ctx.player()))
+      );
+      registrar.playToServer(
+         ReplaySnapshotPacket.TYPE,
+         ReplaySnapshotPacket.CODEC,
+         (payload, ctx) -> ctx.enqueueWork(() -> ReplaySnapshotPacket.handle(payload, (ServerPlayer)ctx.player()))
+      );
+      registrar.playToServer(
+         MirrorClosePacket.TYPE,
+         MirrorClosePacket.CODEC,
+         (payload, ctx) -> ctx.enqueueWork(() -> MirrorClosePacket.handle(payload, (ServerPlayer)ctx.player()))
+      );
+      registrar.playToClient(SyncResponsePayload.TYPE, SyncResponsePayload.CODEC, (payload, ctx) -> ctx.enqueueWork(() -> SyncResponsePayload.handle(payload)));
+      registrar.playToClient(
+         DownloadStructureResultPayload.TYPE,
+         DownloadStructureResultPayload.CODEC,
+         (payload, ctx) -> ctx.enqueueWork(() -> DownloadStructureResultPayload.handle(payload))
+      );
+      registrar.playToClient(
+         UploadResponsePayload.TYPE, UploadResponsePayload.CODEC, (payload, ctx) -> ctx.enqueueWork(() -> UploadResponsePayload.handle(payload))
+      );
+      registrar.playToClient(
+         CaptureBlockEntityNbtResponsePayload.TYPE,
+         CaptureBlockEntityNbtResponsePayload.CODEC,
+         (payload, ctx) -> ctx.enqueueWork(() -> CaptureBlockEntityNbtResponsePayload.handle(payload))
+      );
+      registrar.playToClient(
+         PermissionListResponsePayload.TYPE,
+         PermissionListResponsePayload.CODEC,
+         (payload, ctx) -> ctx.enqueueWork(() -> PermissionListResponsePayload.handle(payload))
+      );
+      registrar.playToClient(
+         BlueprintConfigResponsePayload.TYPE,
+         BlueprintConfigResponsePayload.CODEC,
+         (payload, ctx) -> ctx.enqueueWork(() -> BlueprintConfigResponsePayload.handle(payload))
+      );
+      registrar.playToClient(
+         MirrorNeoForgeOpenPacket.TYPE, MirrorNeoForgeOpenPacket.CODEC, (payload, ctx) -> ctx.enqueueWork(() -> MirrorNeoForgeOpenPacket.handle(payload))
+      );
+   }
+
+   @Override
+   public void registerPackets() {
+   }
+
+   @Override
+   public void sendToServer(CustomPacketPayload packet) {
+      PacketDistributor.sendToServer(packet, new CustomPacketPayload[0]);
+   }
+
+   @Override
+   public void sendToPlayer(ServerPlayer player, CustomPacketPayload packet) {
+      PacketDistributor.sendToPlayer(player, packet, new CustomPacketPayload[0]);
+   }
+}

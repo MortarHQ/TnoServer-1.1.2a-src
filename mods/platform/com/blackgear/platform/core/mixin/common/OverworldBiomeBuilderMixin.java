@@ -1,0 +1,27 @@
+package com.blackgear.platform.core.mixin.common;
+
+import com.blackgear.platform.common.worldgen.placement.BiomePlacement;
+import com.blackgear.platform.common.worldgen.placement.BiomeSpawnPlacement;
+import com.mojang.datafixers.util.Pair;
+import java.util.function.Consumer;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.biome.OverworldBiomeBuilder;
+import net.minecraft.world.level.biome.Climate.ParameterPoint;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+@Mixin(OverworldBiomeBuilder.class)
+public class OverworldBiomeBuilderMixin {
+   @Inject(method = "addBiomes(Ljava/util/function/Consumer;)V", at = @At("TAIL"))
+   private void platform$addBiomes(Consumer<Pair<ParameterPoint, ResourceKey<Biome>>> mapper, CallbackInfo ci) {
+      BiomeSpawnPlacement.BIOME_ENTRIES.forEach(mapper);
+      BiomePlacement.Event event = mapper::accept;
+
+      for (Consumer<BiomePlacement.Event> listener : BiomePlacement.LISTENERS) {
+         listener.accept(event);
+      }
+   }
+}

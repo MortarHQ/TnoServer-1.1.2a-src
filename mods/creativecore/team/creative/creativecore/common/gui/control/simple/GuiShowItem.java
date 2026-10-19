@@ -1,0 +1,70 @@
+package team.creative.creativecore.common.gui.control.simple;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.world.item.ItemStack;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.api.distmarker.OnlyIn;
+import team.creative.creativecore.client.render.GuiRenderHelper;
+import team.creative.creativecore.common.gui.GuiControl;
+import team.creative.creativecore.common.gui.style.ControlFormatting;
+
+public class GuiShowItem extends GuiControl {
+   public ItemStack stack = ItemStack.EMPTY;
+
+   public GuiShowItem(String name) {
+      super(name);
+   }
+
+   public GuiShowItem(String name, ItemStack stack) {
+      super(name);
+      this.stack = stack;
+   }
+
+   @Override
+   public void init() {
+   }
+
+   @Override
+   public void closed() {
+   }
+
+   @Override
+   public void tick() {
+   }
+
+   @Override
+   public void flowX(int width, int preferred) {
+   }
+
+   @Override
+   public void flowY(int width, int height, int preferred) {
+   }
+
+   @Override
+   protected int preferredWidth(int availableWidth) {
+      return 16;
+   }
+
+   @Override
+   protected int preferredHeight(int width, int availableHeight) {
+      return 16;
+   }
+
+   @Override
+   public ControlFormatting getControlFormatting() {
+      return ControlFormatting.TRANSPARENT;
+   }
+
+   @OnlyIn(Dist.CLIENT)
+   @Environment(EnvType.CLIENT)
+   @Override
+   protected void renderContent(GuiGraphics graphics, int mouseX, int mouseY) {
+      float scale = Math.min(this.rect.getContentWidth() / 16, this.rect.getContentHeight() / 16);
+      PoseStack pose = graphics.pose();
+      pose.scale(scale, scale, 1.0F);
+      GuiRenderHelper.drawItemStack(graphics, this.stack, 1.0F);
+   }
+}

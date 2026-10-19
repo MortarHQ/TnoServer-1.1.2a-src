@@ -1,0 +1,87 @@
+package dev.latvian.mods.kubejs.util.registrypredicate;
+
+import com.google.gson.JsonPrimitive;
+import dev.latvian.mods.kubejs.registry.RegistryType;
+import dev.latvian.mods.kubejs.util.ID;
+import dev.latvian.mods.kubejs.util.RegExpKJS;
+import dev.latvian.mods.rhino.BaseFunction;
+import dev.latvian.mods.rhino.Context;
+import dev.latvian.mods.rhino.regexp.NativeRegExp;
+import dev.latvian.mods.rhino.type.TypeInfo;
+import java.util.List;
+import java.util.Optional;
+import java.util.function.Predicate;
+import java.util.regex.Pattern;
+import net.minecraft.core.Holder;
+import net.minecraft.core.Registry;
+import net.minecraft.core.Holder.Direct;
+import net.minecraft.core.Holder.Reference;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
+import org.jetbrains.annotations.NotNull;
+
+@FunctionalInterface
+public interface RegistryPredicate<T> extends Predicate<Holder<T>> {
+   static RegistryPredicate<?> of(Context cx, Object from, TypeInfo target) {
+      return switch (from) {
+         case null -> EntireRegistryPredicate.FALSE;
+         case RegistryPredicate<?> p -> p;
+         case Pattern pattern -> new RegistryRegExpPredicate(pattern);
+         case NativeRegExp pattern -> new RegistryRegExpPredicate(RegExpKJS.wrap(pattern));
+         case CharSequence cs -> ofString(target, cs.toString());
+         case JsonPrimitive p -> ofString(target, p.getAsString());
+         case BaseFunction fn -> {
+            TypeInfo t = target.param(0);
+            Predicate predicate = (Predicate)cx.jsToJava(fn, t.shouldConvert() ? TypeInfo.RAW_PREDICATE.withParams(new TypeInfo[]{t}) : TypeInfo.RAW_PREDICATE);
+            yield predicate::test;
+         }
+         default -> new RegistryHolderPredicate(new Direct(from));
+      };
+   }
+
+   @NotNull
+   private static RegistryPredicate<?> ofString(TypeInfo target, String s) {
+      return switch (s) {
+         case "*" -> EntireRegistryPredicate.TRUE;
+         case "-" -> EntireRegistryPredicate.FALSE;
+         case String tag when tag.charAt(0) == '#' -> {
+            RegistryType<?> reg = RegistryType.ofType(target.param(0));
+            ResourceLocation registryTag = ID.mc(tag.substring(1));
+            yield reg != null ? new RegistryTagKeyPredicate(TagKey.create(reg.key(), registryTag)) : new RegistryTagIDPredicate(registryTag);
+         }
+         case String namespace when namespace.charAt(0) == '@' -> new RegistryNamespacePredicate(namespace.substring(1));
+         default -> {
+            Pattern pattern = RegExpKJS.wrap(s);
+            if (pattern != null) {
+               yield new RegistryRegExpPredicate(pattern);
+            } else {
+               label29: {
+                  RegistryType<?> reg = RegistryType.ofType(target.param(0));
+                  ResourceLocation id = ID.mc(s);
+                  if (reg != null) {
+                     Registry registry = (Registry)BuiltInRegistries.REGISTRY.get(reg.key());
+                     if (registry != null) {
+                        Optional opt = registry.getHolder(id);
+                        if (opt.isPresent()) {
+                           yield new RegistryHolderPredicate((Holder<T>)opt.get());
+                           break label29;
+                        }
+                     }
+                  }
+
+                  yield new RegistryIDPredicate(id);
+               }
+            }
+         }
+      };
+   }
+
+   default List<Reference<T>> getHolders(Registry<T> registry) {
+      return registry.holders().filter(this).toList();
+   }
+
+   default List<T> getValues(Registry<T> registry) {
+      return registry.holders().filter(this).<T>map(Holder::value).toList();
+   }
+}

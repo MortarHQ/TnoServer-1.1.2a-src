@@ -1,0 +1,324 @@
+package team.creative.creativecore.common.config.event;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
+import com.google.gson.JsonSyntaxException;
+import com.google.gson.stream.JsonWriter;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Locale;
+import net.minecraft.core.HolderLookup.Provider;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.OnDatapackSyncEvent;
+import net.neoforged.neoforge.event.level.LevelEvent.Load;
+import net.neoforged.neoforge.event.server.ServerAboutToStartEvent;
+import org.apache.logging.log4j.Logger;
+import org.jetbrains.annotations.NotNull;
+import team.creative.creativecore.CreativeCore;
+import team.creative.creativecore.Side;
+import team.creative.creativecore.common.config.holder.CreativeConfigRegistry;
+import team.creative.creativecore.common.config.holder.ICreativeConfigHolder;
+import team.creative.creativecore.common.config.key.ConfigKey;
+import team.creative.creativecore.common.config.sync.ConfigurationClientPacket;
+import team.creative.creativecore.common.config.sync.ConfigurationPacket;
+import team.creative.creativecore.common.level.IOrientatedLevel;
+import team.creative.creativecore.common.util.mc.JsonUtils;
+
+public class ConfigEventHandler {
+   private final DecimalFormat df = this.generateFormat();
+   private final File CONFIG_DIRECTORY;
+   private final Logger LOGGER;
+   private final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+
+   private DecimalFormat generateFormat() {
+      DecimalFormat df = new DecimalFormat("0", DecimalFormatSymbols.getInstance(Locale.ENGLISH));
+      df.setMaximumFractionDigits(340);
+      return df;
+   }
+
+   public ConfigEventHandler(File CONFIG_DIRECTORY, Logger LOGGER) {
+      this.CONFIG_DIRECTORY = CONFIG_DIRECTORY;
+      this.LOGGER = LOGGER;
+      NeoForge.EVENT_BUS.register(this);
+   }
+
+   @SubscribeEvent
+   public void playerLoggedIn(OnDatapackSyncEvent event) {
+      if (event.getPlayer() != null && (!event.getPlayer().getServer().isSingleplayer() || !this.isOwner(event.getPlayer()))) {
+         CreativeCore.NETWORK.sendToClient(new ConfigurationClientPacket(CreativeConfigRegistry.ROOT), event.getPlayer());
+         CreativeCore.NETWORK.sendToClient(new ConfigurationPacket(event.getPlayer().registryAccess(), CreativeConfigRegistry.ROOT, false), event.getPlayer());
+      }
+   }
+
+   public boolean isOwner(ServerPlayer player) {
+      return player.getServer().isSingleplayerOwner(player.getGameProfile());
+   }
+
+   @SubscribeEvent
+   public void loadLevel(Load event) {
+      if (event.getLevel().isClientSide() && !(event.getLevel() instanceof IOrientatedLevel)) {
+         this.load(event.getLevel().registryAccess(), Side.CLIENT);
+      }
+   }
+
+   @SubscribeEvent
+   public void startServer(ServerAboutToStartEvent event) {
+      this.load(event.getServer().registryAccess(), Side.SERVER);
+   }
+
+   public void sync(MinecraftServer server, ICreativeConfigHolder holder) {
+      CreativeCore.NETWORK.sendToClientAll(server, new ConfigurationPacket(server.registryAccess(), holder, true));
+   }
+
+   public void sync(ICreativeConfigHolder holder, ServerPlayer player) {
+      CreativeCore.NETWORK.sendToClient(new ConfigurationPacket(player.registryAccess(), holder, true), player);
+   }
+
+   public void syncAll(MinecraftServer server) {
+      this.sync(server, CreativeConfigRegistry.ROOT);
+   }
+
+   public void syncAll(ServerPlayer player) {
+      this.sync(CreativeConfigRegistry.ROOT, player);
+   }
+
+   public void saveClientFields() {
+      File config = new File(this.CONFIG_DIRECTORY, "client-fields.json");
+      List<String> enabled = loadClientFieldList(CreativeConfigRegistry.ROOT);
+      if (enabled.isEmpty()) {
+         config.delete();
+      } else {
+         JsonArray array = new JsonArray();
+
+         for (int i = 0; i < enabled.size(); i++) {
+            array.add(enabled.get(i));
+         }
+
+         try {
+            FileWriter writer = new FileWriter(config, StandardCharsets.UTF_8);
+
+            try {
+               this.GSON.toJson(array, writer);
+            } finally {
+               writer.close();
+            }
+         } catch (IOException e) {
+            this.LOGGER.error("Failed to save client field config file {0}", e);
+         }
+      }
+   }
+
+   public void save(Provider provider, String modid, Side side) {
+      try {
+         ConfigKey field = CreativeConfigRegistry.ROOT.getField(modid);
+         File config = new File(this.CONFIG_DIRECTORY, modid + (side.isClient() ? "-client" : "") + ".json");
+         if (field.isFolder()) {
+            JsonObject json = field.holder().save(provider, true, false, side);
+            JsonUtils.cleanUp(json);
+            if (json.size() > 0) {
+               FileWriter writer = new FileWriter(config, StandardCharsets.UTF_8);
+               JsonWriter jsonWriter = this.getJsonWriter(writer);
+
+               try {
+                  this.GSON.toJson(json, jsonWriter);
+               } finally {
+                  writer.close();
+               }
+            }
+         } else if (config.exists()) {
+            config.delete();
+         }
+      } catch (IOException e) {
+         this.LOGGER.error("Failed to save config file of '{0}', {1}", modid, e);
+      }
+   }
+
+   @NotNull
+   private JsonWriter getJsonWriter(FileWriter writer) {
+      JsonWriter jsonWriter = new JsonWriter(writer) {
+         public JsonWriter value(double value) throws IOException {
+            if (!Double.isNaN(value) && !Double.isInfinite(value)) {
+               return this.jsonValue(ConfigEventHandler.this.df.format(value));
+            } else {
+               throw new IllegalArgumentException("Numeric values must be finite, but was " + value);
+            }
+         }
+
+         public JsonWriter value(Number value) throws IOException {
+            return !(value instanceof Double) && value.getClass() != double.class ? super.value(value) : this.value(value.doubleValue());
+         }
+      };
+      jsonWriter.setIndent("  ");
+      return jsonWriter;
+   }
+
+   public void save(Provider provider, Side side) {
+      for (String modid : CreativeConfigRegistry.ROOT.names()) {
+         this.save(provider, modid, side);
+      }
+   }
+
+   public void loadClientFields() {
+      File config = new File(this.CONFIG_DIRECTORY, "client-fields.json");
+      List<String> list;
+      if (config.exists()) {
+         try {
+            FileReader reader = new FileReader(config, StandardCharsets.UTF_8);
+            JsonArray array = (JsonArray)this.GSON.fromJson(reader, JsonArray.class);
+            if (array != null) {
+               list = new ArrayList<>(array.size());
+
+               for (int i = 0; i < array.size(); i++) {
+                  JsonElement element = array.get(i);
+                  if (element.isJsonPrimitive() && ((JsonPrimitive)element).isString()) {
+                     list.add(element.getAsString());
+                  }
+               }
+            } else {
+               list = Collections.EMPTY_LIST;
+            }
+         } catch (IOException e) {
+            list = Collections.EMPTY_LIST;
+            this.LOGGER.error("Failed to load client fields config file, {0}", e);
+         }
+      } else {
+         list = Collections.EMPTY_LIST;
+      }
+
+      saveClientFieldList(CreativeConfigRegistry.ROOT, list);
+   }
+
+   public void load(Provider provider, String modid, Side side) {
+      ConfigKey field = CreativeConfigRegistry.ROOT.getField(modid);
+      if (field.isFolder()) {
+         File config = new File(this.CONFIG_DIRECTORY, modid + (side.isClient() ? "-client" : "") + ".json");
+         if (config.exists()) {
+            try {
+               FileReader reader = new FileReader(config, StandardCharsets.UTF_8);
+               JsonObject json = null;
+
+               try {
+                  json = (JsonObject)this.GSON.fromJson(reader, JsonObject.class);
+               } catch (JsonSyntaxException e) {
+                  this.LOGGER.error(e);
+               }
+
+               if (json == null) {
+                  json = new JsonObject();
+               }
+
+               field.holder().load(provider, true, false, json, side);
+            } catch (IOException e) {
+               this.LOGGER.error("Failed to load config file of '{0}', {1}", modid, e);
+            }
+         } else {
+            field.holder().restoreDefault(side, false);
+         }
+      }
+   }
+
+   public void load(Provider provider, Side side) {
+      this.loadClientFields();
+
+      for (String modid : CreativeConfigRegistry.ROOT.names()) {
+         this.load(provider, modid, side);
+      }
+
+      this.save(provider, side);
+   }
+
+   public boolean isSynchronizedWithServer(String key) {
+      String[] path = key.split("\\.");
+      ConfigKey config = CreativeConfigRegistry.ROOT.findKey(path);
+      return config != null ? config.is(Side.SERVER) : false;
+   }
+
+   public static List<String> loadClientFieldList(ICreativeConfigHolder holder) {
+      List<String> enabled = new ArrayList<>();
+
+      for (ConfigKey key : holder.fields()) {
+         if (key.isWithoutForce(Side.CLIENT)) {
+            loadClientFieldList(holder, key, enabled);
+         }
+      }
+
+      return enabled;
+   }
+
+   private static List<String> loadClientFieldList(ICreativeConfigHolder parent, ConfigKey field, List<String> list) {
+      if (field.forceSynchronization) {
+         list.add((parent.path().length > 0 ? String.join(".", parent.path()) + "." : "") + field.name);
+         return list;
+      }
+
+      if (field.isFolder()) {
+         for (ConfigKey key : field.holder().fields()) {
+            if (key.isWithoutForce(Side.CLIENT)) {
+               loadClientFieldList(field.holder(), key, list);
+            }
+         }
+      }
+
+      return list;
+   }
+
+   public static void saveClientFieldList(ICreativeConfigHolder holder, List<String> enabled) {
+      for (ConfigKey key : holder.fields()) {
+         if (key.isWithoutForce(Side.CLIENT)) {
+            saveClientFieldList(String.join(".", holder.path()), key, enabled);
+         }
+      }
+   }
+
+   private static void saveClientFieldList(String path, ConfigKey field, List<String> enabled) {
+      if (!path.isEmpty()) {
+         path = path + ".";
+      }
+
+      path = path + field.name;
+      if (enabled.contains(path)) {
+         enable(field);
+      } else {
+         field.forceSynchronization = false;
+         if (field.isFolder()) {
+            for (ConfigKey key : field.holder().fields()) {
+               if (key.isWithoutForce(Side.CLIENT)) {
+                  saveClientFieldList(path, key, enabled);
+               }
+            }
+         }
+      }
+   }
+
+   private static void enable(ConfigKey field) {
+      field.forceSynchronization = true;
+      if (field.isFolder()) {
+         for (ConfigKey key : field.holder().fields()) {
+            if (key.isWithoutForce(Side.CLIENT)) {
+               enable(key);
+            }
+         }
+      }
+   }
+
+   public boolean modFileExist(String modid, Dist side) {
+      File config = new File(this.CONFIG_DIRECTORY, modid + (side.isClient() ? "-client" : "") + ".json");
+      return config.exists();
+   }
+}

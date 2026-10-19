@@ -1,0 +1,72 @@
+package com.iafenvoy.iceandfire.item.block;
+
+import com.iafenvoy.iceandfire.item.block.entity.DreadPortalBlockEntity;
+import com.iafenvoy.iceandfire.item.block.util.DreadBlock;
+import com.iafenvoy.iceandfire.registry.IafParticles;
+import com.mojang.serialization.MapCodec;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.ParticleOptions;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.RenderShape;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.BlockBehaviour.Properties;
+import net.minecraft.world.level.material.MapColor;
+import net.minecraft.world.level.material.PushReaction;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.phys.shapes.VoxelShape;
+
+public class DreadPortalBlock extends BaseEntityBlock implements DreadBlock {
+   private static final MapCodec<? extends BaseEntityBlock> CODEC = simpleCodec(s -> new DreadPortalBlock());
+
+   public DreadPortalBlock() {
+      super(
+         Properties.of()
+            .mapColor(MapColor.NONE)
+            .pushReaction(PushReaction.BLOCK)
+            .noOcclusion()
+            .dynamicShape()
+            .strength(-1.0F, 100000.0F)
+            .lightLevel(state -> 1)
+            .randomTicks()
+      );
+   }
+
+   public void animateTick(BlockState state, Level world, BlockPos pos, RandomSource rand) {
+      BlockEntity tileentity = world.getBlockEntity(pos);
+      if (tileentity instanceof DreadPortalBlockEntity) {
+         int i = 3;
+
+         for (int j = 0; j < i; j++) {
+            double d0 = pos.getX() + rand.nextFloat();
+            double d1 = pos.getY() + rand.nextFloat();
+            double d2 = pos.getZ() + rand.nextFloat();
+            double d3 = (rand.nextFloat() - 0.5) * 0.25;
+            double d4 = rand.nextFloat() * -0.25;
+            double d5 = (rand.nextFloat() - 0.5) * 0.25;
+            int k = rand.nextInt(2) * 2 - 1;
+            world.addParticle((ParticleOptions)IafParticles.DREAD_PORTAL.get(), d0, d1, d2, d3, d4, d5);
+         }
+      }
+   }
+
+   public VoxelShape getCollisionShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
+      return Shapes.box(0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+   }
+
+   protected MapCodec<? extends BaseEntityBlock> codec() {
+      return CODEC;
+   }
+
+   public RenderShape getRenderShape(BlockState state) {
+      return RenderShape.ENTITYBLOCK_ANIMATED;
+   }
+
+   public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
+      return new DreadPortalBlockEntity(pos, state);
+   }
+}

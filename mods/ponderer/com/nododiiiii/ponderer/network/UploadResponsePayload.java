@@ -1,0 +1,75 @@
+package com.nododiiiii.ponderer.network;
+
+import com.nododiiiii.ponderer.ponder.SceneStore;
+import com.nododiiiii.ponderer.ponder.SyncMeta;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Map;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload.Type;
+import net.minecraft.resources.ResourceLocation;
+import org.jetbrains.annotations.Nullable;
+
+public record UploadResponsePayload(String sceneId, @Nullable String pack, String status) implements CustomPacketPayload {
+   public static final Type<UploadResponsePayload> TYPE = new Type(ResourceLocation.fromNamespaceAndPath("ponderer", "upload_response"));
+   public static final StreamCodec<RegistryFriendlyByteBuf, UploadResponsePayload> CODEC = StreamCodec.of(
+      UploadResponsePayload::encode, UploadResponsePayload::decode
+   );
+
+   public Type<? extends CustomPacketPayload> type() {
+      return TYPE;
+   }
+
+   private static void encode(RegistryFriendlyByteBuf buf, UploadResponsePayload payload) {
+      buf.writeUtf(payload.sceneId());
+      writeOptionalUtf(buf, payload.pack());
+      buf.writeUtf(payload.status());
+   }
+
+   private static UploadResponsePayload decode(RegistryFriendlyByteBuf buf) {
+      return new UploadResponsePayload(buf.readUtf(), readOptionalUtf(buf), buf.readUtf());
+   }
+
+   public static void handle(UploadResponsePayload payload) {
+      if (payload.status() != null && payload.status().startsWith("ok:")) {
+         String newHash = payload.status().substring(3);
+         String metaKey = SyncMeta.metaKey("scripts", payload.sceneId(), payload.pack());
+         Path localFile = SceneStore.findLocalSceneFile(payload.sceneId(), payload.pack());
+         if (localFile != null && Files.exists(localFile)) {
+            try {
+               byte[] bytes = Files.readAllBytes(localFile);
+               SyncMeta.recordHash(metaKey, bytes);
+            } catch (Exception ignored) {
+               Map<String, String> meta = SyncMeta.load();
+               meta.put(metaKey, newHash);
+               SyncMeta.save(meta);
+            }
+         }
+      } else if ("conflict".equals(payload.status())) {
+         notifyClient(Component.translatable("ponderer.cmd.push.conflict", new Object[]{SceneStore.displaySceneKey(payload.sceneId(), payload.pack())}));
+      }
+   }
+
+   private static void notifyClient(Component message) {
+      if (Minecraft.getInstance().player != null) {
+         Minecraft.getInstance().player.displayClientMessage(message, false);
+      }
+   }
+
+   private static void writeOptionalUtf(RegistryFriendlyByteBuf buf, @Nullable String value) {
+      boolean present = value != null && !value.isBlank();
+      buf.writeBoolean(present);
+      if (present) {
+         buf.writeUtf(value);
+      }
+   }
+
+   @Nullable
+   private static String readOptionalUtf(RegistryFriendlyByteBuf buf) {
+      return buf.readBoolean() ? buf.readUtf() : null;
+   }
+}

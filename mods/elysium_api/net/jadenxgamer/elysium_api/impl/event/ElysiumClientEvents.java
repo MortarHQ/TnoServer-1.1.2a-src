@@ -1,0 +1,91 @@
+package net.jadenxgamer.elysium_api.impl.event;
+
+import com.mojang.brigadier.CommandDispatcher;
+import net.jadenxgamer.elysium_api.ElysiumAPI;
+import net.jadenxgamer.elysium_api.api.client.screen_flash.ScreenFlash;
+import net.jadenxgamer.elysium_api.impl.registry.ElysiumBlocks;
+import net.jadenxgamer.elysium_api.impl.registry.ElysiumItems;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.FogRenderer.FogMode;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.world.item.CreativeModeTabs;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.CreativeModeTab.TabVisibility;
+import net.minecraft.world.level.material.FogType;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.EventPriority;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
+import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
+import net.neoforged.neoforge.client.event.ClientTickEvent.Post;
+import net.neoforged.neoforge.client.event.ClientTickEvent.Pre;
+import net.neoforged.neoforge.client.event.ViewportEvent.RenderFog;
+import net.neoforged.neoforge.common.NeoForgeMod;
+import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
+import org.apache.commons.lang3.tuple.Pair;
+
+@EventBusSubscriber(modid = "elysium_api", value = Dist.CLIENT)
+public class ElysiumClientEvents {
+   @SubscribeEvent
+   public static void onClientTickPre(Pre event) {
+   }
+
+   @SubscribeEvent
+   public static void onClientTickPost(Post event) {
+   }
+
+   @SubscribeEvent
+   public static void onClientCommandsRegister(RegisterClientCommandsEvent event) {
+      CommandDispatcher<CommandSourceStack> dispatcher = event.getDispatcher();
+   }
+
+   @SubscribeEvent(priority = EventPriority.LOWEST)
+   public static void fogRender(RenderFog event) {
+      if (event.getCamera().getFluidInCamera() == FogType.NONE
+         && event.getMode() == FogMode.FOG_TERRAIN
+         && event.getCamera().getEntity().getEyeInFluidType() == NeoForgeMod.EMPTY_TYPE.value()) {
+         Pair<Float, Float> settings = ElysiumAPI.FOG_SETTINGS
+            .getSettings(Minecraft.getInstance().player, event.getNearPlaneDistance(), event.getFarPlaneDistance());
+         if (settings != null) {
+            event.setCanceled(true);
+            event.setNearPlaneDistance((Float)settings.getLeft());
+            event.setFarPlaneDistance((Float)settings.getRight());
+         }
+      }
+   }
+
+   @SubscribeEvent
+   public static void addToExistingTabs(BuildCreativeModeTabContentsEvent event) {
+      if (event.hasPermissions() && event.getTabKey() == CreativeModeTabs.OP_BLOCKS) {
+         event.insertAfter(
+            Items.DEBUG_STICK.getDefaultInstance(), ElysiumItems.PANORAMA_CAMERA.get().getDefaultInstance(), TabVisibility.PARENT_AND_SEARCH_TABS
+         );
+         event.insertAfter(
+            Items.JIGSAW.getDefaultInstance(), ElysiumBlocks.STRUCTURE_STAMP_ANCHOR.get().asItem().getDefaultInstance(), TabVisibility.PARENT_AND_SEARCH_TABS
+         );
+         event.insertAfter(
+            Items.BARRIER.getDefaultInstance(), ElysiumBlocks.MOB_BARRIER.get().asItem().getDefaultInstance(), TabVisibility.PARENT_AND_SEARCH_TABS
+         );
+         event.insertAfter(
+            Items.STRUCTURE_VOID.getDefaultInstance(),
+            ElysiumBlocks.GLASS_STRUCTURE_VOID.get().asItem().getDefaultInstance(),
+            TabVisibility.PARENT_AND_SEARCH_TABS
+         );
+         event.insertAfter(
+            Items.STRUCTURE_VOID.getDefaultInstance(),
+            ElysiumBlocks.SOLID_STRUCTURE_VOID.get().asItem().getDefaultInstance(),
+            TabVisibility.PARENT_AND_SEARCH_TABS
+         );
+      }
+   }
+
+   @SubscribeEvent
+   public static void onRenderGui(net.neoforged.neoforge.client.event.RenderGuiEvent.Pre event) {
+      ScreenFlash.handle(event.getGuiGraphics(), event.getPartialTick().getGameTimeDeltaPartialTick(false));
+   }
+
+   @SubscribeEvent
+   public static void clientSetup(FMLClientSetupEvent event) {
+   }
+}

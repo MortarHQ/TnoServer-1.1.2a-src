@@ -1,0 +1,38 @@
+package org.openzen.zenscript.codemodel.member;
+
+import org.openzen.zencode.shared.CodePosition;
+import org.openzen.zenscript.codemodel.HighLevelDefinition;
+import org.openzen.zenscript.codemodel.type.TypeID;
+import org.openzen.zenscript.codemodel.type.member.BuiltinID;
+
+public abstract class PropertyMember extends DefinitionMember {
+   public final BuiltinID builtin;
+   private TypeID type;
+
+   public PropertyMember(CodePosition position, HighLevelDefinition definition, int modifiers, TypeID type, BuiltinID builtin) {
+      super(position, definition, modifiers);
+      if (type == null) {
+         throw new NullPointerException();
+      }
+
+      this.type = type;
+      this.builtin = builtin;
+   }
+
+   public TypeID getType() {
+      return this.type;
+   }
+
+   public void setType(TypeID type) {
+      if (type == null) {
+         throw new NullPointerException();
+      }
+
+      this.type = type;
+   }
+
+   @Override
+   public BuiltinID getBuiltin() {
+      return this.builtin;
+   }
+}

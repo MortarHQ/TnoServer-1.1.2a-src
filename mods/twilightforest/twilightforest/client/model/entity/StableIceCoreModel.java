@@ -1,0 +1,23 @@
+package twilightforest.client.model.entity;
+
+import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.util.Mth;
+import twilightforest.entity.monster.StableIceCore;
+
+public class StableIceCoreModel extends UnstableIceCoreModel<StableIceCore> {
+   public StableIceCoreModel(ModelPart root) {
+      super(root);
+   }
+
+   public void prepareMobModel(StableIceCore entity, float limbSwing, float limbSwingAmount, float partialTicks) {
+      this.alive = entity.isAlive();
+
+      for (int i = 0; i < this.spikes.length; i++) {
+         this.spikes[i].yRot = 1.570795F + Mth.sin((entity.tickCount + partialTicks) / 5.0F) * 0.5F;
+         this.spikes[i].xRot = (entity.tickCount + partialTicks) / 5.0F;
+         this.spikes[i].zRot = Mth.cos(i / 5.0F) / 4.0F;
+         this.spikes[i].xRot += i * (float) (Math.PI / 8);
+         this.cubes[i].y = 9.5F + Mth.sin((i + entity.tickCount + partialTicks) / 3.0F) * 3.0F;
+      }
+   }
+}

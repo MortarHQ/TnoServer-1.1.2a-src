@@ -1,0 +1,182 @@
+package org.openzen.zenscript.codemodel.member;
+
+import org.openzen.zencode.shared.CodePosition;
+import org.openzen.zenscript.codemodel.FunctionHeader;
+import org.openzen.zenscript.codemodel.GenericMapper;
+import org.openzen.zenscript.codemodel.HighLevelDefinition;
+import org.openzen.zenscript.codemodel.expression.Expression;
+import org.openzen.zenscript.codemodel.expression.GetFieldExpression;
+import org.openzen.zenscript.codemodel.expression.GetFunctionParameterExpression;
+import org.openzen.zenscript.codemodel.expression.SetFieldExpression;
+import org.openzen.zenscript.codemodel.expression.ThisExpression;
+import org.openzen.zenscript.codemodel.member.ref.DefinitionMemberRef;
+import org.openzen.zenscript.codemodel.member.ref.FieldMemberRef;
+import org.openzen.zenscript.codemodel.scope.TypeScope;
+import org.openzen.zenscript.codemodel.statement.ExpressionStatement;
+import org.openzen.zenscript.codemodel.statement.ReturnStatement;
+import org.openzen.zenscript.codemodel.type.GlobalTypeRegistry;
+import org.openzen.zenscript.codemodel.type.TypeID;
+import org.openzen.zenscript.codemodel.type.member.BuiltinID;
+import org.openzen.zenscript.codemodel.type.member.TypeMemberPriority;
+import org.openzen.zenscript.codemodel.type.member.TypeMembers;
+
+public class FieldMember extends PropertyMember {
+   public final String name;
+   public final int autoGetterAccess;
+   public final int autoSetterAccess;
+   public final GetterMember autoGetter;
+   public final SetterMember autoSetter;
+   public Expression initializer;
+
+   public FieldMember(
+      CodePosition position,
+      HighLevelDefinition definition,
+      int modifiers,
+      String name,
+      TypeID thisType,
+      TypeID type,
+      GlobalTypeRegistry registry,
+      int autoGetterAccess,
+      int autoSetterAccess,
+      BuiltinID builtin
+   ) {
+      super(position, definition, modifiers, type, builtin);
+      this.name = name;
+      this.autoGetterAccess = autoGetterAccess;
+      this.autoSetterAccess = autoSetterAccess;
+      TypeID[] parameters = null;
+      if (definition.typeParameters != null) {
+         parameters = new TypeID[definition.typeParameters.length];
+
+         for (int i = 0; i < parameters.length; i++) {
+            parameters[i] = registry.getGeneric(definition.typeParameters[i]);
+         }
+      }
+
+      int autoMemberModifiers = modifiers & 128;
+      if (autoGetterAccess != 0) {
+         this.autoGetter = new GetterMember(position, definition, autoGetterAccess | autoMemberModifiers, name, type, null);
+         this.autoGetter
+            .setBody(
+               new ReturnStatement(position, new GetFieldExpression(position, new ThisExpression(position, thisType), new FieldMemberRef(thisType, this, null)))
+            );
+      } else {
+         this.autoGetter = null;
+      }
+
+      if (autoSetterAccess != 0) {
+         this.autoSetter = new SetterMember(position, definition, autoSetterAccess | autoMemberModifiers, name, type, null);
+         this.autoSetter
+            .setBody(
+               new ExpressionStatement(
+                  position,
+                  new SetFieldExpression(
+                     position,
+                     new ThisExpression(position, thisType),
+                     new FieldMemberRef(thisType, this, null),
+                     new GetFunctionParameterExpression(position, this.autoSetter.parameter)
+                  )
+               )
+            );
+      } else {
+         this.autoSetter = null;
+      }
+   }
+
+   private FieldMember(
+      CodePosition position,
+      HighLevelDefinition definition,
+      int modifiers,
+      String name,
+      TypeID type,
+      int autoGetterAccess,
+      int autoSetterAccess,
+      GetterMember autoGetter,
+      SetterMember autoSetter,
+      BuiltinID builtin
+   ) {
+      super(position, definition, modifiers, type, builtin);
+      this.name = name;
+      this.autoGetterAccess = autoGetterAccess;
+      this.autoSetterAccess = autoSetterAccess;
+      this.autoGetter = autoGetter;
+      this.autoSetter = autoSetter;
+   }
+
+   public boolean hasAutoGetter() {
+      return this.autoGetterAccess != 0;
+   }
+
+   public boolean hasAutoSetter() {
+      return this.autoSetterAccess != 0;
+   }
+
+   public void setInitializer(Expression initializer) {
+      this.initializer = initializer;
+   }
+
+   @Override
+   public void registerTo(TypeMembers members, TypeMemberPriority priority, GenericMapper mapper) {
+      members.addField(new FieldMemberRef(members.type, this, mapper), priority);
+      if (this.autoGetter != null) {
+         this.autoGetter.registerTo(members, priority, mapper);
+      }
+
+      if (this.autoSetter != null) {
+         this.autoSetter.registerTo(members, priority, mapper);
+      }
+   }
+
+   @Override
+   public BuiltinID getBuiltin() {
+      return this.builtin;
+   }
+
+   @Override
+   public String describe() {
+      return "field " + this.name;
+   }
+
+   @Override
+   public <T> T accept(MemberVisitor<T> visitor) {
+      return visitor.visitField(this);
+   }
+
+   @Override
+   public <C, R> R accept(C context, MemberVisitorWithContext<C, R> visitor) {
+      return visitor.visitField(context, this);
+   }
+
+   @Override
+   public DefinitionMemberRef getOverrides() {
+      return null;
+   }
+
+   @Override
+   public int getEffectiveModifiers() {
+      return this.modifiers;
+   }
+
+   @Override
+   public void normalize(TypeScope scope) {
+      this.setType(this.getType().getNormalized());
+      if (this.initializer != null) {
+         this.initializer = this.initializer.normalize(scope);
+      }
+   }
+
+   @Override
+   public boolean isAbstract() {
+      return false;
+   }
+
+   @Override
+   public DefinitionMemberRef ref(TypeID type, GenericMapper mapper) {
+      return new FieldMemberRef(type, this, mapper);
+   }
+
+   @Override
+   public FunctionHeader getHeader() {
+      return null;
+   }
+}

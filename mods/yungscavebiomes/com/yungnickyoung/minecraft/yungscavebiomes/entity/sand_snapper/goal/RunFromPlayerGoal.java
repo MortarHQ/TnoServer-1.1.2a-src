@@ -1,0 +1,184 @@
+package com.yungnickyoung.minecraft.yungscavebiomes.entity.sand_snapper.goal;
+
+import com.yungnickyoung.minecraft.yungscavebiomes.entity.sand_snapper.SandSnapperEntity;
+import com.yungnickyoung.minecraft.yungscavebiomes.module.BlockModule;
+import com.yungnickyoung.minecraft.yungscavebiomes.sandstorm.ISandstormServerDataProvider;
+import com.yungnickyoung.minecraft.yungscavebiomes.sandstorm.SandstormServerData;
+import java.util.EnumSet;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import javax.annotation.Nullable;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.EntitySelector;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.goal.Goal;
+import net.minecraft.world.entity.ai.goal.Goal.Flag;
+import net.minecraft.world.entity.ai.navigation.PathNavigation;
+import net.minecraft.world.entity.ai.targeting.TargetingConditions;
+import net.minecraft.world.entity.ai.util.RandomPos;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.pathfinder.Path;
+import net.minecraft.world.phys.Vec3;
+
+public class RunFromPlayerGoal extends Goal {
+   private static final double UPDATE_TARGET_POS_DISTANCE_SQUARED = 9.0;
+   private static final int REFRESH_PATH_INTERVAL = 20;
+   private final SandSnapperEntity sandSnapper;
+   private final double speedModifier;
+   private final double submergedSpeedModifier;
+   @Nullable
+   protected Player playerToAvoid;
+   protected final float maxDist;
+   @Nullable
+   protected Path path;
+   protected final PathNavigation pathNav;
+   private final TargetingConditions avoidEntityTargeting;
+   private int refreshPathTimer;
+
+   public RunFromPlayerGoal(SandSnapperEntity sandSnapper, float dist, double speedModifier, double submergedSpeedModifier) {
+      this(sandSnapper, dist, speedModifier, submergedSpeedModifier, EntitySelector.NO_CREATIVE_OR_SPECTATOR::test);
+   }
+
+   private RunFromPlayerGoal(
+      SandSnapperEntity sandSnapper, float maxDist, double speedModifier, double submergedSpeedModifier, Predicate<LivingEntity> avoidEntityPredicate
+   ) {
+      this.sandSnapper = sandSnapper;
+      this.maxDist = maxDist;
+      this.speedModifier = speedModifier;
+      this.submergedSpeedModifier = submergedSpeedModifier;
+      this.pathNav = sandSnapper.getNavigation();
+      this.avoidEntityTargeting = TargetingConditions.forCombat().range(maxDist).selector(avoidEntityPredicate);
+      this.refreshPathTimer = this.adjustedTickDelay(20);
+      this.setFlags(EnumSet.of(Flag.MOVE));
+   }
+
+   public void start() {
+      this.pathNav.moveTo(this.path, this.speedModifier);
+      if (!this.sandSnapper.isSubmerged() && this.sandSnapper.canSubmerge(true)) {
+         this.sandSnapper.setSubmerged(true);
+      }
+   }
+
+   public void stop() {
+      this.playerToAvoid = null;
+      this.refreshPathTimer = this.adjustedTickDelay(20);
+   }
+
+   public void tick() {
+      if (!this.sandSnapper.isSubmerged() && this.sandSnapper.canSubmerge(true)) {
+         this.sandSnapper.setSubmerged(true);
+         this.sandSnapper.tryPlayPanicSound();
+      }
+
+      double multiplier = this.sandSnapper.isSubmerged() ? this.submergedSpeedModifier : 1.0;
+      this.sandSnapper.getNavigation().setSpeedModifier(this.speedModifier * multiplier);
+      this.refreshPathTimer--;
+      if (this.playerToAvoid != null && this.refreshPathTimer <= 0 && this.playerToAvoid.distanceToSqr(this.sandSnapper) < 9.0) {
+         this.refreshPathTimer = this.adjustedTickDelay(20);
+         Vec3 newTargetPos = this.findTargetPos();
+         if (newTargetPos != null && this.sandSnapper.canMove()) {
+            this.path = this.pathNav.createPath(newTargetPos.x, newTargetPos.y, newTargetPos.z, 0);
+            this.pathNav.moveTo(this.path, this.speedModifier);
+         }
+      }
+   }
+
+   public boolean canUse() {
+      if (this.sandSnapper.friendlyTimer <= 0 && this.sandSnapper.canMove() && !this.sandSnapper.hasCustomName()) {
+         this.playerToAvoid = (Player)this.sandSnapper
+            .level()
+            .getNearestEntity(
+               this.sandSnapper.level().getEntitiesOfClass(Player.class, this.sandSnapper.getBoundingBox().inflate(this.maxDist, 3.0, this.maxDist), p -> true),
+               this.avoidEntityTargeting,
+               this.sandSnapper,
+               this.sandSnapper.getX(),
+               this.sandSnapper.getY(),
+               this.sandSnapper.getZ()
+            );
+         Vec3 targetPos = this.findTargetPos();
+         if (targetPos == null) {
+            return false;
+         }
+
+         this.path = this.pathNav.createPath(targetPos.x, targetPos.y, targetPos.z, 0);
+         return this.path != null && !this.isInActiveSandstorm();
+      } else {
+         return false;
+      }
+   }
+
+   public boolean canContinueToUse() {
+      return this.sandSnapper.friendlyTimer <= 0 && !this.pathNav.isDone() && !this.isInActiveSandstorm() && !this.sandSnapper.hasCustomName();
+   }
+
+   public boolean isInterruptable() {
+      return false;
+   }
+
+   @Nullable
+   private Vec3 findTargetPos() {
+      if (this.playerToAvoid == null) {
+         return null;
+      }
+
+      int minHorizontalDist = 4;
+      int maxHorizontalDist = 16;
+      int maxVerticalDist = 7;
+      Function<BlockPos, Boolean> isValidSandPos = pos -> this.sandSnapper.level().getBlockState(pos).is(BlockModule.SAND_SNAPPER_BLOCKS)
+         && this.sandSnapper.level().getBlockState(pos.above()).isAir();
+      Vec3 targetPos = this.getPosAway(minHorizontalDist, maxHorizontalDist, maxVerticalDist, Math.PI / 2, this.playerToAvoid.position(), isValidSandPos);
+      if (targetPos == null) {
+         targetPos = this.getPosAway(minHorizontalDist, maxHorizontalDist, maxVerticalDist, Math.PI * 3.0 / 2.0, this.playerToAvoid.position(), isValidSandPos);
+      }
+
+      if (targetPos == null) {
+         targetPos = this.getPosAway(minHorizontalDist, maxHorizontalDist, maxVerticalDist, Math.PI / 2, this.playerToAvoid.position(), null);
+      }
+
+      if (targetPos == null) {
+         targetPos = this.getPosAway(0, maxHorizontalDist, maxVerticalDist, Math.PI / 2, this.playerToAvoid.position(), null);
+      }
+
+      return targetPos;
+   }
+
+   @Nullable
+   private Vec3 getPosAway(
+      int minHorizontalDist, int maxHorizontalDist, int maxVerticalDist, double searchAngle, Vec3 avoidPos, @Nullable Function<BlockPos, Boolean> blockFilter
+   ) {
+      Vec3 awayDirection = this.sandSnapper.position().subtract(avoidPos);
+      return RandomPos.generateRandomPos(
+         this.sandSnapper,
+         () -> {
+            BlockPos randomlyOffsetPos = generateRandomOffsetInDirection(
+               this.sandSnapper.getRandom(), minHorizontalDist, maxHorizontalDist, maxVerticalDist, awayDirection.x, awayDirection.z, searchAngle
+            );
+            BlockPos pos = BlockPos.containing(
+               this.sandSnapper.getX() + randomlyOffsetPos.getX(),
+               this.sandSnapper.getY() + randomlyOffsetPos.getY(),
+               this.sandSnapper.getZ() + randomlyOffsetPos.getZ()
+            );
+            return blockFilter != null && !blockFilter.apply(pos) ? null : pos;
+         }
+      );
+   }
+
+   private static BlockPos generateRandomOffsetInDirection(
+      RandomSource random, int minHorizontalDist, int maxHorizontalDistance, int maxVerticalDistance, double dirX, double dirZ, double searchAngle
+   ) {
+      double theta = Math.atan2(dirZ, dirX);
+      double randomAngleOffset = random.nextDouble() * searchAngle - searchAngle / 2.0;
+      double randomAngle = theta + randomAngleOffset;
+      double amplitude = Math.sqrt(random.nextDouble()) * (maxHorizontalDistance - minHorizontalDist) + minHorizontalDist;
+      double randomX = amplitude * Math.cos(randomAngle);
+      double randomZ = amplitude * Math.sin(randomAngle);
+      int randomY = random.nextInt(2 * maxVerticalDistance + 1) - maxVerticalDistance;
+      return BlockPos.containing(randomX, randomY, randomZ);
+   }
+
+   private boolean isInActiveSandstorm() {
+      SandstormServerData sandstormServerData = ((ISandstormServerDataProvider)this.sandSnapper.level()).getSandstormServerData();
+      return sandstormServerData.isSandstormActive();
+   }
+}

@@ -1,0 +1,84 @@
+package org.openzen.zenscript.validator;
+
+import org.openzen.zencode.shared.CodePosition;
+
+public class ValidationLogEntry {
+   public final ValidationLogEntry.Kind kind;
+   public final ValidationLogEntry.Code code;
+   public final CodePosition position;
+   public final String message;
+
+   public ValidationLogEntry(ValidationLogEntry.Kind kind, ValidationLogEntry.Code code, CodePosition position, String message) {
+      this.kind = kind;
+      this.code = code;
+      this.position = position;
+      this.message = message;
+   }
+
+   @Override
+   public String toString() {
+      return this.kind + " " + this.position + ": " + this.message;
+   }
+
+   public enum Code {
+      SUPERCLASS_NOT_A_CLASS,
+      SUPERCLASS_NOT_VIRTUAL,
+      INVALID_MODIFIER,
+      INVALID_IDENTIFIER,
+      DUPLICATE_FIELD_NAME,
+      DUPLICATE_MEMBER_NAME,
+      INVALID_TYPE,
+      DUPLICATE_PARAMETER_NAME,
+      INVALID_OPERAND_TYPE,
+      INVALID_TYPE_ARGUMENT,
+      INVALID_CALL_ARGUMENT,
+      VARIADIC_PARAMETER_MUST_BE_LAST,
+      CONSTRUCTOR_FORWARD_OUTSIDE_CONSTRUCTOR,
+      CONSTRUCTOR_FORWARD_NOT_FIRST_STATEMENT,
+      CONSTRUCTOR_FORWARD_MISSING,
+      DUPLICATE_CONSTRUCTOR,
+      DUPLICATE_METHOD,
+      BODY_REQUIRED,
+      INVALID_CONDITION_TYPE,
+      DUPLICATE_VARIABLE_NAME,
+      SCRIPT_CANNOT_RETURN,
+      INVALID_RETURN_TYPE,
+      TRY_CATCH_RESOURCE_REQUIRES_INITIALIZER,
+      TYPE_ALREADY_IMPLEMENTED,
+      THIS_IN_STATIC_SCOPE,
+      ENUM_CONSTANT_NOT_YET_INITIALIZED,
+      FIELD_NOT_YET_INITIALIZED,
+      LOCAL_VARIABLE_NOT_YET_INITIALIZED,
+      INVALID_SOURCE_TYPE,
+      SETTING_FINAL_FIELD,
+      SETTING_FINAL_VARIABLE,
+      INVALID_SUPERTYPE,
+      MULTIPLE_DESTRUCTORS,
+      PANIC_ARGUMENT_NO_STRING,
+      THROW_WITHOUT_THROWS,
+      DESTRUCTOR_CANNOT_THROW,
+      STATIC_INITIALIZER_CANNOT_THROW,
+      IMPLEMENTATION_NESTED,
+      OVERRIDE_MISSING_BASE,
+      INVALID_OVERRIDE,
+      SUPERTYPE_NOT_DESTRUCTIBLE,
+      INVALID_IMPLEMENTATION_TYPE,
+      INCOMPLETE_IMPLEMENTATION,
+      MATCHING_VARIANT_FIELD_INVALID,
+      DUPLICATE_DEFAULT_CASE,
+      DUPLICATE_CASE,
+      INCOMPLETE_MATCH,
+      INVALID_CASE,
+      INVALID_STORAGE_CAST,
+      INVALID_EXPRESSION,
+      INVALID_STATEMENT,
+      NO_ACCESS,
+      MUST_BE_STATIC,
+      MUST_NOT_BE_STATIC;
+   }
+
+   public enum Kind {
+      ERROR,
+      WARNING;
+   }
+}

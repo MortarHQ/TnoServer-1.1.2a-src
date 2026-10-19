@@ -1,0 +1,36 @@
+package dev.ftb.mods.ftbchunks.client.neoforge;
+
+import dev.ftb.mods.ftbchunks.client.FTBChunksClient;
+import net.minecraft.client.KeyMapping;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
+import net.neoforged.neoforge.client.event.RenderLevelStageEvent.Stage;
+import net.neoforged.neoforge.common.NeoForge;
+
+public class FTBChunksClientImpl {
+   public static void registerPlatform() {
+      NeoForge.EVENT_BUS.register(FTBChunksClientImpl.class);
+   }
+
+   @SubscribeEvent
+   public static void renderLevelStageForge(RenderLevelStageEvent event) {
+      if (event.getStage() == Stage.AFTER_PARTICLES) {
+         FTBChunksClient.INSTANCE
+            .renderWorldLast(event.getPoseStack(), event.getProjectionMatrix(), event.getModelViewMatrix(), event.getCamera(), event.getPartialTick());
+      }
+   }
+
+   public static boolean doesKeybindMatch(KeyMapping keyMapping, int keyCode, int scanCode, int modifiers) {
+      if (keyMapping.matches(keyCode, scanCode)) {
+         return switch (keyMapping.getKeyModifier()) {
+            case NONE -> modifiers == 0;
+            case SHIFT -> (modifiers & 1) != 0;
+            case CONTROL -> (modifiers & 2) != 0;
+            case ALT -> (modifiers & 4) != 0;
+            default -> throw new MatchException(null, null);
+         };
+      } else {
+         return false;
+      }
+   }
+}

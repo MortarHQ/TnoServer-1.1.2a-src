@@ -1,0 +1,42 @@
+package noobanidus.mods.lootr.common.client.item;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.model.geom.EntityModelSet;
+import net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderDispatcher;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.item.ItemDisplayContext;
+import net.minecraft.world.item.ItemStack;
+import noobanidus.mods.lootr.common.api.registry.LootrRegistry;
+import noobanidus.mods.lootr.common.block.entity.LootrDecoratedPotBlockEntity;
+
+public class LootrDecoratedPotItemRenderer extends BlockEntityWithoutLevelRenderer {
+   private static LootrDecoratedPotItemRenderer INSTANCE = null;
+   private final BlockEntityRenderDispatcher blockEntityRenderDispatcher;
+   private final LootrDecoratedPotBlockEntity blockEntity;
+
+   public LootrDecoratedPotItemRenderer(BlockEntityRenderDispatcher pBlockEntityRenderDispatcher, EntityModelSet pEntityModelSet) {
+      super(pBlockEntityRenderDispatcher, pEntityModelSet);
+      this.blockEntityRenderDispatcher = pBlockEntityRenderDispatcher;
+      this.blockEntity = new LootrDecoratedPotBlockEntity(BlockPos.ZERO, LootrRegistry.getDecoratedPotBlock().defaultBlockState());
+   }
+
+   public LootrDecoratedPotItemRenderer() {
+      this(Minecraft.getInstance().getBlockEntityRenderDispatcher(), Minecraft.getInstance().getEntityModels());
+   }
+
+   public static LootrDecoratedPotItemRenderer getInstance() {
+      if (INSTANCE == null) {
+         INSTANCE = new LootrDecoratedPotItemRenderer();
+      }
+
+      return INSTANCE;
+   }
+
+   public void renderByItem(ItemStack p_108830_, ItemDisplayContext p_270899_, PoseStack p_108832_, MultiBufferSource p_108833_, int p_108834_, int p_108835_) {
+      this.blockEntity.setFromItem(p_108830_);
+      this.blockEntityRenderDispatcher.renderItem(this.blockEntity, p_108832_, p_108833_, p_108834_, p_108835_);
+   }
+}

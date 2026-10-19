@@ -1,0 +1,25 @@
+package mcjty.incontrol;
+
+import mcjty.incontrol.setup.Config;
+import mcjty.incontrol.setup.ModSetup;
+import mcjty.incontrol.setup.Registration;
+import mcjty.incontrol.tools.cache.StructureCache;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.common.Mod;
+import net.neoforged.neoforge.common.NeoForge;
+
+@Mod("incontrol")
+public class InControl {
+   public static final String MODID = "incontrol";
+   public static ModSetup setup = new ModSetup();
+
+   public InControl(ModContainer container, IEventBus bus) {
+      Config.register(container);
+      Registration.register(bus);
+      bus.addListener(event -> setup.init());
+      bus.addListener(ModBusHandler::addEntityAttributes);
+      NeoForge.EVENT_BUS.addListener(event -> StructureCache.CACHE.clean());
+      NeoForge.EVENT_BUS.addListener(ErrorHandler::onPlayerJoinWorld);
+   }
+}

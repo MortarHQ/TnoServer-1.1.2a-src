@@ -1,0 +1,126 @@
+package twilightforest.beanification.internal;
+
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.ApiStatus.Internal;
+import org.objectweb.asm.Type;
+import twilightforest.beanification.Autowired;
+import twilightforest.beanification.Directory;
+
+@Internal
+public class InternalReflectionHelper {
+   public boolean classOrSuperEquals(Type clazz, Class<?> c) {
+      return clazz.equals(Type.getType(c)) || c.getSuperclass() instanceof Class<?> sup && this.classOrSuperEquals(clazz, sup);
+   }
+
+   public List<Field> getAllAutowiredFieldsIncludingSuper(Class<?> c, String name, String value) {
+      List<Field> list = new ArrayList<>();
+      this.getAllAutowiredFieldsIncludingSuper(c, name, value, list);
+      return list;
+   }
+
+   private void getAllAutowiredFieldsIncludingSuper(Class<?> c, String name, String value, List<Field> list) {
+      try {
+         Field f = c.getDeclaredField(name);
+         if (f.isAnnotationPresent(Autowired.class) && Objects.equals(f.getAnnotation(Autowired.class).value(), value)) {
+            list.add(f);
+         }
+      } catch (NoSuchFieldException var6) {
+      }
+
+      Class<?> sup = c.getSuperclass();
+      if (sup != null) {
+         this.getAllAutowiredFieldsIncludingSuper(sup, name, value, list);
+      }
+   }
+
+   public List<Field> getAllDirectoryFieldsIncludingSuper(Class<?> c, String name) {
+      List<Field> list = new ArrayList<>();
+      this.getAllDirectoryFieldsIncludingSuper(c, name, list);
+      return list;
+   }
+
+   private void getAllDirectoryFieldsIncludingSuper(Class<?> c, String name, List<Field> list) {
+      try {
+         Field f = c.getDeclaredField(name);
+         if (f.isAnnotationPresent(Directory.class)) {
+            list.add(f);
+         }
+      } catch (NoSuchFieldException var5) {
+      }
+
+      Class<?> sup = c.getSuperclass();
+      if (sup != null) {
+         this.getAllDirectoryFieldsIncludingSuper(sup, name, list);
+      }
+   }
+
+   public boolean isStatic(Field field) {
+      return Modifier.isStatic(field.getModifiers());
+   }
+
+   public boolean isStatic(Method method) {
+      return Modifier.isStatic(method.getModifiers());
+   }
+
+   @SafeVarargs
+   public final boolean isAnyAnnotationPresent(Class<?> clazz, Class<? extends Annotation>... annotations) {
+      for (Class<? extends Annotation> annotation : annotations) {
+         if (clazz.isAnnotationPresent(annotation)) {
+            return true;
+         }
+      }
+
+      return false;
+   }
+
+   public <A extends Annotation> A getAnnotation(Class<?> clazz, Class<A> annotation) {
+      return clazz.getAnnotation(annotation);
+   }
+
+   public Field getDeclaredField(Class<?> clazz, String name) throws NoSuchFieldException {
+      return clazz.getDeclaredField(name);
+   }
+
+   public Method getDeclaredMethod(Class<?> clazz, String name, @Nullable Class<?>... args) throws NoSuchMethodException {
+      return clazz.getDeclaredMethod(name.split("\\(")[0], args);
+   }
+
+   public Type getType(Class<?> c) {
+      return Type.getType(c);
+   }
+
+   public Constructor<?>[] getConstructors(Class<?> c) {
+      return c.getConstructors();
+   }
+
+   public Constructor<?> getConstructor(Class<?> c, Class<?>... p) throws NoSuchMethodException {
+      return c.getConstructor(p);
+   }
+
+   public boolean allParametersHaveAnnotation(Annotation[][] parameterAnnotations, Class<? extends Annotation> annotationClass) {
+      for (Annotation[] annotations : parameterAnnotations) {
+         boolean hasAnnotation = false;
+
+         for (Annotation annotation : annotations) {
+            if (annotation.annotationType().equals(annotationClass)) {
+               hasAnnotation = true;
+               break;
+            }
+         }
+
+         if (!hasAnnotation) {
+            return false;
+         }
+      }
+
+      return true;
+   }
+}

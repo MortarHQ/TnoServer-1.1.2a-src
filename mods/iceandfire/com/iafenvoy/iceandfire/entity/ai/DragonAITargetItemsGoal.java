@@ -1,0 +1,138 @@
+package com.iafenvoy.iceandfire.entity.ai;
+
+import com.iafenvoy.iceandfire.entity.DragonBaseEntity;
+import com.iafenvoy.iceandfire.entity.IceDragonEntity;
+import com.iafenvoy.iceandfire.util.IafMath;
+import com.iafenvoy.uranus.object.item.FoodUtils;
+import java.util.Comparator;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.function.Predicate;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.ai.goal.Goal.Flag;
+import net.minecraft.world.entity.ai.goal.target.TargetGoal;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.AABB;
+
+public class DragonAITargetItemsGoal extends TargetGoal {
+   protected final DragonAITargetItemsGoal.Sorter theNearestAttackableTargetSorter;
+   protected final Predicate<? super ItemEntity> targetEntitySelector;
+   private final int targetChance;
+   private final boolean prioritizeItems;
+   private final boolean isIce;
+   protected ItemEntity targetEntity;
+   private List<ItemEntity> list = IafMath.emptyItemEntityList;
+
+   public DragonAITargetItemsGoal(DragonBaseEntity creature, boolean checkSight) {
+      this(creature, 20, checkSight, false, false);
+   }
+
+   public DragonAITargetItemsGoal(DragonBaseEntity creature, boolean checkSight, boolean onlyNearby) {
+      this(creature, 20, checkSight, onlyNearby, false);
+   }
+
+   public DragonAITargetItemsGoal(DragonBaseEntity creature, int chance, boolean checkSight, boolean onlyNearby) {
+      this(creature, chance, checkSight, onlyNearby, false);
+   }
+
+   public DragonAITargetItemsGoal(DragonBaseEntity creature, int chance, boolean checkSight, boolean onlyNearby, boolean prioritizeItems) {
+      super(creature, checkSight, onlyNearby);
+      this.setFlags(EnumSet.of(Flag.TARGET));
+      this.isIce = creature instanceof IceDragonEntity;
+      this.targetChance = chance;
+      this.theNearestAttackableTargetSorter = new DragonAITargetItemsGoal.Sorter(creature);
+      this.setFlags(EnumSet.of(Flag.MOVE));
+      this.targetEntitySelector = item -> item != null && !item.getItem().isEmpty() && FoodUtils.getFoodPoints(item.getItem(), true, this.isIce) > 0;
+      this.prioritizeItems = prioritizeItems;
+   }
+
+   public boolean canUse() {
+      DragonBaseEntity dragon = (DragonBaseEntity)this.mob;
+      if (this.prioritizeItems && dragon.getHunger() >= 60) {
+         return false;
+      }
+
+      if (dragon.getHunger() < 100 && dragon.canMove() && (this.targetChance <= 0 || this.mob.getRandom().nextInt(10) == 0)) {
+         return this.updateList();
+      }
+
+      this.list = IafMath.emptyItemEntityList;
+      return false;
+   }
+
+   private boolean updateList() {
+      if (this.mob.level().getGameTime() % 4L == 0L) {
+         this.list = this.mob.level().getEntitiesOfClass(ItemEntity.class, this.getTargetableArea(this.getFollowDistance()), this.targetEntitySelector);
+      }
+
+      if (this.list.isEmpty()) {
+         return false;
+      }
+
+      this.list.sort(this.theNearestAttackableTargetSorter);
+      this.targetEntity = this.list.getFirst();
+      return true;
+   }
+
+   protected AABB getTargetableArea(double targetDistance) {
+      return this.mob.getBoundingBox().inflate(targetDistance, 4.0, targetDistance);
+   }
+
+   public void start() {
+      this.mob.getNavigation().moveTo(this.targetEntity.getX(), this.targetEntity.getY(), this.targetEntity.getZ(), 1.0);
+      super.start();
+   }
+
+   public void tick() {
+      super.tick();
+      ItemStack stack = this.targetEntity.getItem();
+      if (this.targetEntity != null && this.targetEntity.isAlive() && !stack.isEmpty()) {
+         if (this.mob.distanceToSqr(this.targetEntity) < this.mob.getBbWidth() * 2.0F + this.mob.getBbHeight() / 2.0F
+            || this.mob instanceof DragonBaseEntity dragon && dragon.getHeadPosition().distanceToSqr(this.targetEntity.position()) < this.mob.getBbHeight()) {
+            this.mob.playSound(SoundEvents.GENERIC_EAT, 1.0F, 1.0F);
+            int hunger = FoodUtils.getFoodPoints(this.targetEntity.getItem(), true, this.isIce);
+            DragonBaseEntity dragon = (DragonBaseEntity)this.mob;
+            dragon.setHunger(Math.min(100, dragon.getHunger() + hunger));
+            this.targetEntity.getItem();
+            this.mob
+               .setHealth(
+                  Math.min(this.mob.getMaxHealth(), (int)(this.mob.getHealth() + FoodUtils.getFoodPoints(this.targetEntity.getItem(), true, this.isIce)))
+               );
+            if (DragonBaseEntity.ANIMATION_EAT != null) {
+               dragon.setAnimation(DragonBaseEntity.ANIMATION_EAT);
+            }
+
+            for (int i = 0; i < 4; i++) {
+               dragon.spawnItemCrackParticles(stack.getItem());
+            }
+
+            this.targetEntity.getItem().shrink(1);
+            this.stop();
+         } else {
+            this.updateList();
+         }
+      } else {
+         this.stop();
+      }
+   }
+
+   public boolean canContinueToUse() {
+      return !this.mob.getNavigation().isDone();
+   }
+
+   public static class Sorter implements Comparator<Entity> {
+      private final Entity theEntity;
+
+      public Sorter(Entity theEntityIn) {
+         this.theEntity = theEntityIn;
+      }
+
+      public int compare(Entity p_compare_1_, Entity p_compare_2_) {
+         double d0 = this.theEntity.distanceToSqr(p_compare_1_);
+         double d1 = this.theEntity.distanceToSqr(p_compare_2_);
+         return Double.compare(d0, d1);
+      }
+   }
+}

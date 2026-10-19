@@ -1,0 +1,21 @@
+{
+	"parent": "minecraft:item/generated",
+	"textures": {
+	  "layer0": "minecraft:item/trial_key"
+	},
+	"overrides": [
+	  {
+		"predicate": {
+		  "custom_model_data": 6767
+		},
+		"model": "minecraft:item/keys/stronghold_key"
+	  },
+	   {
+		"predicate": {
+		  "custom_model_data": 6161
+		},
+		"model": "minecraft:item/keys/mansion_key"
+	  }
+	]
+  }
+  

@@ -1,0 +1,2 @@
+#Structure registry IDs excluded from automatic terrain blending.
+excludedStructures = []

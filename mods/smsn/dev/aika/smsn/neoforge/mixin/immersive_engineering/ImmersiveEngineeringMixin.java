@@ -1,0 +1,18 @@
+package dev.aika.smsn.neoforge.mixin.immersive_engineering;
+
+import blusunrize.immersiveengineering.ImmersiveEngineering.ThreadContributorSpecialsDownloader;
+import dev.aika.smsn.SMSN;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+@Mixin(value = ThreadContributorSpecialsDownloader.class, remap = false)
+public abstract class ImmersiveEngineeringMixin {
+   @Inject(method = "run()V", at = @At("HEAD"), cancellable = true)
+   public void run(CallbackInfo ci) {
+      if (!SMSN.CONFIG.isImmersiveEngineeringSpecialRevolvers()) {
+         ci.cancel();
+      }
+   }
+}

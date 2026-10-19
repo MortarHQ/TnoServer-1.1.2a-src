@@ -1,0 +1,54 @@
+package gardensofthedead.block;
+
+import com.mojang.serialization.MapCodec;
+import gardensofthedead.registry.ModBlocks;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.BlockTags;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelReader;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.BonemealableBlock;
+import net.minecraft.world.level.block.BushBlock;
+import net.minecraft.world.level.block.DoublePlantBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.BlockBehaviour.Properties;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.VoxelShape;
+
+public class BlistercrownBlock extends BushBlock implements BonemealableBlock {
+   protected static final VoxelShape SHAPE = Block.box(4.0, 0.0, 4.0, 12.0, 14.0, 12.0);
+
+   public BlistercrownBlock(Properties properties) {
+      super(properties);
+   }
+
+   protected MapCodec<? extends BushBlock> codec() {
+      return MapCodec.unit(this);
+   }
+
+   public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+      return SHAPE;
+   }
+
+   protected boolean mayPlaceOn(BlockState state, BlockGetter level, BlockPos pos) {
+      return state.is(BlockTags.NYLIUM) || super.mayPlaceOn(state, level, pos);
+   }
+
+   public boolean isValidBonemealTarget(LevelReader levelReader, BlockPos blockPos, BlockState blockState) {
+      return false;
+   }
+
+   public boolean isBonemealSuccess(Level level, RandomSource randomSource, BlockPos pos, BlockState state) {
+      return true;
+   }
+
+   public void performBonemeal(ServerLevel level, RandomSource randomSource, BlockPos pos, BlockState state) {
+      DoublePlantBlock doubleplantblock = (DoublePlantBlock)ModBlocks.TALL_BLISTERCROWN.get();
+      if (doubleplantblock.defaultBlockState().canSurvive(level, pos) && level.isEmptyBlock(pos.above())) {
+         DoublePlantBlock.placeAt(level, doubleplantblock.defaultBlockState(), pos, 2);
+      }
+   }
+}

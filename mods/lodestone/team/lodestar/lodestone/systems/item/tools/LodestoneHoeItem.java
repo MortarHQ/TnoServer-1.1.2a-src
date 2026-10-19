@@ -1,0 +1,28 @@
+package team.lodestar.lodestone.systems.item.tools;
+
+import net.minecraft.world.entity.EquipmentSlotGroup;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation;
+import net.minecraft.world.item.HoeItem;
+import net.minecraft.world.item.Tier;
+import net.minecraft.world.item.component.ItemAttributeModifiers;
+import team.lodestar.lodestone.systems.item.LodestoneItemProperties;
+
+public class LodestoneHoeItem extends HoeItem {
+   public LodestoneHoeItem(Tier tier, float attackDamage, float attackSpeed, LodestoneItemProperties properties) {
+      super(
+         tier,
+         properties.mergeAttributes(
+            ItemAttributeModifiers.builder()
+               .add(
+                  Attributes.ATTACK_DAMAGE,
+                  new AttributeModifier(BASE_ATTACK_DAMAGE_ID, tier.getAttackDamageBonus() + attackDamage - 2.0F, Operation.ADD_VALUE),
+                  EquipmentSlotGroup.MAINHAND
+               )
+               .add(Attributes.ATTACK_SPEED, new AttributeModifier(BASE_ATTACK_SPEED_ID, attackSpeed, Operation.ADD_VALUE), EquipmentSlotGroup.MAINHAND)
+               .build()
+         )
+      );
+   }
+}

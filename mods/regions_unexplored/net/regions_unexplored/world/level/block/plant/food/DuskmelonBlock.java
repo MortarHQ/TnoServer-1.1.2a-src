@@ -1,0 +1,111 @@
+package net.regions_unexplored.world.level.block.plant.food;
+
+import com.mojang.serialization.MapCodec;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.ItemInteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.ItemLike;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelReader;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.BonemealableBlock;
+import net.minecraft.world.level.block.BushBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.BlockBehaviour.Properties;
+import net.minecraft.world.level.block.state.StateDefinition.Builder;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
+import net.minecraft.world.level.block.state.properties.Property;
+import net.minecraft.world.level.gameevent.GameEvent;
+import net.minecraft.world.level.gameevent.GameEvent.Context;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.VoxelShape;
+import net.regions_unexplored.registry.RUItems;
+
+public class DuskmelonBlock extends BushBlock implements BonemealableBlock {
+   public static final MapCodec<? extends DuskmelonBlock> CODEC = simpleCodec(DuskmelonBlock::new);
+   private static final float HURT_SPEED_THRESHOLD = 0.003F;
+   public static final int MAX_AGE = 2;
+   public static final IntegerProperty AGE = BlockStateProperties.AGE_2;
+   private static final VoxelShape SAPLING_SHAPE = Block.box(3.0, 0.0, 3.0, 13.0, 8.0, 13.0);
+   private static final VoxelShape MID_GROWTH_SHAPE = Block.box(1.0, 0.0, 1.0, 15.0, 16.0, 15.0);
+
+   public DuskmelonBlock(Properties properties) {
+      super(properties);
+      this.registerDefaultState((BlockState)((BlockState)this.stateDefinition.any()).setValue(AGE, 0));
+   }
+
+   protected MapCodec<? extends BushBlock> codec() {
+      return CODEC;
+   }
+
+   public ItemStack getCloneItemStack(LevelReader levelReader, BlockPos blockPos, BlockState blockState) {
+      return new ItemStack((ItemLike)RUItems.DUSKMELON_SLICE.get());
+   }
+
+   public VoxelShape getShape(BlockState blockState, BlockGetter blockGetter, BlockPos blockPos, CollisionContext collisionContext) {
+      if ((Integer)blockState.getValue(AGE) == 0) {
+         return SAPLING_SHAPE;
+      } else {
+         return blockState.getValue(AGE) < 2 ? MID_GROWTH_SHAPE : super.getShape(blockState, blockGetter, blockPos, collisionContext);
+      }
+   }
+
+   public boolean isRandomlyTicking(BlockState blockState) {
+      return (Integer)blockState.getValue(AGE) < 2;
+   }
+
+   public void randomTick(BlockState blockState, ServerLevel serverLevel, BlockPos blockPos, RandomSource randomSource) {
+      int i = (Integer)blockState.getValue(AGE);
+      if (i < 2 && serverLevel.getRawBrightness(blockPos.above(), 0) >= 9) {
+         BlockState blockstate = (BlockState)blockState.setValue(AGE, i + 1);
+         serverLevel.setBlock(blockPos, blockstate, 2);
+         serverLevel.gameEvent(GameEvent.BLOCK_CHANGE, blockPos, Context.of(blockstate));
+      }
+   }
+
+   protected ItemInteractionResult useItemOn(
+      ItemStack stack, BlockState blockState, Level level, BlockPos blockPos, Player player, InteractionHand interactionHand, BlockHitResult blockHitResult
+   ) {
+      int i = (Integer)blockState.getValue(AGE);
+      boolean flag = i == 2;
+      if (!flag && player.getItemInHand(interactionHand).is(Items.BONE_MEAL)) {
+         return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+      } else if (i > 1) {
+         popResource(level, blockPos, new ItemStack((ItemLike)RUItems.DUSKMELON_SLICE.get(), 1));
+         level.playSound(null, blockPos, SoundEvents.SWEET_BERRY_BUSH_PICK_BERRIES, SoundSource.BLOCKS, 1.0F, 0.8F + level.random.nextFloat() * 0.4F);
+         BlockState blockstate = (BlockState)blockState.setValue(AGE, 0);
+         level.setBlock(blockPos, blockstate, 2);
+         level.gameEvent(GameEvent.BLOCK_CHANGE, blockPos, Context.of(player, blockstate));
+         return ItemInteractionResult.sidedSuccess(level.isClientSide());
+      } else {
+         return super.useItemOn(stack, blockState, level, blockPos, player, interactionHand, blockHitResult);
+      }
+   }
+
+   protected void createBlockStateDefinition(Builder<Block, BlockState> stateBuilder) {
+      stateBuilder.add(new Property[]{AGE});
+   }
+
+   public boolean isValidBonemealTarget(LevelReader levelReader, BlockPos blockPos, BlockState blockState) {
+      return (Integer)blockState.getValue(AGE) < 2;
+   }
+
+   public boolean isBonemealSuccess(Level level, RandomSource randomSource, BlockPos blockPos, BlockState blockState) {
+      return true;
+   }
+
+   public void performBonemeal(ServerLevel serverLevel, RandomSource randomSource, BlockPos blockPos, BlockState blockState) {
+      int i = Math.min(3, (Integer)blockState.getValue(AGE) + 1);
+      serverLevel.setBlock(blockPos, (BlockState)blockState.setValue(AGE, i), 2);
+   }
+}

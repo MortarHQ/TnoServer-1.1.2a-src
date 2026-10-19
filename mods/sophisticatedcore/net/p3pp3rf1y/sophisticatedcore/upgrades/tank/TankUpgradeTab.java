@@ -1,0 +1,50 @@
+package net.p3pp3rf1y.sophisticatedcore.upgrades.tank;
+
+import java.util.List;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.world.inventory.Slot;
+import net.p3pp3rf1y.sophisticatedcore.client.gui.StorageScreenBase;
+import net.p3pp3rf1y.sophisticatedcore.client.gui.UpgradeSettingsTab;
+import net.p3pp3rf1y.sophisticatedcore.client.gui.utils.Dimension;
+import net.p3pp3rf1y.sophisticatedcore.client.gui.utils.GuiHelper;
+import net.p3pp3rf1y.sophisticatedcore.client.gui.utils.Position;
+import net.p3pp3rf1y.sophisticatedcore.client.gui.utils.TextureBlitData;
+import net.p3pp3rf1y.sophisticatedcore.client.gui.utils.TranslationHelper;
+import net.p3pp3rf1y.sophisticatedcore.client.gui.utils.UV;
+
+public class TankUpgradeTab extends UpgradeSettingsTab<TankUpgradeContainer> {
+   private static final TextureBlitData ARROW = new TextureBlitData(GuiHelper.GUI_CONTROLS, new UV(97, 216), new Dimension(15, 8));
+
+   public TankUpgradeTab(TankUpgradeContainer upgradeContainer, Position position, StorageScreenBase<?> screen) {
+      super(upgradeContainer, position, screen, TranslationHelper.INSTANCE.translUpgrade("tank"), TranslationHelper.INSTANCE.translUpgradeTooltip("tank"));
+      this.openTabDimension = new Dimension(48, 80);
+   }
+
+   @Override
+   protected void renderBg(GuiGraphics guiGraphics, Minecraft minecraft, int mouseX, int mouseY) {
+      super.renderBg(guiGraphics, minecraft, mouseX, mouseY);
+      if (this.getContainer().isOpen()) {
+         GuiHelper.renderSlotsBackground(guiGraphics, this.x + 3, this.y + 24, 1, 1);
+         GuiHelper.renderSlotsBackground(guiGraphics, this.x + 24, this.y + 24, 1, 1);
+         GuiHelper.renderSlotsBackground(guiGraphics, this.x + 3, this.y + 24 + 32, 1, 1);
+         GuiHelper.renderSlotsBackground(guiGraphics, this.x + 24, this.y + 24 + 32, 1, 1);
+         GuiHelper.blit(guiGraphics, this.x + 3 + 1, this.y + 24 + 18 + 3, ARROW);
+         GuiHelper.blit(guiGraphics, this.x + 24 + 1, this.y + 24 + 18 + 3, ARROW);
+      }
+   }
+
+   @Override
+   protected void moveSlotsToTab() {
+      List<Slot> slots = this.getContainer().getSlots();
+      this.positionSlot(slots.get(0), this.screen.getGuiLeft(), this.screen.getGuiTop(), 4, 0);
+      this.positionSlot(slots.get(1), this.screen.getGuiLeft(), this.screen.getGuiTop(), 25, 0);
+      this.positionSlot(slots.get(2), this.screen.getGuiLeft(), this.screen.getGuiTop(), 4, 32);
+      this.positionSlot(slots.get(3), this.screen.getGuiLeft(), this.screen.getGuiTop(), 25, 32);
+   }
+
+   private void positionSlot(Slot slot, int screenGuiLeft, int screenGuiTop, int xOffset, int yOffset) {
+      slot.x = this.x - screenGuiLeft + xOffset;
+      slot.y = this.y - screenGuiTop + 25 + yOffset;
+   }
+}

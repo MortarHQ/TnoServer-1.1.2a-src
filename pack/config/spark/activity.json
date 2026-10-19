@@ -1,0 +1,41 @@
+[
+  {
+    "user": {
+      "type": "player",
+      "name": "AblazeAQZL",
+      "uniqueId": "ca8324b6-cb53-48d9-b404-ce21f7af628d"
+    },
+    "time": 1790952994828,
+    "type": "Profiler",
+    "data": {
+      "type": "file",
+      "value": "D:\\[我的世界]\\[1.21.1]新生异土\\.minecraft\\config\\spark\\profile-2026-10-02_22.56.34.sparkprofile"
+    }
+  },
+  {
+    "user": {
+      "type": "player",
+      "name": "AblazeAQZL",
+      "uniqueId": "ca8324b6-cb53-48d9-b404-ce21f7af628d"
+    },
+    "time": 1790952465490,
+    "type": "Profiler",
+    "data": {
+      "type": "file",
+      "value": "D:\\[我的世界]\\[1.21.1]新生异土\\.minecraft\\config\\spark\\profile-2026-10-02_22.47.45.sparkprofile"
+    }
+  },
+  {
+    "user": {
+      "type": "player",
+      "name": "AblazeAQZL",
+      "uniqueId": "ca8324b6-cb53-48d9-b404-ce21f7af628d"
+    },
+    "time": 1788078632721,
+    "type": "Profiler",
+    "data": {
+      "type": "url",
+      "value": "https://spark.lucko.me/zQK109GPCg"
+    }
+  }
+]

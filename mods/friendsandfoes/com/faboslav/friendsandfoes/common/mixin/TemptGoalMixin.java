@@ -1,0 +1,128 @@
+package com.faboslav.friendsandfoes.common.mixin;
+
+import com.faboslav.friendsandfoes.common.entity.TuffGolemEntity;
+import com.llamalad7.mixinextras.injector.ModifyReturnValue;
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import net.minecraft.world.entity.PathfinderMob;
+import net.minecraft.world.entity.ai.goal.TemptGoal;
+import net.minecraft.world.entity.ai.targeting.TargetingConditions;
+import org.jetbrains.annotations.Nullable;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+
+@Mixin(TemptGoal.class)
+public abstract class TemptGoalMixin {
+   @Shadow
+   @Final
+   protected double speedModifier;
+   @Shadow
+   private boolean isRunning;
+   @Final
+   @Shadow
+   protected PathfinderMob mob;
+   @Final
+   @Shadow
+   private TargetingConditions targetingConditions;
+   @Unique
+   @Nullable
+   private TuffGolemEntity friendsandfoes$closestTuffGolem;
+   @Unique
+   private double friendsandfoes$lastTuffGolemX;
+   @Unique
+   private double friendsandfoes$lastTuffGolemY;
+   @Unique
+   private double friendsandfoes$lastTuffGolemZ;
+   @Unique
+   private double friendsandfoes$lastTuffGolemPitch;
+   @Unique
+   private double friendsandfoes$lastTuffGolemYaw;
+
+   @Final
+   @Shadow
+   protected abstract boolean canScare();
+
+   @Unique
+   private boolean friendsandfoes$canStartWithReturn() {
+      this.friendsandfoes$closestTuffGolem = (TuffGolemEntity)this.mob
+         .level()
+         .getNearestEntity(
+            TuffGolemEntity.class,
+            this.targetingConditions,
+            this.mob,
+            this.mob.getX(),
+            this.mob.getY(),
+            this.mob.getZ(),
+            this.mob.getBoundingBox().inflate(16.0, 3.0, 16.0)
+         );
+      return this.friendsandfoes$closestTuffGolem != null;
+   }
+
+   @ModifyReturnValue(method = "canUse", at = @At("RETURN"))
+   private boolean friendsandfoes$canStart(boolean original) {
+      return original ? original : this.friendsandfoes$canStartWithReturn();
+   }
+
+   @ModifyReturnValue(method = "canContinueToUse", at = @At("RETURN"))
+   private boolean friendsandfoes$canContinueToUse(boolean original) {
+      if (!original && this.friendsandfoes$closestTuffGolem != null && this.canScare()) {
+         if (this.mob.distanceToSqr(this.friendsandfoes$closestTuffGolem) < 36.0) {
+            if (this.friendsandfoes$closestTuffGolem
+                  .distanceToSqr(this.friendsandfoes$lastTuffGolemX, this.friendsandfoes$lastTuffGolemY, this.friendsandfoes$lastTuffGolemZ)
+               > 0.010000000000000002) {
+               return false;
+            }
+
+            if (Math.abs(this.friendsandfoes$closestTuffGolem.getXRot() - this.friendsandfoes$lastTuffGolemPitch) > 5.0
+               || Math.abs(this.friendsandfoes$closestTuffGolem.getYRot() - this.friendsandfoes$lastTuffGolemYaw) > 5.0) {
+               return false;
+            }
+         } else {
+            this.friendsandfoes$lastTuffGolemX = this.friendsandfoes$closestTuffGolem.getX();
+            this.friendsandfoes$lastTuffGolemY = this.friendsandfoes$closestTuffGolem.getY();
+            this.friendsandfoes$lastTuffGolemZ = this.friendsandfoes$closestTuffGolem.getZ();
+         }
+
+         this.friendsandfoes$lastTuffGolemPitch = this.friendsandfoes$closestTuffGolem.getXRot();
+         this.friendsandfoes$lastTuffGolemYaw = this.friendsandfoes$closestTuffGolem.getYRot();
+         return this.friendsandfoes$canStartWithReturn();
+      } else {
+         return original;
+      }
+   }
+
+   @WrapMethod(method = "start")
+   public void friendsandfoes$start(Operation<Void> original) {
+      if (this.friendsandfoes$closestTuffGolem == null) {
+         original.call(new Object[0]);
+      } else {
+         this.friendsandfoes$lastTuffGolemX = this.friendsandfoes$closestTuffGolem.getX();
+         this.friendsandfoes$lastTuffGolemY = this.friendsandfoes$closestTuffGolem.getY();
+         this.friendsandfoes$lastTuffGolemZ = this.friendsandfoes$closestTuffGolem.getZ();
+         this.isRunning = true;
+      }
+   }
+
+   @WrapMethod(method = "stop")
+   private void friendsandfoes$stop(Operation<Void> original) {
+      original.call(new Object[0]);
+      this.friendsandfoes$closestTuffGolem = null;
+   }
+
+   @WrapMethod(method = "tick")
+   public void friendsandfoes$tick(Operation<Void> original) {
+      if (this.friendsandfoes$closestTuffGolem == null) {
+         original.call(new Object[0]);
+      } else {
+         this.mob.getLookControl().setLookAt(this.friendsandfoes$closestTuffGolem, this.mob.getMaxHeadYRot() + 20, this.mob.getMaxHeadXRot());
+         if (this.mob.distanceToSqr(this.friendsandfoes$closestTuffGolem) < 6.25) {
+            this.mob.getNavigation().stop();
+         } else {
+            this.mob.getNavigation().moveTo(this.friendsandfoes$closestTuffGolem, this.speedModifier);
+         }
+      }
+   }
+}

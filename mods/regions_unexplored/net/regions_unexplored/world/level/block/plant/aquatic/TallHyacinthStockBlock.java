@@ -1,0 +1,129 @@
+package net.regions_unexplored.world.level.block.plant.aquatic;
+
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.particles.ColorParticleOption;
+import net.minecraft.util.Mth;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelAccessor;
+import net.minecraft.world.level.LevelReader;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.LiquidBlockContainer;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.BlockBehaviour.Properties;
+import net.minecraft.world.level.block.state.StateDefinition.Builder;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.level.block.state.properties.Property;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.level.material.Fluids;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.VoxelShape;
+import net.regions_unexplored.registry.RUBlocks;
+import net.regions_unexplored.registry.RUParticleTypes;
+import net.regions_unexplored.world.level.block.state.properties.RuBlockStateProperties;
+import net.regions_unexplored.world.level.block.state.properties.TallHyacinthStockShape;
+import org.jetbrains.annotations.Nullable;
+
+public class TallHyacinthStockBlock extends Block implements LiquidBlockContainer {
+   public static final EnumProperty<TallHyacinthStockShape> SHAPE = RuBlockStateProperties.TALL_HYACINTH_STOCK_SHAPE;
+   protected static final VoxelShape BOX = Block.box(4.0, 0.0, 4.0, 12.0, 16.0, 12.0);
+
+   public TallHyacinthStockBlock(Properties properties) {
+      super(properties);
+      this.registerDefaultState((BlockState)this.defaultBlockState().setValue(SHAPE, TallHyacinthStockShape.BASE_TIP));
+   }
+
+   protected void createBlockStateDefinition(Builder<Block, BlockState> stateBuilder) {
+      stateBuilder.add(new Property[]{SHAPE});
+   }
+
+   public VoxelShape getShape(BlockState state, BlockGetter getter, BlockPos pos, CollisionContext context) {
+      Vec3 vec3 = state.getOffset(getter, pos);
+      return BOX.move(vec3.x, vec3.y, vec3.z);
+   }
+
+   public boolean canSurvive(BlockState state, LevelReader level, BlockPos pos) {
+      if (!level.getFluidState(pos).is(Fluids.WATER) && !level.getFluidState(pos).is(Fluids.FLOWING_WATER)) {
+         return false;
+      }
+
+      if (level.getFluidState(pos).getAmount() != 8) {
+         return false;
+      }
+
+      BlockPos blockpos = pos.below();
+      return this.mayPlaceOn(level.getBlockState(blockpos), level, blockpos);
+   }
+
+   public boolean mayPlaceOn(BlockState state, BlockGetter getter, BlockPos pos) {
+      return state.isFaceSturdy(getter, pos, Direction.UP) || state.is(RUBlocks.TALL_HYACINTH_STOCK.get());
+   }
+
+   public BlockState getStateForPlacement(BlockPlaceContext context) {
+      return !context.getLevel().getBlockState(context.getClickedPos().below()).is(RUBlocks.TALL_HYACINTH_STOCK.get())
+         ? (BlockState)this.defaultBlockState().setValue(SHAPE, TallHyacinthStockShape.BASE_TIP)
+         : (BlockState)this.defaultBlockState().setValue(SHAPE, TallHyacinthStockShape.TIP);
+   }
+
+   public BlockState updateShape(BlockState state, Direction facing, BlockState state1, LevelAccessor level, BlockPos pos, BlockPos pos1) {
+      TallHyacinthStockShape shape = (TallHyacinthStockShape)state.getValue(SHAPE);
+      if (!level.getBlockState(pos.below()).is(RUBlocks.TALL_HYACINTH_STOCK.get())) {
+         if (!level.getBlockState(pos.above()).is(RUBlocks.TALL_HYACINTH_STOCK.get())) {
+            shape = TallHyacinthStockShape.BASE_TIP;
+         } else if (level.getBlockState(pos.above()) == RUBlocks.TALL_HYACINTH_STOCK.get().defaultBlockState().setValue(SHAPE, TallHyacinthStockShape.TIP)) {
+            shape = TallHyacinthStockShape.BASE_FRUSTUM;
+         } else {
+            shape = TallHyacinthStockShape.BASE;
+         }
+      } else if (!level.getBlockState(pos.above()).is(RUBlocks.TALL_HYACINTH_STOCK.get())) {
+         shape = TallHyacinthStockShape.TIP;
+      } else if (level.getBlockState(pos.above()) == RUBlocks.TALL_HYACINTH_STOCK.get().defaultBlockState().setValue(SHAPE, TallHyacinthStockShape.TIP)) {
+         shape = TallHyacinthStockShape.FRUSTUM;
+      } else if (level.getBlockState(pos.above()) == RUBlocks.TALL_HYACINTH_STOCK.get().defaultBlockState().setValue(SHAPE, TallHyacinthStockShape.FRUSTUM)) {
+         shape = TallHyacinthStockShape.MIDDLE;
+      }
+
+      return !this.canSurvive(state, level, pos) ? Blocks.AIR.defaultBlockState() : (BlockState)state.setValue(SHAPE, shape);
+   }
+
+   public FluidState getFluidState(BlockState p_154537_) {
+      return Fluids.WATER.getSource(false);
+   }
+
+   public boolean canPlaceLiquid(@Nullable Player player, BlockGetter p_154505_, BlockPos p_154506_, BlockState p_154507_, Fluid p_154508_) {
+      return false;
+   }
+
+   public boolean placeLiquid(LevelAccessor p_154520_, BlockPos p_154521_, BlockState p_154522_, FluidState p_154523_) {
+      return false;
+   }
+
+   public void animateTick(BlockState state, Level level, BlockPos pos, RandomSource random) {
+      if (!(random.nextFloat() >= 0.0667)) {
+         int plantX = pos.getX();
+         int plantY = pos.getY();
+         int plantZ = pos.getZ();
+         BlockPos ambientPos = new BlockPos(plantX + Mth.nextInt(random, -2, 2), plantY + random.nextInt(3), plantZ + Mth.nextInt(random, -2, 2));
+         BlockState particlePosState = level.getBlockState(ambientPos);
+         if (!particlePosState.isCollisionShapeFullBlock(level, ambientPos)) {
+            ColorParticleOption particle = ColorParticleOption.create(RUParticleTypes.FLOATING_HYACINTH.get(), 13426175);
+            level.addParticle(
+               particle,
+               ambientPos.getX() + random.nextDouble(),
+               ambientPos.getY() + random.nextDouble(),
+               ambientPos.getZ() + random.nextDouble(),
+               0.0,
+               0.0,
+               0.0
+            );
+         }
+      }
+   }
+}

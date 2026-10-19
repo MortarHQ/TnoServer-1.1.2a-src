@@ -1,0 +1,58 @@
+package com.blackgear.platform.common.integration.neoforge;
+
+import com.blackgear.platform.common.integration.BlockIntegration;
+import com.blackgear.platform.common.integration.BlockInteraction;
+import com.blackgear.platform.core.util.EventBus;
+import com.google.common.collect.BiMap;
+import it.unimi.dsi.fastutil.objects.Object2FloatMap;
+import it.unimi.dsi.fastutil.objects.Object2FloatOpenHashMap;
+import java.util.function.Consumer;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.item.HoneycombItem;
+import net.minecraft.world.item.context.UseOnContext;
+import net.minecraft.world.level.ItemLike;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.WeatheringCopper;
+
+public class BlockIntegrationImpl {
+   public static final Object2FloatMap<ItemLike> COMPOSTABLES = new Object2FloatOpenHashMap();
+
+   public static void registerIntegrations(Consumer<BlockIntegration.Event> listener) {
+      listener.accept(new BlockIntegration.Event() {
+         @Override
+         public void registerBlockInteraction(BlockInteraction interaction) {
+            EventBus.get(EventBus.MOD).addListener(event -> {
+               InteractionResult result = interaction.onUse(new UseOnContext(event.getEntity(), event.getHand(), event.getHitVec()));
+               if (result != InteractionResult.PASS) {
+                  event.setCanceled(true);
+                  event.setCancellationResult(result);
+               }
+            });
+         }
+
+         @Override
+         public void registerFuelItem(ItemLike item, int burnTime) {
+            EventBus.get(EventBus.LOADER).addListener(event -> {
+               if (event.getItemStack().is(item.asItem())) {
+                  event.setBurnTime(burnTime);
+               }
+            });
+         }
+
+         @Override
+         public void registerCompostableItem(ItemLike item, float chance) {
+            BlockIntegrationImpl.COMPOSTABLES.putIfAbsent(item.asItem(), chance);
+         }
+
+         @Override
+         public void registerOxidableBlock(Block less, Block more) {
+            ((BiMap)WeatheringCopper.NEXT_BY_BLOCK.get()).put(less, more);
+         }
+
+         @Override
+         public void registerWaxableBlock(Block unwaxed, Block waxed) {
+            ((BiMap)HoneycombItem.WAXABLES.get()).put(unwaxed, waxed);
+         }
+      });
+   }
+}

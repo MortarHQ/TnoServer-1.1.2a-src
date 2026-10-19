@@ -1,0 +1,124 @@
+package it.hurts.sskirillss.relics.items.relics.belt;
+
+import com.google.common.collect.Lists;
+import it.hurts.sskirillss.relics.init.ItemRegistry;
+import it.hurts.sskirillss.relics.items.relics.base.IRelicItem;
+import it.hurts.sskirillss.relics.items.relics.base.IRenderableCurio;
+import it.hurts.sskirillss.relics.items.relics.base.RelicItem;
+import it.hurts.sskirillss.relics.items.relics.base.data.RelicData;
+import it.hurts.sskirillss.relics.items.relics.base.data.RelicSlotModifier;
+import it.hurts.sskirillss.relics.items.relics.base.data.leveling.AbilitiesData;
+import it.hurts.sskirillss.relics.items.relics.base.data.leveling.AbilityData;
+import it.hurts.sskirillss.relics.items.relics.base.data.leveling.LevelingData;
+import it.hurts.sskirillss.relics.items.relics.base.data.leveling.StatData;
+import it.hurts.sskirillss.relics.items.relics.base.data.leveling.misc.UpgradeOperation;
+import it.hurts.sskirillss.relics.items.relics.base.data.loot.LootData;
+import it.hurts.sskirillss.relics.items.relics.base.data.loot.misc.LootEntries;
+import it.hurts.sskirillss.relics.utils.EntityUtils;
+import it.hurts.sskirillss.relics.utils.MathUtils;
+import java.util.List;
+import net.minecraft.client.model.HumanoidModel;
+import net.minecraft.client.model.geom.PartPose;
+import net.minecraft.client.model.geom.builders.CubeDeformation;
+import net.minecraft.client.model.geom.builders.CubeListBuilder;
+import net.minecraft.client.model.geom.builders.LayerDefinition;
+import net.minecraft.client.model.geom.builders.MeshDefinition;
+import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.world.entity.TamableAnimal;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.api.distmarker.OnlyIn;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+
+public class HunterBeltItem extends RelicItem implements IRenderableCurio {
+   @Override
+   public RelicData constructDefaultRelicData() {
+      return RelicData.builder()
+         .abilities(
+            AbilitiesData.builder()
+               .ability(
+                  AbilityData.builder("slots")
+                     .requiredPoints(2)
+                     .stat(
+                        StatData.builder("charm")
+                           .initialValue(1.0, 2.0)
+                           .upgradeModifier(UpgradeOperation.ADD, 1.0)
+                           .formatValue(value -> (int)MathUtils.round(value, 0))
+                           .build()
+                     )
+                     .build()
+               )
+               .ability(
+                  AbilityData.builder("training")
+                     .stat(
+                        StatData.builder("damage")
+                           .initialValue(1.25, 2.0)
+                           .upgradeModifier(UpgradeOperation.MULTIPLY_BASE, 0.15)
+                           .formatValue(value -> (int)(MathUtils.round(value, 3) * 100.0))
+                           .build()
+                     )
+                     .build()
+               )
+               .build()
+         )
+         .leveling(new LevelingData(100, 10, 100))
+         .loot(LootData.builder().entry(LootEntries.OVERWORLD).build())
+         .build();
+   }
+
+   @Override
+   public RelicSlotModifier getSlotModifiers(ItemStack stack) {
+      return RelicSlotModifier.builder().modifier("charm", (int)Math.round(this.getStatValue(stack, "slots", "charm"))).build();
+   }
+
+   @OnlyIn(Dist.CLIENT)
+   @Override
+   public LayerDefinition constructLayerDefinition() {
+      MeshDefinition mesh = HumanoidModel.createMesh(new CubeDeformation(0.4F), 0.0F);
+      PartDefinition bone = mesh.getRoot()
+         .addOrReplaceChild(
+            "body",
+            CubeListBuilder.create().texOffs(0, 0).addBox(-4.5F, 9.0F, -2.5F, 9.0F, 2.0F, 5.0F, new CubeDeformation(0.0F)),
+            PartPose.offset(0.0F, 0.0F, 0.0F)
+         );
+      bone.addOrReplaceChild(
+         "cube_r1",
+         CubeListBuilder.create().texOffs(0, 7).addBox(-2.05F, -1.5F, -0.5F, 4.0F, 3.0F, 1.0F, new CubeDeformation(0.0F)),
+         PartPose.offsetAndRotation(0.0F, 10.0F, -2.5F, -0.0311F, -0.0648F, -0.1274F)
+      );
+      bone.addOrReplaceChild(
+         "cube_r2",
+         CubeListBuilder.create().texOffs(10, 8).addBox(-0.0063F, -1.4881F, -0.4455F, 0.0F, 4.0F, 3.0F, new CubeDeformation(0.0F)),
+         PartPose.offsetAndRotation(4.8521F, 11.4104F, -0.6228F, -0.0677F, 0.0301F, -0.2435F)
+      );
+      bone.addOrReplaceChild(
+         "cube_r3",
+         CubeListBuilder.create().texOffs(10, 4).addBox(-0.1392F, -2.2899F, -2.6272F, 0.0F, 4.0F, 3.0F, new CubeDeformation(0.0F)),
+         PartPose.offsetAndRotation(4.8521F, 11.4104F, -0.6228F, -0.2608F, -0.0226F, -0.0843F)
+      );
+      return LayerDefinition.create(mesh, 32, 32);
+   }
+
+   @Override
+   public List<String> headParts() {
+      return Lists.newArrayList(new String[]{"body"});
+   }
+
+   @EventBusSubscriber(modid = "relics")
+   public static class HunterBeltEvents {
+      @SubscribeEvent
+      public static void onLivingDamage(LivingIncomingDamageEvent event) {
+         if (event.getSource().getEntity() instanceof TamableAnimal pet && pet.getOwner() instanceof Player player) {
+            ItemStack stack = EntityUtils.findEquippedCurio(player, (Item)ItemRegistry.HUNTER_BELT.get());
+            if (stack.getItem() instanceof IRelicItem relic) {
+               relic.spreadRelicExperience(player, stack, 1);
+               event.setAmount((float)(event.getAmount() * relic.getStatValue(stack, "training", "damage")));
+            }
+         }
+      }
+   }
+}

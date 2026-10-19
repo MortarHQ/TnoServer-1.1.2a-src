@@ -1,0 +1,11 @@
+package team.lodestar.lodestone.registry.client;
+
+import com.mojang.blaze3d.vertex.VertexFormatElement;
+import com.mojang.blaze3d.vertex.VertexFormatElement.Type;
+import com.mojang.blaze3d.vertex.VertexFormatElement.Usage;
+
+public class LodestoneVertexFormats {
+   public static VertexFormatElement TANGENT = VertexFormatElement.register(VertexFormatElement.findNextId(), 0, Type.BYTE, Usage.NORMAL, 3);
+   public static VertexFormatElement BITANGENT = VertexFormatElement.register(VertexFormatElement.findNextId(), 0, Type.BYTE, Usage.NORMAL, 3);
+   public static VertexFormatElement SIZE2 = VertexFormatElement.register(VertexFormatElement.findNextId(), 0, Type.FLOAT, Usage.POSITION, 2);
+}

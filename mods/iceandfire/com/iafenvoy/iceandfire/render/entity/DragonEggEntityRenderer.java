@@ -1,0 +1,17 @@
+package com.iafenvoy.iceandfire.render.entity;
+
+import com.iafenvoy.iceandfire.entity.DragonEggEntity;
+import com.iafenvoy.iceandfire.render.model.DragonEggModel;
+import net.minecraft.client.renderer.entity.LivingEntityRenderer;
+import net.minecraft.client.renderer.entity.EntityRendererProvider.Context;
+import net.minecraft.resources.ResourceLocation;
+
+public class DragonEggEntityRenderer extends LivingEntityRenderer<DragonEggEntity, DragonEggModel> {
+   public DragonEggEntityRenderer(Context context) {
+      super(context, new DragonEggModel(), 0.3F);
+   }
+
+   public ResourceLocation getTexture(DragonEggEntity entity) {
+      return entity.getEggType().getTextureProvider().getEggTexture();
+   }
+}

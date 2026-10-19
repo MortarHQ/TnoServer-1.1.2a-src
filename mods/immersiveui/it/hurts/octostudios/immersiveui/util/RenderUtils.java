@@ -1,0 +1,103 @@
+package it.hurts.octostudios.immersiveui.util;
+
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.BufferUploader;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.Tesselator;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.Style;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.RandomSource;
+import org.joml.Matrix4f;
+
+public class RenderUtils {
+   public static final ResourceLocation ALT_FONT = ResourceLocation.withDefaultNamespace("alt");
+   public static final ResourceLocation ILLAGER_ALT_FONT = ResourceLocation.withDefaultNamespace("illageralt");
+
+   public static void renderTextureFromCenter(PoseStack matrix, float centerX, float centerY, float width, float height, float scale) {
+      renderTextureFromCenter(matrix, centerX, centerY, 0.0F, 0.0F, width, height, width, height, scale);
+   }
+
+   public static void renderTextureFromCenter(
+      PoseStack matrix, float centerX, float centerY, float texOffX, float texOffY, float texWidth, float texHeight, float width, float height, float scale
+   ) {
+      BufferBuilder builder = Tesselator.getInstance().begin(Mode.QUADS, DefaultVertexFormat.POSITION_TEX);
+      RenderSystem.setShader(GameRenderer::getPositionTexShader);
+      matrix.pushPose();
+      matrix.translate(centerX, centerY, 0.0F);
+      matrix.scale(scale, scale, scale);
+      Matrix4f m = matrix.last().pose();
+      float u1 = texOffX / texWidth;
+      float u2 = (texOffX + width) / texWidth;
+      float v1 = texOffY / texHeight;
+      float v2 = (texOffY + height) / texHeight;
+      float w2 = width / 2.0F;
+      float h2 = height / 2.0F;
+      builder.addVertex(m, -w2, h2, 0.0F).setUv(u1, v2);
+      builder.addVertex(m, w2, h2, 0.0F).setUv(u2, v2);
+      builder.addVertex(m, w2, -h2, 0.0F).setUv(u2, v1);
+      builder.addVertex(m, -w2, -h2, 0.0F).setUv(u1, v1);
+      matrix.popPose();
+      BufferUploader.drawWithShader(builder.buildOrThrow());
+   }
+
+   public static int lerpColor(int colorStart, int colorEnd, float t) {
+      if (t < 0.0F) {
+         t = 0.0F;
+      }
+
+      if (t > 1.0F) {
+         t = 1.0F;
+      }
+
+      int aStart = colorStart >> 24 & 0xFF;
+      int rStart = colorStart >> 16 & 0xFF;
+      int gStart = colorStart >> 8 & 0xFF;
+      int bStart = colorStart & 0xFF;
+      int aEnd = colorEnd >> 24 & 0xFF;
+      int rEnd = colorEnd >> 16 & 0xFF;
+      int gEnd = colorEnd >> 8 & 0xFF;
+      int bEnd = colorEnd & 0xFF;
+      int a = (int)(aStart + t * (aEnd - aStart));
+      int r = (int)(rStart + t * (rEnd - rStart));
+      int g = (int)(gStart + t * (gEnd - gStart));
+      int b = (int)(bStart + t * (bEnd - bStart));
+      return a << 24 | r << 16 | g << 8 | b;
+   }
+
+   public static MutableComponent illageriate(MutableComponent input, double percentage, long seed) {
+      return stylize(input, percentage, Style.EMPTY.withFont(ILLAGER_ALT_FONT), seed);
+   }
+
+   public static MutableComponent galactizate(MutableComponent input, double percentage, long seed) {
+      return stylize(input, percentage, Style.EMPTY.withFont(ALT_FONT), seed);
+   }
+
+   public static MutableComponent obfuscate(MutableComponent input, double percentage, long seed) {
+      return stylize(input, percentage, Style.EMPTY.withObfuscated(true).withColor(ChatFormatting.DARK_RED), seed);
+   }
+
+   public static MutableComponent stylize(MutableComponent input, double percentage, Style style, long seed) {
+      RandomSource random = RandomSource.create(seed);
+      String text = input.getString();
+      int length = text.length();
+      Set<Integer> indices = IntStream.generate(() -> random.nextInt(length)).distinct().limit((int)(length * percentage)).boxed().collect(Collectors.toSet());
+      return IntStream.range(0, length).mapToObj(index -> {
+         MutableComponent component = Component.literal(String.valueOf(text.charAt(index))).setStyle(input.getStyle());
+         if (indices.contains(index)) {
+            component.setStyle(style.applyTo(component.getStyle()));
+         }
+
+         return component;
+      }).collect(Component::empty, MutableComponent::append, MutableComponent::append);
+   }
+}

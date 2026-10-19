@@ -1,0 +1,138 @@
+package net.unusual.block_factorys_bosses.procedures;
+
+import java.util.Comparator;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageTypes;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.LevelAccessor;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.unusual.block_factorys_bosses.entity.boss.dragon.guardians.FlamingSkeletonGuardSwordEntity;
+
+public class FlamingSkeletonGuardSwordOnEntityTickUpdateProcedure {
+   public static void execute(LevelAccessor world, Entity entity) {
+      if (entity != null) {
+         if ((
+               entity instanceof FlamingSkeletonGuardSwordEntity _datEntI
+                  ? (Integer)_datEntI.getEntityData().get(FlamingSkeletonGuardSwordEntity.DATA_attack_animtime)
+                  : 0
+            )
+            > 0) {
+            if ((
+                  entity instanceof FlamingSkeletonGuardSwordEntity _datEntI
+                     ? (Integer)_datEntI.getEntityData().get(FlamingSkeletonGuardSwordEntity.DATA_attack_animtime)
+                     : 0
+               )
+               == 12) {
+               Vec3 _center = new Vec3(entity.getX(), entity.getY(), entity.getZ());
+
+               for (Entity entityiterator : world.getEntitiesOfClass(Entity.class, new AABB(_center, _center).inflate(3.5), e -> true)
+                  .stream()
+                  .sorted(Comparator.comparingDouble(_entcnd -> _entcnd.distanceToSqr(_center)))
+                  .toList()) {
+                  if (entityiterator == (entity instanceof Mob _mobEnt ? _mobEnt.getTarget() : null)) {
+                     if (entity.isAlive()) {
+                        entityiterator.hurt(
+                           new DamageSource(world.holderOrThrow(DamageTypes.MOB_ATTACK), entity),
+                           (float)(
+                              entity instanceof LivingEntity _livingEntity8 && _livingEntity8.getAttributes().hasAttribute(Attributes.ATTACK_DAMAGE)
+                                 ? _livingEntity8.getAttribute(Attributes.ATTACK_DAMAGE).getValue()
+                                 : 0.0
+                           )
+                        );
+                     }
+
+                     if (entityiterator instanceof LivingEntity _livEnt11 && _livEnt11.isBlocking() && entityiterator instanceof Player _player) {
+                        _player.getCooldowns()
+                           .addCooldown((entityiterator instanceof LivingEntity _entUseItem12 ? _entUseItem12.getUseItem() : ItemStack.EMPTY).getItem(), 100);
+                     }
+
+                     entityiterator.setDeltaMovement(
+                        new Vec3(
+                           entityiterator.getDeltaMovement().x() + entity.getLookAngle().x * 0.2,
+                           entityiterator.getDeltaMovement().y() + 0.1,
+                           entityiterator.getDeltaMovement().z() + entity.getLookAngle().z * 0.2
+                        )
+                     );
+                     break;
+                  }
+               }
+            }
+
+            if (entity instanceof FlamingSkeletonGuardSwordEntity _datEntSetI) {
+               _datEntSetI.getEntityData()
+                  .set(
+                     FlamingSkeletonGuardSwordEntity.DATA_attack_animtime,
+                     (
+                           entity instanceof FlamingSkeletonGuardSwordEntity _datEntI
+                              ? (Integer)_datEntI.getEntityData().get(FlamingSkeletonGuardSwordEntity.DATA_attack_animtime)
+                              : 0
+                        )
+                        - 1
+                  );
+            }
+         } else if ((
+               entity instanceof FlamingSkeletonGuardSwordEntity _datEntI
+                  ? (Integer)_datEntI.getEntityData().get(FlamingSkeletonGuardSwordEntity.DATA_attack_cooldown)
+                  : 0
+            )
+            >= 40) {
+            Vec3 _center = new Vec3(entity.getX(), entity.getY(), entity.getZ());
+
+            for (Entity entityiterator : world.getEntitiesOfClass(Entity.class, new AABB(_center, _center).inflate(2.75), e -> true)
+               .stream()
+               .sorted(Comparator.comparingDouble(_entcnd -> _entcnd.distanceToSqr(_center)))
+               .toList()) {
+               if (entityiterator == (entity instanceof Mob _mobEnt ? _mobEnt.getTarget() : null)) {
+                  if (entity instanceof FlamingSkeletonGuardSwordEntity _datEntSetI) {
+                     _datEntSetI.getEntityData().set(FlamingSkeletonGuardSwordEntity.DATA_attack_cooldown, 0);
+                  }
+
+                  if (entity instanceof FlamingSkeletonGuardSwordEntity _datEntSetI) {
+                     _datEntSetI.getEntityData().set(FlamingSkeletonGuardSwordEntity.DATA_attack_animtime, 20);
+                  }
+                  break;
+               }
+            }
+         } else {
+            Vec3 _center = new Vec3(entity.getX(), entity.getY(), entity.getZ());
+
+            for (Entity entityiterator : world.getEntitiesOfClass(Entity.class, new AABB(_center, _center).inflate(8.0), e -> true)
+               .stream()
+               .sorted(Comparator.comparingDouble(_entcnd -> _entcnd.distanceToSqr(_center)))
+               .toList()) {
+               if (entityiterator == (entity instanceof Mob _mobEnt ? _mobEnt.getTarget() : null)) {
+                  if (entity instanceof FlamingSkeletonGuardSwordEntity _datEntSetI) {
+                     _datEntSetI.getEntityData()
+                        .set(
+                           FlamingSkeletonGuardSwordEntity.DATA_attack_cooldown,
+                           (
+                                 entity instanceof FlamingSkeletonGuardSwordEntity _datEntI
+                                    ? (Integer)_datEntI.getEntityData().get(FlamingSkeletonGuardSwordEntity.DATA_attack_cooldown)
+                                    : 0
+                              )
+                              + 1
+                        );
+                  }
+                  break;
+               }
+            }
+         }
+
+         if (Math.random() < 0.05) {
+            if (world instanceof ServerLevel _level) {
+               _level.sendParticles(ParticleTypes.FLAME, entity.getX(), entity.getY() + 1.5, entity.getZ(), 1, 0.4, 0.4, 0.4, 0.0);
+            }
+         } else if (Math.random() < 0.1 && world instanceof ServerLevel _level) {
+            _level.sendParticles(ParticleTypes.SMOKE, entity.getX(), entity.getY() + 1.5, entity.getZ(), 1, 0.4, 0.4, 0.4, 0.0);
+         }
+      }
+   }
+}

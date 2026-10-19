@@ -1,0 +1,14 @@
+{
+  "replace": false,
+  "values": [
+    "#minecraft:is_end",
+    {
+      "id": "#c:is_end",
+      "required": false
+    },
+    {
+      "id": "#c:is_outer_end_island",
+      "required": false
+    }
+  ]
+}

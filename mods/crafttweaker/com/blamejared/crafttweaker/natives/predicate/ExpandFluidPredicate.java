@@ -1,0 +1,37 @@
+package com.blamejared.crafttweaker.natives.predicate;
+
+import com.blamejared.crafttweaker.api.annotation.ZenRegister;
+import com.blamejared.crafttweaker.api.tag.type.KnownTag;
+import com.blamejared.crafttweaker_annotations.annotations.Document;
+import com.blamejared.crafttweaker_annotations.annotations.NativeTypeRegistration;
+import net.minecraft.advancements.critereon.FluidPredicate;
+import net.minecraft.advancements.critereon.FluidPredicate.Builder;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.material.Fluid;
+import org.openzen.zencode.java.ZenCodeType;
+
+@ZenRegister
+@Document("vanilla/api/predicate/FluidPredicate")
+@NativeTypeRegistration(value = FluidPredicate.class, zenCodeName = "crafttweaker.api.predicate.FluidPredicate")
+public final class ExpandFluidPredicate {
+   @ZenCodeType.StaticExpansionMethod
+   public static Builder create() {
+      return Builder.fluid();
+   }
+
+   @ZenCodeType.StaticExpansionMethod
+   public static Builder create(Fluid fluid) {
+      return create().of(fluid);
+   }
+
+   @ZenCodeType.StaticExpansionMethod
+   public static Builder create(KnownTag<Fluid> tag) {
+      return create().of(tag.getTagKey());
+   }
+
+   @ZenCodeType.Method
+   public static boolean matches(FluidPredicate internal, ServerLevel level, BlockPos pos) {
+      return internal.matches(level, pos);
+   }
+}

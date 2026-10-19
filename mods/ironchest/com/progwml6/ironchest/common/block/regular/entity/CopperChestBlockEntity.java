@@ -1,0 +1,21 @@
+package com.progwml6.ironchest.common.block.regular.entity;
+
+import com.progwml6.ironchest.common.block.IronChestsBlocks;
+import com.progwml6.ironchest.common.block.IronChestsTypes;
+import com.progwml6.ironchest.common.block.entity.IronChestsBlockEntityTypes;
+import com.progwml6.ironchest.common.inventory.IronChestMenu;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.state.BlockState;
+
+public class CopperChestBlockEntity extends AbstractIronChestBlockEntity {
+   public CopperChestBlockEntity(BlockPos blockPos, BlockState blockState) {
+      super((BlockEntityType<?>)IronChestsBlockEntityTypes.COPPER_CHEST.get(), blockPos, blockState, IronChestsTypes.COPPER, IronChestsBlocks.COPPER_CHEST::get);
+   }
+
+   protected AbstractContainerMenu createMenu(int containerId, Inventory playerInventory) {
+      return IronChestMenu.createCopperContainer(containerId, playerInventory, this);
+   }
+}

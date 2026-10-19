@@ -1,0 +1,175 @@
+package com.teamresourceful.resourcefullib.client.fluid.data;
+
+import com.mojang.blaze3d.shaders.FogShape;
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.BufferUploader;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.Tesselator;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
+import com.mojang.datafixers.util.Function3;
+import com.mojang.datafixers.util.Function6;
+import java.util.function.Function;
+import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.client.renderer.FogRenderer.FogMode;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.BlockAndTintGetter;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.FluidState;
+import org.jetbrains.annotations.Nullable;
+import org.joml.Matrix4f;
+import org.joml.Vector3f;
+
+public interface ClientFluidProperties {
+   ResourceLocation still(@Nullable BlockAndTintGetter var1, @Nullable BlockPos var2, @Nullable FluidState var3);
+
+   ResourceLocation flowing(@Nullable BlockAndTintGetter var1, @Nullable BlockPos var2, @Nullable FluidState var3);
+
+   ResourceLocation overlay(@Nullable BlockAndTintGetter var1, @Nullable BlockPos var2, @Nullable FluidState var3);
+
+   ResourceLocation screenOverlay();
+
+   default void renderOverlay(Minecraft minecraft, PoseStack stack) {
+      ResourceLocation texture = this.screenOverlay();
+      if (texture != null) {
+         Player player = minecraft.player;
+         RenderSystem.setShader(GameRenderer::getPositionTexShader);
+         RenderSystem.setShaderTexture(0, texture);
+         BlockPos blockpos = BlockPos.containing(player.getX(), player.getEyeY(), player.getZ());
+         float brightness = LightTexture.getBrightness(player.level().dimensionType(), player.level().getMaxLocalRawBrightness(blockpos));
+         BufferBuilder bufferbuilder = Tesselator.getInstance().begin(Mode.QUADS, DefaultVertexFormat.POSITION_TEX);
+         RenderSystem.enableBlend();
+         RenderSystem.setShaderColor(brightness, brightness, brightness, 0.1F);
+         float f7 = -player.getYRot() / 64.0F;
+         float f8 = player.getXRot() / 64.0F;
+         Matrix4f matrix4f = stack.last().pose();
+         bufferbuilder.addVertex(matrix4f, -1.0F, -1.0F, -0.5F).setUv(4.0F + f7, 4.0F + f8);
+         bufferbuilder.addVertex(matrix4f, 1.0F, -1.0F, -0.5F).setUv(0.0F + f7, 4.0F + f8);
+         bufferbuilder.addVertex(matrix4f, 1.0F, 1.0F, -0.5F).setUv(0.0F + f7, 0.0F + f8);
+         bufferbuilder.addVertex(matrix4f, -1.0F, 1.0F, -0.5F).setUv(4.0F + f7, 0.0F + f8);
+         BufferUploader.drawWithShader(bufferbuilder.buildOrThrow());
+         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+         RenderSystem.disableBlend();
+      }
+   }
+
+   int tintColor(@Nullable BlockAndTintGetter var1, @Nullable BlockPos var2, @Nullable FluidState var3);
+
+   default boolean renderFluid(
+      BlockPos pos,
+      BlockAndTintGetter world,
+      VertexConsumer vertexConsumer,
+      BlockState blockState,
+      FluidState fluidState,
+      Function<ResourceLocation, TextureAtlasSprite> sprites
+   ) {
+      return false;
+   }
+
+   default Vector3f modifyFogColor(Camera camera, float partialTick, ClientLevel level, int renderDistance, float darkenWorldAmount, Vector3f fluidFogColor) {
+      return fluidFogColor;
+   }
+
+   default void modifyFogRender(Camera camera, FogMode mode, float renderDistance, float partialTick, float nearDistance, float farDistance, FogShape shape) {
+   }
+
+   static ClientFluidProperties.Builder builder() {
+      return new ClientFluidProperties.Builder();
+   }
+
+   class Builder {
+      private Function3<BlockAndTintGetter, BlockPos, FluidState, ResourceLocation> still = (a, b, c) -> null;
+      private Function3<BlockAndTintGetter, BlockPos, FluidState, ResourceLocation> flowing = (a, b, c) -> null;
+      private Function3<BlockAndTintGetter, BlockPos, FluidState, ResourceLocation> overlay = (a, b, c) -> null;
+      private ResourceLocation screenOverlay = null;
+      private Function3<BlockAndTintGetter, BlockPos, FluidState, Integer> tintColor = (a, b, c) -> -1;
+      private Function6<BlockPos, BlockAndTintGetter, VertexConsumer, BlockState, FluidState, Function<ResourceLocation, TextureAtlasSprite>, Boolean> renderFluid = (a, b, c, d, e, f) -> false;
+
+      public ClientFluidProperties.Builder still(ResourceLocation still) {
+         this.still = (a, b, c) -> still;
+         return this;
+      }
+
+      public ClientFluidProperties.Builder flowing(ResourceLocation flowing) {
+         this.flowing = (a, b, c) -> flowing;
+         return this;
+      }
+
+      public ClientFluidProperties.Builder overlay(ResourceLocation overlay) {
+         this.overlay = (a, b, c) -> overlay;
+         return this;
+      }
+
+      public ClientFluidProperties.Builder screenOverlay(ResourceLocation screenOverlay) {
+         this.screenOverlay = screenOverlay;
+         return this;
+      }
+
+      public ClientFluidProperties.Builder tintColor(Function3<BlockAndTintGetter, BlockPos, FluidState, Integer> tintColor) {
+         this.tintColor = tintColor;
+         return this;
+      }
+
+      public ClientFluidProperties.Builder tintColor(int tintColor) {
+         this.tintColor = (a, b, c) -> tintColor;
+         return this;
+      }
+
+      public ClientFluidProperties.Builder renderFluid(
+         Function6<BlockPos, BlockAndTintGetter, VertexConsumer, BlockState, FluidState, Function<ResourceLocation, TextureAtlasSprite>, Boolean> renderFluid
+      ) {
+         this.renderFluid = renderFluid;
+         return this;
+      }
+
+      public ClientFluidProperties build() {
+         return new ClientFluidProperties() {
+            @Override
+            public ResourceLocation still(@Nullable BlockAndTintGetter view, @Nullable BlockPos pos, @Nullable FluidState state) {
+               return (ResourceLocation)Builder.this.still.apply(view, pos, state);
+            }
+
+            @Override
+            public ResourceLocation flowing(@Nullable BlockAndTintGetter view, @Nullable BlockPos pos, @Nullable FluidState state) {
+               return (ResourceLocation)Builder.this.flowing.apply(view, pos, state);
+            }
+
+            @Override
+            public ResourceLocation overlay(@Nullable BlockAndTintGetter view, @Nullable BlockPos pos, @Nullable FluidState state) {
+               return (ResourceLocation)Builder.this.overlay.apply(view, pos, state);
+            }
+
+            @Override
+            public ResourceLocation screenOverlay() {
+               return Builder.this.screenOverlay;
+            }
+
+            @Override
+            public int tintColor(@Nullable BlockAndTintGetter view, @Nullable BlockPos pos, @Nullable FluidState state) {
+               return (Integer)Builder.this.tintColor.apply(view, pos, state);
+            }
+
+            @Override
+            public boolean renderFluid(
+               BlockPos pos,
+               BlockAndTintGetter world,
+               VertexConsumer vertexConsumer,
+               BlockState blockState,
+               FluidState fluidState,
+               Function<ResourceLocation, TextureAtlasSprite> sprites
+            ) {
+               return (Boolean)Builder.this.renderFluid.apply(pos, world, vertexConsumer, blockState, fluidState, sprites);
+            }
+         };
+      }
+   }
+}

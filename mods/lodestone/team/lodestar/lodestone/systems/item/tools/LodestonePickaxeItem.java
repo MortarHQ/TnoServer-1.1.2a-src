@@ -1,0 +1,28 @@
+package team.lodestar.lodestone.systems.item.tools;
+
+import net.minecraft.world.entity.EquipmentSlotGroup;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation;
+import net.minecraft.world.item.PickaxeItem;
+import net.minecraft.world.item.Tier;
+import net.minecraft.world.item.component.ItemAttributeModifiers;
+import team.lodestar.lodestone.systems.item.LodestoneItemProperties;
+
+public class LodestonePickaxeItem extends PickaxeItem {
+   public LodestonePickaxeItem(Tier tier, float attackDamage, float attackSpeed, LodestoneItemProperties properties) {
+      super(
+         tier,
+         properties.mergeAttributes(
+            ItemAttributeModifiers.builder()
+               .add(
+                  Attributes.ATTACK_DAMAGE,
+                  new AttributeModifier(BASE_ATTACK_DAMAGE_ID, tier.getAttackDamageBonus() + attackDamage + 1.0F, Operation.ADD_VALUE),
+                  EquipmentSlotGroup.MAINHAND
+               )
+               .add(Attributes.ATTACK_SPEED, new AttributeModifier(BASE_ATTACK_SPEED_ID, attackSpeed - 2.8F, Operation.ADD_VALUE), EquipmentSlotGroup.MAINHAND)
+               .build()
+         )
+      );
+   }
+}

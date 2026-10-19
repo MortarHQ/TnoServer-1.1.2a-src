@@ -1,0 +1,32 @@
+package team.creative.creativecore.common.gui.control.inventory;
+
+import net.minecraft.world.item.ItemStack;
+
+public class GuiSlotViewer extends GuiSlotBase {
+   public ItemStack stack;
+
+   public GuiSlotViewer(String name, ItemStack stack) {
+      super(name);
+      this.stack = stack;
+   }
+
+   public GuiSlotViewer(ItemStack stack) {
+      super("");
+      this.stack = stack;
+   }
+
+   @Override
+   public boolean mouseClicked(double x, double y, int button) {
+      return true;
+   }
+
+   @Override
+   public ItemStack getStack() {
+      return this.stack;
+   }
+
+   @Override
+   protected ItemStack getStackToRender() {
+      return this.stack;
+   }
+}

@@ -1,0 +1,70 @@
+package com.natamus.collective_common_neoforge.features;
+
+import com.mojang.authlib.GameProfile;
+import com.natamus.collective_common_neoforge.data.FeatureFlags;
+import com.natamus.collective_common_neoforge.functions.HeadFunctions;
+import java.util.HashMap;
+import java.util.UUID;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+
+public class PlayerHeadCacheFeature {
+   public static HashMap<String, ItemStack> cachedPlayerHeadsMap = new HashMap<>();
+   public static HashMap<String, UUID> cachedPlayerNamesMap = new HashMap<>();
+   public static HashMap<UUID, String> cachedPlayerUUIDsMap = new HashMap<>();
+   public static HashMap<UUID, GameProfile> cachedGameProfileMap = new HashMap<>();
+
+   public static ItemStack cachePlayer(Player player) {
+      return cachePlayer(player.getName().getString(), player.getGameProfile());
+   }
+
+   public static ItemStack cachePlayer(ServerLevel serverLevel, String playerName) {
+      if (cachedPlayerHeadsMap.containsKey(playerName)) {
+         return cachedPlayerHeadsMap.get(playerName).copy();
+      }
+
+      ItemStack headStack = HeadFunctions.getNewPlayerHead(serverLevel, playerName, 1);
+      if (headStack == null) {
+         return null;
+      }
+
+      cachedPlayerHeadsMap.put(playerName, headStack);
+      return headStack.copy();
+   }
+
+   public static ItemStack cachePlayer(String playerName, GameProfile gameProfile) {
+      if (cachedPlayerHeadsMap.containsKey(playerName)) {
+         return cachedPlayerHeadsMap.get(playerName).copy();
+      }
+
+      ItemStack headStack = HeadFunctions.getNewPlayerHead(gameProfile, 1);
+      if (headStack == null) {
+         return null;
+      }
+
+      cachedPlayerHeadsMap.put(gameProfile.getName(), headStack);
+      return headStack.copy();
+   }
+
+   public static ItemStack getPlayerHeadStackFromCache(Player player) {
+      return cachePlayer(player);
+   }
+
+   public static ItemStack getPlayerHeadStackFromCache(ServerLevel serverLevel, String playerName) {
+      return cachedPlayerHeadsMap.containsKey(playerName) ? cachedPlayerHeadsMap.get(playerName).copy() : cachePlayer(serverLevel, playerName);
+   }
+
+   public static boolean isHeadCachingEnabled() {
+      return FeatureFlags.shouldCachePlayerHeads;
+   }
+
+   public static void enableHeadCaching() {
+      FeatureFlags.shouldCachePlayerHeads = true;
+   }
+
+   public static boolean resetPlayerHeadCache() {
+      cachedPlayerHeadsMap = new HashMap<>();
+      return true;
+   }
+}

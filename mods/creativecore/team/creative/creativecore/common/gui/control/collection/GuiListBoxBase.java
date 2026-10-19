@@ -1,0 +1,158 @@
+package team.creative.creativecore.common.gui.control.collection;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Predicate;
+import net.minecraft.network.chat.Component;
+import team.creative.creativecore.common.gui.Align;
+import team.creative.creativecore.common.gui.GuiControl;
+import team.creative.creativecore.common.gui.GuiParent;
+import team.creative.creativecore.common.gui.control.parent.GuiColumn;
+import team.creative.creativecore.common.gui.control.parent.GuiRow;
+import team.creative.creativecore.common.gui.control.parent.GuiScrollY;
+import team.creative.creativecore.common.gui.control.simple.GuiButton;
+import team.creative.creativecore.common.gui.event.GuiControlChangedEvent;
+
+public class GuiListBoxBase<T extends GuiControl> extends GuiScrollY {
+   protected List<GuiRow> rows = new ArrayList<>();
+   protected List<T> content;
+   public final boolean modifiable;
+   public Predicate<T> canBeModified = x -> true;
+
+   public GuiListBoxBase(String name, boolean modifiable, List<T> entries) {
+      super(name);
+      this.content = entries;
+      this.modifiable = modifiable;
+      this.createItems();
+   }
+
+   protected void createItems() {
+      for (int i = 0; i < this.content.size(); i++) {
+         this.createControl(i);
+      }
+   }
+
+   protected void createControl(int index) {
+      GuiRow row = new GuiRow();
+      super.add(row);
+      GuiColumn content = (GuiColumn)new GuiColumn().setExpandableX();
+      content.align = Align.CENTER;
+      content.add(this.content.get(index));
+      row.addColumn(content);
+      if (this.modifiable && this.canBeModified.test(this.content.get(index))) {
+         GuiColumn remove = new GuiColumn(20);
+         remove.align = Align.CENTER;
+         remove.add(new GuiListBoxBase.GuiButtonRemove(index));
+         row.addColumn(remove);
+      }
+
+      this.rows.add(row);
+   }
+
+   protected void removeControl(int index) {
+      this.remove(this.rows.get(index));
+      this.rows.remove(index);
+      this.content.remove(index);
+   }
+
+   protected GuiControl addCustomControl(GuiControl control) {
+      return super.add(control);
+   }
+
+   protected GuiListBoxBase addCustom(GuiControl control) {
+      super.add(control);
+      return this;
+   }
+
+   @Deprecated
+   @Override
+   public GuiParent add(GuiControl control) {
+      throw new UnsupportedOperationException();
+   }
+
+   @Deprecated
+   @Override
+   public GuiParent addHover(GuiControl control) {
+      throw new UnsupportedOperationException();
+   }
+
+   @Override
+   public void flowY(int width, int height, int preferred) {
+      this.cachedHeight = height;
+      super.flowY(width, height, preferred);
+   }
+
+   public void reflowInternal() {
+      if (this.hasGui()) {
+         super.flowX(this.rect.getContentWidth(), this.preferredWidth(this.rect.getContentWidth()));
+         super.flowY(this.rect.getContentWidth(), this.cachedHeight, this.preferredHeight(this.rect.getContentWidth(), this.cachedHeight));
+      }
+   }
+
+   public void removeItem(int index) {
+      this.removeControl(index);
+      if (this.modifiable) {
+         for (int i = 0; i < this.rows.size(); i++) {
+            if (this.canBeModified.test(this.content.get(i))) {
+               this.rows.get(i).getCol(1).get("x").index = i;
+            }
+         }
+      }
+
+      this.reflowInternal();
+      this.raiseEvent(new GuiControlChangedEvent<>(this));
+   }
+
+   public void clearItems() {
+      while (!this.content.isEmpty()) {
+         this.removeControl(this.content.size() - 1);
+      }
+   }
+
+   public void addAllItems(List<T> entries) {
+      for (T entry : entries) {
+         this.content.add(entry);
+         this.createControl(this.content.size() - 1);
+      }
+
+      this.reflowInternal();
+   }
+
+   public void addItem(T entry) {
+      this.content.add(entry);
+      this.createControl(this.content.size() - 1);
+      this.reflowInternal();
+      this.raiseEvent(new GuiControlChangedEvent<>(this));
+   }
+
+   @Override
+   public boolean isEmpty() {
+      return this.content.isEmpty();
+   }
+
+   @Override
+   public int size() {
+      return this.content.size();
+   }
+
+   public T get(int index) {
+      return this.content.get(index);
+   }
+
+   public Iterable<T> items() {
+      return this.content;
+   }
+
+   public class GuiButtonRemove extends GuiButton {
+      public int index;
+
+      public GuiButtonRemove(int index) {
+         super("x", null);
+         this.setDim(6, 8);
+         this.setAlign(Align.CENTER);
+         this.setTitle(Component.literal("x"));
+         this.pressed = x -> GuiListBoxBase.this.removeItem(this.index);
+         this.index = index;
+      }
+   }
+}

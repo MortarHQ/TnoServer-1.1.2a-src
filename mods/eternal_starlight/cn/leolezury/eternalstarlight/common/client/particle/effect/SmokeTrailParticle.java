@@ -1,0 +1,63 @@
+package cn.leolezury.eternalstarlight.common.client.particle.effect;
+
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.particle.NoRenderParticle;
+import net.minecraft.client.particle.Particle;
+import net.minecraft.client.particle.ParticleProvider;
+import net.minecraft.client.particle.SpriteSet;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.core.particles.SimpleParticleType;
+
+public class SmokeTrailParticle extends NoRenderParticle {
+   protected SmokeTrailParticle(ClientLevel clientLevel, double d, double e, double f, double g, double h, double i) {
+      super(clientLevel, d, e, f, g, h, i);
+      this.friction = 0.99F;
+      this.gravity = 0.3F;
+      this.lifetime = 200;
+      this.xd *= 3.0;
+      this.yd *= 2.25;
+      this.zd *= 3.0;
+   }
+
+   public void tick() {
+      super.tick();
+
+      for (int i = 0; i < 2; i++) {
+         this.level
+            .addParticle(
+               ParticleTypes.SMOKE,
+               true,
+               this.x + (this.random.nextFloat() - 0.5) * 0.15,
+               this.y + (this.random.nextFloat() - 0.5) * 0.15,
+               this.z + (this.random.nextFloat() - 0.5) * 0.15,
+               0.0,
+               0.0,
+               0.0
+            );
+         this.level
+            .addParticle(
+               ParticleTypes.LARGE_SMOKE,
+               true,
+               this.x + (this.random.nextFloat() - 0.5) * 0.15,
+               this.y + (this.random.nextFloat() - 0.5) * 0.15,
+               this.z + (this.random.nextFloat() - 0.5) * 0.15,
+               0.0,
+               0.0,
+               0.0
+            );
+      }
+
+      if (this.onGround) {
+         this.remove();
+      }
+   }
+
+   public static class Provider implements ParticleProvider<SimpleParticleType> {
+      public Provider(SpriteSet spriteSet) {
+      }
+
+      public Particle createParticle(SimpleParticleType type, ClientLevel clientLevel, double d, double e, double f, double g, double h, double i) {
+         return new SmokeTrailParticle(clientLevel, d, e, f, g, h, i);
+      }
+   }
+}

@@ -1,0 +1,205 @@
+package net.p3pp3rf1y.sophisticatedcore.upgrades;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
+import javax.annotation.Nullable;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.p3pp3rf1y.sophisticatedcore.api.IStorageWrapper;
+import net.p3pp3rf1y.sophisticatedcore.client.gui.utils.TranslationHelper;
+import net.p3pp3rf1y.sophisticatedcore.common.gui.UpgradeSlotChangeResult;
+import net.p3pp3rf1y.sophisticatedcore.util.InventoryHelper;
+
+public interface IUpgradeItem<T extends IUpgradeWrapper> {
+   UpgradeType<T> getType();
+
+   default UpgradeSlotChangeResult canAddUpgradeTo(IStorageWrapper storageWrapper, ItemStack upgradeStack, boolean firstLevelStorage, boolean isClientSide) {
+      UpgradeSlotChangeResult result = this.checkUpgradePerStorageTypeLimit(storageWrapper);
+      if (!result.successful()) {
+         return result;
+      }
+
+      result = this.checkForConflictingUpgrades(storageWrapper, this.getUpgradeConflicts(), -1);
+      if (!result.successful()) {
+         return result;
+      }
+
+      result = this.checkThisForConflictsWithExistingUpgrades(upgradeStack, storageWrapper, -1);
+      return !result.successful() ? result : this.checkExtraInsertConditions(upgradeStack, storageWrapper, isClientSide, -1, null);
+   }
+
+   default UpgradeSlotChangeResult checkThisForConflictsWithExistingUpgrades(ItemStack upgradeStack, IStorageWrapper storageWrapper, int excludeUpgradeSlot) {
+      AtomicReference<UpgradeSlotChangeResult> result = new AtomicReference<>(UpgradeSlotChangeResult.success());
+      InventoryHelper.iterate(storageWrapper.getUpgradeHandler(), (slot, stack) -> {
+         if (slot != excludeUpgradeSlot && stack.getItem() instanceof IUpgradeItem<?> upgradeItem) {
+            for (IUpgradeItem.UpgradeConflictDefinition conflictDefinition : upgradeItem.getUpgradeConflicts()) {
+               if (conflictDefinition.maxConflictingAllowed() == 0 && conflictDefinition.isConflictingItem.test(upgradeStack.getItem())) {
+                  result.set(UpgradeSlotChangeResult.fail(conflictDefinition.otherBeingAddedErrorMessage, Set.of(slot), Set.of(), Set.of()));
+                  return;
+               }
+            }
+         }
+      }, () -> !result.get().successful());
+      return result.get();
+   }
+
+   private UpgradeSlotChangeResult checkForConflictingUpgrades(
+      IStorageWrapper storageWrapper, List<IUpgradeItem.UpgradeConflictDefinition> upgradeConflicts, int excludeUpgradeSlot
+   ) {
+      for (IUpgradeItem.UpgradeConflictDefinition conflictDefinition : upgradeConflicts) {
+         AtomicInteger conflictingCount = new AtomicInteger(0);
+         Set<Integer> conflictingSlots = new HashSet<>();
+         InventoryHelper.iterate(storageWrapper.getUpgradeHandler(), (slot, stack) -> {
+            if (slot != excludeUpgradeSlot && !stack.isEmpty() && conflictDefinition.isConflictingItem.test(stack.getItem())) {
+               conflictingCount.incrementAndGet();
+               conflictingSlots.add(slot);
+            }
+         });
+         if (conflictingCount.get() > conflictDefinition.maxConflictingAllowed) {
+            return UpgradeSlotChangeResult.fail(conflictDefinition.errorMessage, conflictingSlots, Set.of(), Set.of());
+         }
+      }
+
+      return UpgradeSlotChangeResult.success();
+   }
+
+   List<IUpgradeItem.UpgradeConflictDefinition> getUpgradeConflicts();
+
+   private UpgradeSlotChangeResult checkUpgradePerStorageTypeLimit(IStorageWrapper storageWrapper) {
+      int upgradesPerStorage = this.getUpgradesPerStorage(storageWrapper.getStorageType());
+      int upgradesInGroupPerStorage = this.getUpgradesInGroupPerStorage(storageWrapper.getStorageType());
+      if (upgradesPerStorage == Integer.MAX_VALUE && upgradesInGroupPerStorage == Integer.MAX_VALUE) {
+         return UpgradeSlotChangeResult.success();
+      }
+
+      if (upgradesPerStorage == 0) {
+         return UpgradeSlotChangeResult.fail(
+            TranslationHelper.INSTANCE.translError("add.upgrade_not_allowed", this.getName(), storageWrapper.getDisplayName()), Set.of(), Set.of(), Set.of()
+         );
+      }
+
+      if (upgradesInGroupPerStorage == 0) {
+         return UpgradeSlotChangeResult.fail(
+            TranslationHelper.INSTANCE
+               .translError("add.upgrade_not_allowed", Component.translatable(this.getUpgradeGroup().translName()), storageWrapper.getDisplayName()),
+            Set.of(),
+            Set.of(),
+            Set.of()
+         );
+      }
+
+      Set<Integer> slotsWithUpgrade = new HashSet<>();
+      InventoryHelper.iterate(storageWrapper.getUpgradeHandler(), (slot, stack) -> {
+         if (stack.getItem() == this) {
+            slotsWithUpgrade.add(slot);
+         }
+      });
+      if (slotsWithUpgrade.size() >= upgradesPerStorage) {
+         return UpgradeSlotChangeResult.fail(
+            TranslationHelper.INSTANCE
+               .translError("add.only_x_upgrades_allowed", upgradesPerStorage, this.getName(), storageWrapper.getDisplayName(), upgradesPerStorage),
+            slotsWithUpgrade,
+            Set.of(),
+            Set.of()
+         );
+      }
+
+      Set<Integer> slotsWithUgradeGroup = new HashSet<>();
+      InventoryHelper.iterate(storageWrapper.getUpgradeHandler(), (slot, stack) -> {
+         if (stack.getItem() instanceof IUpgradeItem<?> upgradeItem && upgradeItem.getUpgradeGroup() == this.getUpgradeGroup()) {
+            slotsWithUgradeGroup.add(slot);
+         }
+      });
+      return slotsWithUgradeGroup.size() >= upgradesInGroupPerStorage
+         ? UpgradeSlotChangeResult.fail(
+            TranslationHelper.INSTANCE
+               .translError(
+                  "add.only_x_upgrades_allowed",
+                  upgradesInGroupPerStorage,
+                  Component.translatable(this.getUpgradeGroup().translName()),
+                  storageWrapper.getDisplayName()
+               ),
+            slotsWithUgradeGroup,
+            Set.of(),
+            Set.of()
+         )
+         : UpgradeSlotChangeResult.success();
+   }
+
+   default UpgradeSlotChangeResult canRemoveUpgradeFrom(IStorageWrapper storageWrapper, boolean isClientSide, Player player) {
+      return this.canRemoveUpgradeFrom(storageWrapper, isClientSide);
+   }
+
+   default UpgradeSlotChangeResult canRemoveUpgradeFrom(IStorageWrapper storageWrapper, boolean isClientSide) {
+      return UpgradeSlotChangeResult.success();
+   }
+
+   default UpgradeSlotChangeResult canSwapUpgradeFor(ItemStack upgradeStackToPut, int upgradeSlot, IStorageWrapper storageWrapper, boolean isClientSide) {
+      if (upgradeStackToPut.getItem() == this) {
+         return UpgradeSlotChangeResult.success();
+      }
+
+      if (upgradeStackToPut.getItem() instanceof IUpgradeItem<?> upgradeToPut) {
+         int upgradesPerStorage = upgradeToPut.getUpgradesPerStorage(storageWrapper.getStorageType());
+         int upgradesInGroupPerStorage = upgradeToPut.getUpgradesInGroupPerStorage(storageWrapper.getStorageType());
+         if (upgradesPerStorage < upgradesInGroupPerStorage) {
+            UpgradeSlotChangeResult result = upgradeToPut.checkUpgradePerStorageTypeLimit(storageWrapper);
+            if (!result.successful()) {
+               return result;
+            }
+         } else if (upgradeToPut.getUpgradeGroup() != this.getUpgradeGroup()) {
+            UpgradeSlotChangeResult result = upgradeToPut.checkUpgradePerStorageTypeLimit(storageWrapper);
+            if (!result.successful()) {
+               return result;
+            }
+         }
+
+         UpgradeSlotChangeResult result = this.checkForConflictingUpgrades(storageWrapper, upgradeToPut.getUpgradeConflicts(), upgradeSlot);
+         return !result.successful() ? result : upgradeToPut.checkExtraInsertConditions(upgradeStackToPut, storageWrapper, isClientSide, upgradeSlot, this);
+      } else {
+         return UpgradeSlotChangeResult.success();
+      }
+   }
+
+   default UpgradeSlotChangeResult checkExtraInsertConditions(
+      ItemStack upgradeStack, IStorageWrapper storageWrapper, boolean isClientSide, int upgradeSlot, @Nullable IUpgradeItem<?> upgradeInSlot
+   ) {
+      return this.checkExtraInsertConditions(upgradeStack, storageWrapper, isClientSide, upgradeInSlot);
+   }
+
+   default UpgradeSlotChangeResult checkExtraInsertConditions(
+      ItemStack upgradeStack, IStorageWrapper storageWrapper, boolean isClientSide, @Nullable IUpgradeItem<?> upgradeInSlot
+   ) {
+      return UpgradeSlotChangeResult.success();
+   }
+
+   default int getInventoryColumnsTaken() {
+      return 0;
+   }
+
+   default ItemStack getCleanedUpgradeStack(ItemStack upgradeStack) {
+      return upgradeStack;
+   }
+
+   int getUpgradesPerStorage(String var1);
+
+   int getUpgradesInGroupPerStorage(String var1);
+
+   default UpgradeGroup getUpgradeGroup() {
+      return UpgradeGroup.NONE;
+   }
+
+   Component getName();
+
+   record UpgradeConflictDefinition(Predicate<Item> isConflictingItem, int maxConflictingAllowed, Component errorMessage, Component otherBeingAddedErrorMessage) {
+      public UpgradeConflictDefinition(Predicate<Item> isConflictingItem, int maxConflictingAllowed, Component errorMessage) {
+         this(isConflictingItem, maxConflictingAllowed, errorMessage, errorMessage);
+      }
+   }
+}

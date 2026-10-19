@@ -1,0 +1,43 @@
+package com.blamejared.crafttweaker.natives.predicate;
+
+import com.blamejared.crafttweaker.api.annotation.ZenRegister;
+import com.blamejared.crafttweaker.api.item.IItemStack;
+import com.blamejared.crafttweaker.api.tag.type.KnownTag;
+import com.blamejared.crafttweaker_annotations.annotations.Document;
+import com.blamejared.crafttweaker_annotations.annotations.NativeTypeRegistration;
+import java.util.Arrays;
+import net.minecraft.advancements.critereon.ItemPredicate;
+import net.minecraft.advancements.critereon.ItemPredicate.Builder;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import org.openzen.zencode.java.ZenCodeType;
+
+@ZenRegister
+@Document("vanilla/api/predicate/ItemPredicate")
+@NativeTypeRegistration(value = ItemPredicate.class, zenCodeName = "crafttweaker.api.predicate.ItemPredicate")
+public final class ExpandItemPredicate {
+   @ZenCodeType.StaticExpansionMethod
+   public static Builder create() {
+      return Builder.item();
+   }
+
+   @ZenCodeType.StaticExpansionMethod
+   public static Builder create(Item... items) {
+      return create().of(items);
+   }
+
+   @ZenCodeType.StaticExpansionMethod
+   public static Builder create(IItemStack... items) {
+      return create(Arrays.stream(items).map(IItemStack::getInternal).map(ItemStack::getItem).toArray(Item[]::new));
+   }
+
+   @ZenCodeType.StaticExpansionMethod
+   public static Builder create(KnownTag<Item> tag) {
+      return create().of(tag.getTagKey());
+   }
+
+   @ZenCodeType.Method
+   public static boolean test(ItemPredicate internal, IItemStack stack) {
+      return internal.test(stack.getInternal());
+   }
+}
