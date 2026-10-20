@@ -1,3 +1,5 @@
+[![Ask DeepWiki](https://img.shields.io/badge/DeepWiki-Ask%20AI-5865F2?logo=dependabot&logoColor=white)](https://deepwiki.com/MortarHQ/TnoServer-1.1.2a-src)
+
 # TnoServer 1.1.2a — 反编译源码仓库
 
 本仓库是 Minecraft 整合包 **TnoServer 1.1.2a**（MC 1.21.1 / NeoForge 21.1.244，216 个 jar）的
